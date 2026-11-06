@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="600" viewBox="0 0 680 600" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <defs>
+    <symbol id="user" viewBox="0 0 24 24">
+      <circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M4.5 20c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#111a24"/>
+      <stop offset="1" stop-color="#0b1119"/>
+    </linearGradient>
+  </defs>
+
+  <!-- page backdrop -->
+  <rect width="680" height="600" fill="#05080c"/>
+
+  <!-- modal shell (unchanged) -->
+  <rect x="10" y="10" width="660" height="580" rx="28" fill="url(#bg)" stroke="#1b6a75" stroke-width="1.5"/>
+  <text x="42" y="58" fill="#22d3ee" font-size="12" font-weight="800" letter-spacing="1.5">TEAM</text>
+  <text x="42" y="90" fill="#ffffff" font-size="21" font-weight="800">Nobotara71 Flight Operations Division</text>
+  <circle cx="618" cy="72" r="19" fill="#262d38"/>
+  <path d="M611 65 L625 79 M625 65 L611 79" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+  <line x1="42" y1="112" x2="638" y2="112" stroke="#243040" stroke-width="1"/>
+
+  <!-- ROW 1: LEAD (filled icon) -->
+  <g transform="translate(42,130)">
+    <rect width="596" height="72" rx="14" fill="#131c28" stroke="#26313f"/>
+    <circle cx="44" cy="36" r="24" fill="#22d3ee"/>
+    <use href="#user" x="33" y="25" width="22" height="22" style="color:#0b1119"/>
+    <text x="88" y="32" fill="#fff" font-size="16" font-weight="700">[Member name]</text>
+    <text x="88" y="53" fill="#9aa6b6" font-size="13.5">Team Lead</text>
+    <rect x="514" y="24" width="60" height="24" rx="12" fill="none" stroke="#22d3ee" stroke-width="1.4"/>
+    <text x="544" y="40.5" fill="#22d3ee" font-size="11" font-family="JetBrains Mono, Consolas, monospace" font-weight="700" text-anchor="middle">LEAD</text>
+  </g>
+
+  <!-- ROW 2 -->
+  <g transform="translate(42,214)">
+    <rect width="596" height="72" rx="14" fill="#131c28" stroke="#26313f"/>
+    <circle cx="44" cy="36" r="23" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+    <use href="#user" x="33" y="25" width="22" height="22" style="color:#22d3ee"/>
+    <text x="88" y="32" fill="#fff" font-size="16" font-weight="700">[Member name]</text>
+    <text x="88" y="53" fill="#9aa6b6" font-size="13.5">Astrodynamics &amp; Ephemeris</text>
+    <rect x="504" y="24" width="70" height="24" rx="12" fill="none" stroke="#22d3ee" stroke-width="1.4"/>
+    <text x="539" y="40.5" fill="#22d3ee" font-size="11" font-family="JetBrains Mono, Consolas, monospace" font-weight="700" text-anchor="middle">DIV-01</text>
+  </g>
+
+  <!-- ROW 3 -->
+  <g transform="translate(42,298)">
+    <rect width="596" height="72" rx="14" fill="#131c28" stroke="#26313f"/>
+    <circle cx="44" cy="36" r="23" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+    <use href="#user" x="33" y="25" width="22" height="22" style="color:#22d3ee"/>
+    <text x="88" y="32" fill="#fff" font-size="16" font-weight="700">[Member name]</text>
+    <text x="88" y="53" fill="#9aa6b6" font-size="13.5">SpaceAI Telemetry Core</text>
+    <rect x="504" y="24" width="70" height="24" rx="12" fill="none" stroke="#22d3ee" stroke-width="1.4"/>
+    <text x="539" y="40.5" fill="#22d3ee" font-size="11" font-family="JetBrains Mono, Consolas, monospace" font-weight="700" text-anchor="middle">DIV-02</text>
+  </g>
+
+  <!-- ROW 4 -->
+  <g transform="translate(42,382)">
+    <rect width="596" height="72" rx="14" fill="#131c28" stroke="#26313f"/>
+    <circle cx="44" cy="36" r="23" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+    <use href="#user" x="33" y="25" width="22" height="22" style="color:#22d3ee"/>
+    <text x="88" y="32" fill="#fff" font-size="16" font-weight="700">[Member name]</text>
+    <text x="88" y="53" fill="#9aa6b6" font-size="13.5">4K Optical &amp; Audio Systems</text>
+    <rect x="504" y="24" width="70" height="24" rx="12" fill="none" stroke="#22d3ee" stroke-width="1.4"/>
+    <text x="539" y="40.5" fill="#22d3ee" font-size="11" font-family="JetBrains Mono, Consolas, monospace" font-weight="700" text-anchor="middle">DIV-03</text>
+  </g>
+
+  <!-- ROW 5 -->
+  <g transform="translate(42,466)">
+    <rect width="596" height="72" rx="14" fill="#131c28" stroke="#26313f"/>
+    <circle cx="44" cy="36" r="23" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+    <use href="#user" x="33" y="25" width="22" height="22" style="color:#22d3ee"/>
+    <text x="88" y="32" fill="#fff" font-size="16" font-weight="700">[Member name]</text>
+    <text x="88" y="53" fill="#9aa6b6" font-size="13.5">Nobotara71 Mission Control</text>
+    <rect x="504" y="24" width="70" height="24" rx="12" fill="none" stroke="#22d3ee" stroke-width="1.4"/>
+    <text x="539" y="40.5" fill="#22d3ee" font-size="11" font-family="JetBrains Mono, Consolas, monospace" font-weight="700" text-anchor="middle">OPS-71</text>
+  </g>
+</svg>

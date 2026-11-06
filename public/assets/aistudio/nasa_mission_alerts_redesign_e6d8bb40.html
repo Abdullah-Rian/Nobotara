@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NASA Mission Alerts — Full Window Redesign Preview</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.6; }
+    }
+    @keyframes rotateRing {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .pulse-dot {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+    .spin-ring {
+      animation: rotateRing 20s linear infinite;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.25);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-[#030712] text-slate-100 min-h-screen font-sans antialiased selection:bg-sky-500 selection:text-black">
+
+  <!-- Background Ambience -->
+  <div class="fixed inset-0 pointer-events-none z-0">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(14,52,90,0.4),transparent)]"></div>
+    <div class="absolute bottom-0 right-0 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(30,58,138,0.25),transparent_70%)]"></div>
+    <div class="absolute top-1/3 left-0 w-[500px] h-[500px] bg-[radial-gradient(circle,rgba(15,30,65,0.35),transparent_70%)]"></div>
+  </div>
+
+  <div class="relative z-10 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6 min-h-screen">
+
+    <!-- Redesigned Window Shell -->
+    <main class="w-full bg-[#0a1120]/95 backdrop-blur-2xl border border-sky-500/20 rounded-2xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.8),0_0_40px_-10px_rgba(56,189,248,0.15)] overflow-hidden flex flex-col transition-all">
+
+      <!-- 1. Header (Redesigned from Image 2) -->
+      <header class="p-5 sm:p-6 border-b border-white/10 bg-gradient-to-b from-sky-950/30 to-transparent flex flex-wrap items-center justify-between gap-4">
+        
+        <div class="flex items-center gap-4">
+          <!-- Rocket Insignia Badge with spinning orbital ring -->
+          <div class="relative w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/5 border border-sky-400/30 shadow-[0_0_15px_rgba(56,189,248,0.25)] flex items-center justify-center text-sky-400 flex-shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+              <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+              <line x1="9" y1="9" x2="9.01" y2="9"/>
+              <line x1="15" y1="15" x2="15.01" y2="15"/>
+            </svg>
+            <div class="absolute -inset-1 rounded-2xl border border-dashed border-sky-400/30 spin-ring pointer-events-none"></div>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-2 text-[11px] font-mono font-semibold tracking-wider uppercase text-sky-400 mb-1">
+              <span>NASA Deep Space Telemetry</span>
+              <span class="text-slate-600">&bull;</span>
+              <span>JPL Horizons Ephemeris Feed</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                NASA Mission Alerts
+              </h1>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold tracking-wide uppercase shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+                Live Feed
+              </span>
+            </div>
+            <p class="text-sm text-slate-400 mt-0.5 max-w-2xl">
+              Real-time updates on orbital trajectories, launch windows, celestial conjunctions, and observatory milestones.
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Side: Telemetry Ticker & Window Controls -->
+        <div class="flex items-center gap-3 ml-auto">
+          <div class="hidden md:flex items-center gap-4 bg-slate-900/70 border border-white/10 rounded-xl px-3.5 py-2 font-mono text-xs">
+            <div>
+              <div class="text-[9px] text-slate-500 uppercase tracking-widest">MISSION UTC</div>
+              <div class="text-sky-400 font-semibold" id="topClock">18:45:00 UTC</div>
+            </div>
+            <div class="w-px h-6 bg-white/10"></div>
+            <div>
+              <div class="text-[9px] text-slate-500 uppercase tracking-widest">DSN STATUS</div>
+              <div class="text-emerald-400 font-semibold">CARRIER LOCKED</div>
+            </div>
+            <div class="w-px h-6 bg-white/10"></div>
+            <div>
+              <div class="text-[9px] text-slate-500 uppercase tracking-widest">PROBES</div>
+              <div class="text-slate-200 font-semibold">14 ACTIVE</div>
+            </div>
+          </div>
+
+          <!-- Sound Toggle Button -->
+          <button id="soundBtn" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white transition" title="Toggle Audio FX">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          </button>
+
+          <!-- Close Window Icon -->
+          <button class="w-9 h-9 rounded-lg bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/40 flex items-center justify-center text-slate-400 hover:text-red-400 transition" title="Close Window">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+      </header>
+
+      <!-- 2. Command Bar (Category Filter Tabs & Live Search) -->
+      <nav class="px-5 sm:px-6 py-3 border-b border-white/5 bg-slate-900/50 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0" id="filterNav">
+          <button class="tab-btn active px-3.5 py-1.5 rounded-lg text-xs font-medium text-sky-400 bg-sky-500/10 border border-sky-500/30 flex items-center gap-2 transition" data-filter="all">
+            All Events <span class="px-1.5 py-0.2 rounded bg-sky-500/20 text-[10px] font-mono">5</span>
+          </button>
+          <button class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent flex items-center gap-2 transition" data-filter="crewed">
+            Crewed Lunar <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] font-mono">1</span>
+          </button>
+          <button class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent flex items-center gap-2 transition" data-filter="astronomy">
+            Conjunctions <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] font-mono">1</span>
+          </button>
+          <button class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent flex items-center gap-2 transition" data-filter="deepspace">
+            Deep Space &amp; Icy Moons <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] font-mono">2</span>
+          </button>
+          <button class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent flex items-center gap-2 transition" data-filter="mars">
+            Mars Surface <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] font-mono">1</span>
+          </button>
+        </div>
+
+        <div class="relative w-full sm:w-64">
+          <svg class="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Filter missions or target..." class="w-full bg-slate-950/70 border border-white/10 focus:border-sky-500/50 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none transition focus:ring-1 focus:ring-sky-500/50">
+        </div>
+      </nav>
+
+      <!-- 3. Redesigned Cards Deck -->
+      <div class="p-5 sm:p-6 overflow-y-auto max-h-[calc(100vh-250px)] custom-scrollbar">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="cardsGrid">
+
+          <!-- CARD 1: ARTEMIS II (FROM USER IMAGE 2) -->
+          <article class="mission-card group bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-sky-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_-10px_rgba(0,0,0,0.7),0_0_20px_rgba(56,189,248,0.1)] relative" data-category="crewed">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/15 flex-shrink-0 relative">
+                  <img src="https://images-assets.nasa.gov/image/art002e000001/art002e000001~thumb.jpg" onerror="this.src='https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260827_202133_508c64b8-a31e-4290-bdfc-1187df70e0a6.png'" alt="Artemis II" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                      Crewed Lunar Mission
+                    </span>
+                    <span class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400">
+                      <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_5px_#f59e0b]"></span>
+                      T-Minus Integration
+                    </span>
+                  </div>
+                  <h3 class="text-base font-bold text-white group-hover:text-sky-300 transition flex items-center gap-1.5">
+                    Artemis II Crewed Lunar Orbit Flyby
+                    <svg class="w-4 h-4 text-slate-500 group-hover:text-sky-400 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </h3>
+                </div>
+              </div>
+
+              <p class="text-xs text-slate-300 leading-relaxed">
+                The first crewed flight of NASA's Orion spacecraft atop the Space Launch System (SLS). Four astronauts will embark on a 10-day translunar trajectory test around the Moon, proving human deep-space environmental systems.
+              </p>
+
+              <!-- Telemetry Matrix Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/60 border border-white/5 rounded-lg p-2.5 font-mono text-[11px]">
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Trajectory</div>
+                  <div class="text-slate-200 font-medium">Free-Return</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Perilune</div>
+                  <div class="text-slate-200 font-medium">7,400 km Far Side</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Flight Crew</div>
+                  <div class="text-slate-200 font-medium">4 Astronauts</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Launch Site</div>
+                  <div class="text-slate-200 font-medium">Kennedy LC-39B</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Footer -->
+            <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                <svg class="w-3.5 h-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                Target Window: Late 2025 / Early 2026
+              </span>
+              <div class="flex items-center gap-2">
+                <a href="https://www.nasa.gov/mission/artemis-ii/" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition inline-flex items-center gap-1">
+                  NASA Article <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+                <button class="ai-inquire-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-sky-400 hover:text-white bg-sky-500/10 hover:bg-sky-500/25 border border-sky-400/30 hover:border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.15)] transition inline-flex items-center gap-1" data-mission="Artemis II">
+                  Inquire in SpaceAI <span class="text-sky-300">&gt;</span>
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 2: MARS & JUPITER CONJUNCTION (FROM USER IMAGE 2) -->
+          <article class="mission-card group bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-emerald-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_-10px_rgba(0,0,0,0.7),0_0_20px_rgba(16,185,129,0.1)] relative" data-category="astronomy">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/15 flex-shrink-0 relative">
+                  <img src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260827_202133_0ba6de7c-285d-43dc-b7ab-8c54c73707cb.png" alt="Mars Jupiter" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                      Celestial Ephemeris
+                    </span>
+                    <span class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_#10b981]"></span>
+                      Naked Eye Visible
+                    </span>
+                  </div>
+                  <h3 class="text-base font-bold text-white group-hover:text-emerald-300 transition flex items-center gap-1.5">
+                    Mars &amp; Jupiter Great Planetary Conjunction
+                    <svg class="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </h3>
+                </div>
+              </div>
+
+              <p class="text-xs text-slate-300 leading-relaxed">
+                Mars and Jupiter converge to an angular separation under 0.3° in the constellation Taurus. Visible to the naked eye before dawn, with Jupiter's Galilean moons clearly resolvable through standard field binoculars.
+              </p>
+
+              <!-- Telemetry Matrix Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/60 border border-white/5 rounded-lg p-2.5 font-mono text-[11px]">
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Separation</div>
+                  <div class="text-slate-200 font-medium">&lt; 0.3° (18 arcmin)</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Constellation</div>
+                  <div class="text-slate-200 font-medium">Taurus (East)</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Target Moons</div>
+                  <div class="text-slate-200 font-medium">Io, Europa, Ganymede</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Ephemeris</div>
+                  <div class="text-slate-200 font-medium">JPL Horizons Sync</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Footer -->
+            <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                <svg class="w-3.5 h-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Next Major Conjunction Window
+              </span>
+              <div class="flex items-center gap-2">
+                <a href="https://science.nasa.gov/skywatching/" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition inline-flex items-center gap-1">
+                  NASA Article <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+                <button class="ai-inquire-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-400/30 hover:border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.15)] transition inline-flex items-center gap-1" data-mission="Mars-Jupiter">
+                  Inquire in SpaceAI <span class="text-emerald-300">&gt;</span>
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 3: EUROPA CLIPPER (FROM USER IMAGE 1) -->
+          <article class="mission-card group bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-cyan-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_-10px_rgba(0,0,0,0.7),0_0_20px_rgba(6,182,212,0.1)] relative" data-category="deepspace">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/15 flex-shrink-0 relative">
+                  <img src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260827_202133_cf55d1d8-7b59-4a64-80da-d72052ae974e.png" alt="Europa" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                      Jupiter Icy Moons
+                    </span>
+                    <span class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400">
+                      <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_5px_#22d3ee]"></span>
+                      REASON Radar Sounding
+                    </span>
+                  </div>
+                  <h3 class="text-base font-bold text-white group-hover:text-cyan-300 transition flex items-center gap-1.5">
+                    How Europa Clipper Scans Europa's Ice Shell
+                    <svg class="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </h3>
+                </div>
+              </div>
+
+              <p class="text-xs text-slate-300 leading-relaxed">
+                How does Europa Clipper scan through the icy crust of Europa? The REASON radar utilizes dual 9 MHz and 60 MHz high-frequency pulses to penetrate 30 km into the frozen crust, sounding for the global subsurface water ocean.
+              </p>
+
+              <!-- Telemetry Matrix Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/60 border border-white/5 rounded-lg p-2.5 font-mono text-[11px]">
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Sounding Depth</div>
+                  <div class="text-slate-200 font-medium">Up to 30 km Ice</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Dual Radar</div>
+                  <div class="text-slate-200 font-medium">9 MHz &amp; 60 MHz</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Arrival</div>
+                  <div class="text-slate-200 font-medium">April 2030 (Jovian)</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Cruising Dist</div>
+                  <div class="text-slate-200 font-medium">2.9 AU from Sun</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Footer -->
+            <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                <svg class="w-3.5 h-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                28 hours ago &bull; REASON Radar Team
+              </span>
+              <div class="flex items-center gap-2">
+                <a href="https://www.jpl.nasa.gov/missions/europa-clipper" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition inline-flex items-center gap-1">
+                  JPL Mission Data <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+                <button class="ai-inquire-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-cyan-400 hover:text-white bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 hover:border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.15)] transition inline-flex items-center gap-1" data-mission="Europa">
+                  Inquire in SpaceAI <span class="text-cyan-300">&gt;</span>
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 4: CURIOSITY ROVER (FROM USER IMAGE 1) -->
+          <article class="mission-card group bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-orange-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_-10px_rgba(0,0,0,0.7),0_0_20px_rgba(249,115,22,0.1)] relative" data-category="mars">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/15 flex-shrink-0 relative">
+                  <img src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260827_202133_0ba6de7c-285d-43dc-b7ab-8c54c73707cb.png" alt="Mars" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-orange-400 font-mono text-[10px] font-bold uppercase tracking-wider">
+                      Mars Surface Science
+                    </span>
+                    <span class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400">
+                      <span class="w-1.5 h-1.5 rounded-full bg-orange-400 shadow-[0_0_5px_#f97316]"></span>
+                      Sol 4340+ Drilling
+                    </span>
+                  </div>
+                  <h3 class="text-base font-bold text-white group-hover:text-orange-300 transition flex items-center gap-1.5">
+                    Why Mars is Red &amp; Curiosity Silica Halos
+                    <svg class="w-4 h-4 text-slate-500 group-hover:text-orange-400 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </h3>
+                </div>
+              </div>
+
+              <p class="text-xs text-slate-300 leading-relaxed">
+                Why is Mars red and what for did Curiosity find silica? Mars's ferric oxide dust causes its red appearance, while Curiosity drilled into high-purity silica opal networks that prove water persisted in Gale Crater far longer than previously thought.
+              </p>
+
+              <!-- Telemetry Matrix Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/60 border border-white/5 rounded-lg p-2.5 font-mono text-[11px]">
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Target</div>
+                  <div class="text-slate-200 font-medium">Mount Sharp Slopes</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Odometer</div>
+                  <div class="text-slate-200 font-medium">32.84 km Run</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Mineralogy</div>
+                  <div class="text-slate-200 font-medium">Hydrated Opal Silica</div>
+                </div>
+                <div>
+                  <div class="text-[9px] text-slate-500 uppercase">Instrument</div>
+                  <div class="text-slate-200 font-medium">CheMin X-Ray Diff</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Footer -->
+            <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+              <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                <svg class="w-3.5 h-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Yesterday &bull; JPL Mars Lab
+              </span>
+              <div class="flex items-center gap-2">
+                <a href="https://science.nasa.gov/mission/msl-curiosity/" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition inline-flex items-center gap-1">
+                  NASA Mars Report <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+                <button class="ai-inquire-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-orange-400 hover:text-white bg-orange-500/10 hover:bg-orange-500/25 border border-orange-400/30 hover:border-orange-400 shadow-[0_0_12px_rgba(249,115,22,0.15)] transition inline-flex items-center gap-1" data-mission="Curiosity">
+                  Inquire in SpaceAI <span class="text-orange-300">&gt;</span>
+                </button>
+              </div>
+            </div>
+          </article>
+
+        </div>
+      </div>
+
+      <!-- 4. Footer Telemetry -->
+      <footer class="px-6 py-3 border-t border-white/5 bg-slate-950/80 flex flex-wrap items-center justify-between gap-4 font-mono text-[11px] text-slate-500">
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center gap-1.5 text-emerald-400">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+            NASA JPL Horizons &amp; Open Data Link: OK (200)
+          </span>
+          <span>&bull;</span>
+          <span>Standard: CCSDS Spacecraft Telemetry</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="https://data.nasa.gov" target="_blank" rel="noopener" class="text-slate-400 hover:text-sky-400 transition">data.nasa.gov</a>
+          <span>&bull;</span>
+          <span class="text-slate-600">SpaceEdu Mission Control 2.0</span>
+        </div>
+      </footer>
+
+    </main>
+
+  </div>
+
+  <!-- 5. Slide-Out SpaceAI Drawer -->
+  <aside id="aiDrawer" class="fixed top-0 right-0 bottom-0 w-96 max-w-full bg-slate-900/98 backdrop-blur-2xl border-l border-sky-500/30 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="p-4 border-b border-white/10 flex items-center justify-between bg-slate-950/40">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold">AI</div>
+        <div>
+          <h4 class="text-sm font-bold text-white">SpaceAI Telemetry Copilot</h4>
+          <p class="text-[10px] font-mono text-slate-400">JPL Horizons Mission Synthesis</p>
+        </div>
+      </div>
+      <button id="closeDrawer" class="text-slate-400 hover:text-white p-1 text-lg leading-none">&times;</button>
+    </div>
+
+    <div class="p-4 flex-1 overflow-y-auto flex flex-col gap-3 custom-scrollbar text-xs">
+      <div class="bg-sky-500/10 border border-sky-500/20 rounded-lg p-3">
+        <div class="text-[10px] font-mono text-sky-400 uppercase tracking-wider mb-1">Target Mission</div>
+        <div class="font-bold text-white" id="drawerTitle">Artemis II Lunar Flight</div>
+      </div>
+
+      <div class="bg-white/5 border border-white/10 rounded-lg p-3 text-slate-300 leading-relaxed" id="drawerResponse">
+        Calculating orbital trajectory parameters and mission timeline...
+      </div>
+
+      <div class="text-[10px] font-mono text-slate-400 uppercase tracking-wider mt-2">Deep Questions</div>
+      <div class="flex flex-col gap-1.5" id="drawerChips">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+
+    <div class="p-3 border-t border-white/10 bg-slate-950/60 flex gap-2">
+      <input type="text" id="aiInput" placeholder="Ask about this trajectory..." class="flex-1 bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-sky-500">
+      <button id="aiSend" class="bg-sky-500 text-black px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-sky-400 transition">Ask</button>
+    </div>
+  </aside>
+
+  <script>
+    // Live Clock
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getUTCHours()).padStart(2, '0');
+      const m = String(now.getUTCMinutes()).padStart(2, '0');
+      const s = String(now.getUTCSeconds()).padStart(2, '0');
+      document.getElementById('topClock').textContent = `${h}:${m}:${s} UTC`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Tab Filtering
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const cards = document.querySelectorAll('.mission-card');
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => {
+          b.classList.remove('active', 'text-sky-400', 'bg-sky-500/10', 'border-sky-500/30');
+          b.classList.add('text-slate-400', 'border-transparent');
+        });
+        btn.classList.add('active', 'text-sky-400', 'bg-sky-500/10', 'border-sky-500/30');
+        btn.classList.remove('text-slate-400', 'border-transparent');
+
+        const cat = btn.dataset.filter;
+        cards.forEach(c => {
+          if (cat === 'all' || c.dataset.category === cat) {
+            c.style.display = 'flex';
+          } else {
+            c.style.display = 'none';
+          }
+        });
+      });
+    });
+
+    // Search Filtering
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      cards.forEach(c => {
+        if (c.textContent.toLowerCase().includes(q)) {
+          c.style.display = 'flex';
+        } else {
+          c.style.display = 'none';
+        }
+      });
+    });
+
+    // AI Drawer Details
+    const aiDrawer = document.getElementById('aiDrawer');
+    const closeDrawer = document.getElementById('closeDrawer');
+    const drawerTitle = document.getElementById('drawerTitle');
+    const drawerResponse = document.getElementById('drawerResponse');
+    const drawerChips = document.getElementById('drawerChips');
+    const aiInput = document.getElementById('aiInput');
+    const aiSend = document.getElementById('aiSend');
+
+    const MISSION_AI = {
+      'Artemis II': {
+        title: 'Artemis II Crewed Lunar Orbit Flyby',
+        text: 'SpaceAI Telemetry: Artemis II will launch four astronauts atop the 5.5-million-pound SLS rocket on a 10-day translunar trajectory test. Orion will loop 7,400 km behind the lunar far side on a free-return trajectory before re-entering Earth atmosphere at Mach 32 (40,000 km/h).',
+        chips: [
+          'What are the primary life-support validation metrics?',
+          'How does the free-return trajectory ensure crew safety?',
+          'How will astronauts communicate from the lunar far side?'
+        ]
+      },
+      'Mars-Jupiter': {
+        title: 'Mars & Jupiter Great Planetary Conjunction',
+        text: 'SpaceAI Ephemeris: Mars (mag +0.8) and Jupiter (mag -2.2) will converge to within 0.28° in the morning sky. In binoculars, you will see bright Jupiter flanked by Ganymede, Io, Europa, and Callisto with the rusty ochre sphere of Mars adjacent in the same 5-degree field.',
+        chips: [
+          'What is the optical separation in arcminutes?',
+          'What is the best observation time before dawn?',
+          'How often does this conjunction repeat in Taurus?'
+        ]
+      },
+      'Europa': {
+        title: 'Europa Clipper / REASON Radar Sounding',
+        text: 'SpaceAI Radar Science: REASON emits 9 MHz and 60 MHz radar beams. Ice is transparent to radio waves, but saltwater reflects strongly. By measuring pulse echo delay, Clipper will chart the exact ice shell thickness and locate pockets of subsurface water.',
+        chips: [
+          'How does REASON map ice thickness between 15-25 km?',
+          'What are the radiation hardening precautions at Jupiter?',
+          'What other instruments complement radar sounding?'
+        ]
+      },
+      'Curiosity': {
+        title: 'Curiosity Mars Rover / Silica in Gale Crater',
+        text: 'SpaceAI Mars Science: Mars is red because surface dust contains oxidized iron (rust). Curiosity found silica and opal veins in Gale Crater, proving groundwater flowed through volcanic ash and created prolonged habitability windows.',
+        chips: [
+          'Why does silica indicate ancient groundwater activity?',
+          'What did Curiosity\'s CheMin instrument measure?',
+          'How does Gale Crater compare to Jezero Crater?'
+        ]
+      }
+    };
+
+    document.querySelectorAll('.ai-inquire-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.mission;
+        const data = MISSION_AI[key] || MISSION_AI['Artemis II'];
+        drawerTitle.textContent = data.title;
+        drawerResponse.textContent = data.text;
+        drawerChips.innerHTML = '';
+        data.chips.forEach(q => {
+          const chip = document.createElement('button');
+          chip.className = 'text-left bg-white/5 hover:bg-sky-500/10 border border-white/5 hover:border-sky-500/30 p-2 rounded text-slate-300 hover:text-sky-300 transition';
+          chip.textContent = `→ ${q}`;
+          chip.addEventListener('click', () => {
+            aiInput.value = q;
+            sendAi();
+          });
+          drawerChips.appendChild(chip);
+        });
+        aiDrawer.classList.remove('translate-x-full');
+      });
+    });
+
+    closeDrawer.addEventListener('click', () => {
+      aiDrawer.classList.add('translate-x-full');
+    });
+
+    function sendAi() {
+      const q = aiInput.value.trim();
+      if (!q) return;
+      drawerResponse.innerHTML = `<span class="text-sky-400 font-semibold">Inquiry:</span> "${q}"<br><br><span class="text-emerald-400">JPL Telemetry Synthesizer:</span> Processing ephemeris vectors and science telemetry. Telemetry carrier synchronized with Deep Space Network.`;
+      aiInput.value = '';
+    }
+
+    aiSend.addEventListener('click', sendAi);
+    aiInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendAi();
+    });
+  </script>
+</body>
+</html>

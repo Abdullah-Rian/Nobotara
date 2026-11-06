@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NASA Mission Alerts — Full Window Redesign Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.6; }
+    }
+    @keyframes rotateRing {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .pulse-dot {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+    .spin-ring {
+      animation: rotateRing 20s linear infinite;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.25);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-[#030712] text-slate-100 min-h-screen font-sans antialiased selection:bg-sky-500 selection:text-black">
+
+  <!-- Background Ambience -->
+  <div class="fixed inset-0 pointer-events-none z-0">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(14,52,90,0.4),transparent)]"></div>
+    <div class="absolute bottom-0 right-0 w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(30,58,138,0.25),transparent_70%)]"></div>
+    <div class="absolute top-1/3 left-0 w-[500px] h-[500px] bg-[radial-gradient(circle,rgba(15,30,65,0.35),transparent_70%)]"></div>
+  </div>
+
+  <div class="relative z-10 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6 min-h-screen">
+
+    <!-- Redesigned Window Shell -->
+    <main class="w-full bg-[#0a1120]/95 backdrop-blur-2xl border border-sky-500/20 rounded-2xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.8),0_0_40px_-10px_rgba(56,189,248,0.15)] overflow-hidden flex flex-col transition-all">
+
+      <!-- 1. Header -->
+      <header class="p-5 sm:p-6 border-b border-white/10 bg-gradient-to-b from-sky-950/30 to-transparent flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="relative w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/5 border border-sky-400/30 shadow-[0_0_15px_rgba(56,189,248,0.25)] flex items-center justify-center text-sky-400 flex-shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+              <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+              <line x1="9" y1="9" x2="9.01" y2="9"/>
+              <line x1="15" y1="15" x2="15.01" y2="15"/>
+            </svg>
+            <div class="absolute -inset-1 rounded-2xl border border-dashed border-sky-400/30 spin-ring pointer-events-none"></div>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-2 text-[11px] font-mono font-semibold tracking-wider uppercase text-sky-400 mb-1">
+              <span>NASA Deep Space Telemetry</span>
+              <span class="text-slate-600">&bull;</span>
+              <span>JPL Horizons Ephemeris Feed</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                NASA Mission Alerts
+              </h1>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold tracking-wide uppercase shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+                Live Feed
+              </span>
+            </div>
+            <p class="text-sm text-slate-400 mt-0.5 max-w-2xl">
+              Real-time updates on orbital trajectories, launch windows, celestial conjunctions, and observatory milestones.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 ml-auto">
+          <div class="hidden md:flex items-center gap-4 bg-slate-900/70 border border-white/10 rounded-xl px-3.5 py-2 font-mono text-xs">
+            <div>
+              <div class="text-[9px] text-slate-500 uppercase tracking-widest">MISSION UTC</div>
+              <div class="text-sky-400 font-semibold" id="topClock">18:45:00 UTC</div>
+            </div>
+            <div class="w-px h-6 bg-white/10"></div>
+            <div>
+              <div class="text-[9px] text-slate-500 uppercase tracking-widest">DSN STATUS</div>
+              <div class="text-emerald-400 font-semibold">CARRIER LOCKED</div>
+            </div>
+            <div class="w-px h-6 bg-white/10"></div>
+            <div>
+              <div class="text-[9px] text-slate-500 uppercase tracking-widest">PROBES</div>
+              <div class="text-slate-200 font-semibold">14 ACTIVE</div>
+            </div>
+          </div>
+
+          <button id="soundBtn" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white transition" title="Toggle Audio FX">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          </button>
+
+          <a href="/" class="w-9 h-9 rounded-lg bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/40 flex items-center justify-center text-slate-400 hover:text-red-400 transition" title="Return to SpaceAI">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </a>
+        </div>
+      </header>
+
+      <!-- 2. Command Bar -->
+      <nav class="px-5 sm:px-6 py-3 border-b border-white/5 bg-slate-900/50 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0" id="filterNav">
+          <button class="tab-btn active px-3.5 py-1.5 rounded-lg text-xs font-medium text-sky-400 bg-sky-500/10 border border-sky-500/30 flex items-center gap-2 transition" data-filter="all">
+            All Events <span class="px-1.5 py-0.2 rounded bg-sky-500/20 text-[10px] font-mono">5</span>
+          </button>
+          <button class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent flex items-center gap-2 transition" data-filter="crewed">
+            Crewed Lunar <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] font-mono">1</span>
+          </button>
+          <button class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent flex items-center gap-2 transition" data-filter="astronomy">
+            Conjunctions <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] font-mono">1</span>
+          </button>
+          <button class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent flex items-center gap-2 transition" data-filter="deepspace">
+            Deep Space &amp; Icy Moons <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] font-mono">2</span>
+          </button>
+          <button class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent flex items-center gap-2 transition" data-filter="mars">
+            Mars Surface <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] font-mono">1</span>
+          </button>
+        </div>
+
+        <div class="relative w-full sm:w-64">
+          <svg class="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Filter missions or target..." class="w-full bg-slate-950/70 border border-white/10 focus:border-sky-500/50 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none transition focus:ring-1 focus:ring-sky-500/50">
+        </div>
+      </nav>
+
+      <!-- 3. Cards Deck -->
+      <div class="p-5 sm:p-6 overflow-y-auto max-h-[calc(100vh-250px)] custom-scrollbar">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="cardsGrid">
+          <!-- CARD 1: ARTEMIS II -->
+          <article class="mission-card group bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-sky-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-0.5 relative" data-category="crewed">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/15 flex-shrink-0 relative">
+                  <img src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260827_202133_508c64b8-a31e-4290-bdfc-1187df70e0a6.png" alt="Artemis II" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-[10px] font-bold uppercase tracking-wider">Crewed Lunar Mission</span>
+                    <span class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>T-Minus Integration</span>
+                  </div>
+                  <h3 class="text-base font-bold text-white group-hover:text-sky-300 transition">Artemis II Crewed Lunar Orbit Flyby</h3>
+                </div>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">The first crewed flight of NASA's Orion spacecraft atop the Space Launch System (SLS). Four astronauts will embark on a 10-day translunar trajectory test around the Moon.</p>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/60 border border-white/5 rounded-lg p-2.5 font-mono text-[11px]">
+                <div><div class="text-[9px] text-slate-500 uppercase">Trajectory</div><div class="text-slate-200 font-medium">Free-Return</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Perilune</div><div class="text-slate-200 font-medium">7,400 km Far Side</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Flight Crew</div><div class="text-slate-200 font-medium">4 Astronauts</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Launch Site</div><div class="text-slate-200 font-medium">Kennedy LC-39B</div></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs text-slate-400">Target Window: Late 2025 / Early 2026</span>
+              <div class="flex items-center gap-2">
+                <a href="https://www.nasa.gov/mission/artemis-ii/" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition">NASA Article</a>
+                <button class="ai-inquire-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-sky-400 hover:text-white bg-sky-500/10 hover:bg-sky-500/25 border border-sky-400/30 transition" data-mission="Artemis II">Inquire in SpaceAI &gt;</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 2: MARS & JUPITER -->
+          <article class="mission-card group bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-emerald-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-0.5 relative" data-category="astronomy">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/15 flex-shrink-0 relative">
+                  <img src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260827_202133_0ba6de7c-285d-43dc-b7ab-8c54c73707cb.png" alt="Mars Jupiter" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-wider">Celestial Ephemeris</span>
+                    <span class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Naked Eye Visible</span>
+                  </div>
+                  <h3 class="text-base font-bold text-white group-hover:text-emerald-300 transition">Mars &amp; Jupiter Great Planetary Conjunction</h3>
+                </div>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">Mars and Jupiter converge to an angular separation under 0.3° in the constellation Taurus. Visible to the naked eye before dawn.</p>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/60 border border-white/5 rounded-lg p-2.5 font-mono text-[11px]">
+                <div><div class="text-[9px] text-slate-500 uppercase">Separation</div><div class="text-slate-200 font-medium">&lt; 0.3° (18 arcmin)</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Constellation</div><div class="text-slate-200 font-medium">Taurus (East)</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Target Moons</div><div class="text-slate-200 font-medium">Io, Europa, Ganymede</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Ephemeris</div><div class="text-slate-200 font-medium">JPL Horizons Sync</div></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs text-slate-400">Next Major Conjunction Window</span>
+              <div class="flex items-center gap-2">
+                <a href="https://science.nasa.gov/skywatching/" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition">NASA Article</a>
+                <button class="ai-inquire-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-400/30 transition" data-mission="Mars-Jupiter">Inquire in SpaceAI &gt;</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 3: EUROPA CLIPPER -->
+          <article class="mission-card group bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-cyan-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-0.5 relative" data-category="deepspace">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/15 flex-shrink-0 relative">
+                  <img src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260827_202133_cf55d1d8-7b59-4a64-80da-d72052ae974e.png" alt="Europa" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-[10px] font-bold uppercase tracking-wider">Jupiter Icy Moons</span>
+                    <span class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>REASON Radar Sounding</span>
+                  </div>
+                  <h3 class="text-base font-bold text-white group-hover:text-cyan-300 transition">How Europa Clipper Scans Europa's Ice Shell</h3>
+                </div>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">The REASON radar utilizes dual 9 MHz and 60 MHz high-frequency pulses to penetrate 30 km into the frozen crust, sounding for the global subsurface water ocean.</p>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/60 border border-white/5 rounded-lg p-2.5 font-mono text-[11px]">
+                <div><div class="text-[9px] text-slate-500 uppercase">Sounding Depth</div><div class="text-slate-200 font-medium">Up to 30 km Ice</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Dual Radar</div><div class="text-slate-200 font-medium">9 MHz &amp; 60 MHz</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Arrival</div><div class="text-slate-200 font-medium">April 2030 (Jovian)</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Cruising Dist</div><div class="text-slate-200 font-medium">2.9 AU from Sun</div></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs text-slate-400">28 hours ago &bull; REASON Radar Team</span>
+              <div class="flex items-center gap-2">
+                <a href="https://www.jpl.nasa.gov/missions/europa-clipper" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition">JPL Mission Data</a>
+                <button class="ai-inquire-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-cyan-400 hover:text-white bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/30 transition" data-mission="Europa">Inquire in SpaceAI &gt;</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 4: CURIOSITY ROVER -->
+          <article class="mission-card group bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-orange-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-0.5 relative" data-category="mars">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/15 flex-shrink-0 relative">
+                  <img src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260827_202133_0ba6de7c-285d-43dc-b7ab-8c54c73707cb.png" alt="Mars" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-orange-400 font-mono text-[10px] font-bold uppercase tracking-wider">Mars Surface Science</span>
+                    <span class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>Sol 4340+ Drilling</span>
+                  </div>
+                  <h3 class="text-base font-bold text-white group-hover:text-orange-300 transition">Why Mars is Red &amp; Curiosity Silica Halos</h3>
+                </div>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">Mars's ferric oxide dust causes its red appearance, while Curiosity drilled into high-purity silica opal networks that prove water persisted in Gale Crater.</p>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/60 border border-white/5 rounded-lg p-2.5 font-mono text-[11px]">
+                <div><div class="text-[9px] text-slate-500 uppercase">Target</div><div class="text-slate-200 font-medium">Mount Sharp Slopes</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Odometer</div><div class="text-slate-200 font-medium">32.84 km Run</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Mineralogy</div><div class="text-slate-200 font-medium">Hydrated Opal Silica</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Instrument</div><div class="text-slate-200 font-medium">CheMin X-Ray Diff</div></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs text-slate-400">Yesterday &bull; JPL Mars Lab</span>
+              <div class="flex items-center gap-2">
+                <a href="https://science.nasa.gov/mission/msl-curiosity/" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition">NASA Mars Report</a>
+                <button class="ai-inquire-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-orange-400 hover:text-white bg-orange-500/10 hover:bg-orange-500/25 border border-orange-400/30 transition" data-mission="Curiosity">Inquire in SpaceAI &gt;</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 5: VOYAGER 1 -->
+          <article class="mission-card group bg-slate-900/60 hover:bg-slate-800/80 border border-white/10 hover:border-sky-500/40 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-0.5 relative" data-category="deepspace">
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start gap-4">
+                <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/15 flex-shrink-0 relative">
+                  <img src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260827_202133_508c64b8-a31e-4290-bdfc-1187df70e0a6.png" alt="Voyager 1" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/30 text-sky-400 font-mono text-[10px] font-bold uppercase tracking-wider">Interstellar Flagship</span>
+                    <span class="inline-flex items-center gap-1 font-mono text-[10px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Live Carrier Lock • 163.2 AU</span>
+                  </div>
+                  <h3 class="text-base font-bold text-white group-hover:text-sky-300 transition">Voyager 1: Thruster Reconfiguration &amp; Interstellar Telemetry</h3>
+                </div>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">Operating in interstellar space over 24.4 billion kilometers from Earth, NASA JPL switched Voyager 1 to its secondary thruster branch to maintain high-gain antenna lock.</p>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/60 border border-white/5 rounded-lg p-2.5 font-mono text-[11px]">
+                <div><div class="text-[9px] text-slate-500 uppercase">Distance</div><div class="text-slate-200 font-medium">24.41B km (163.2 AU)</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Light Time</div><div class="text-slate-200 font-medium">22h 38m One-Way</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">Propulsion</div><div class="text-slate-200 font-medium">Thruster Branch B</div></div>
+                <div><div class="text-[9px] text-slate-500 uppercase">RTG Power</div><div class="text-slate-200 font-medium">224W Remaining</div></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs text-slate-400">Live Carrier Lock &bull; DSN Madrid DSS-63</span>
+              <div class="flex items-center gap-2">
+                <a href="https://science.nasa.gov/mission/voyager/voyager-1/" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition">NASA Voyager Data</a>
+                <button class="ai-inquire-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-sky-400 hover:text-white bg-sky-500/10 hover:bg-sky-500/25 border border-sky-400/30 transition" data-mission="Voyager 1">Inquire in SpaceAI &gt;</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- 4. Footer Telemetry -->
+      <footer class="px-6 py-3 border-t border-white/5 bg-slate-950/80 flex flex-wrap items-center justify-between gap-4 font-mono text-[11px] text-slate-500">
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center gap-1.5 text-emerald-400">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+            NASA JPL Horizons &amp; Open Data Link: OK (200)
+          </span>
+          <span>&bull;</span>
+          <span>Standard: CCSDS Spacecraft Telemetry</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="https://data.nasa.gov" target="_blank" rel="noopener" class="text-slate-400 hover:text-sky-400 transition">data.nasa.gov</a>
+          <span>&bull;</span>
+          <span class="text-slate-600">SpaceEdu Mission Control 2.0</span>
+        </div>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
