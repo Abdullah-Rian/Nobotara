@@ -1,13 +1,17 @@
 # Custom 3D Blender Models
 
-You can replace any of the procedural 3D models in **NoboTara-71: Mission 01 — Apollo 11** by placing your exported Blender `.glb` files into this directory:
+NoboTara-71 loads these glTF binary files from this folder on startup. They were exported from `TranquilityBase.blend` with +Y up.
 
 | Game Asset | Target File Path | Description |
 | :--- | :--- | :--- |
-| **Lunar Rover** | `public/models/rover.glb` | Player vehicle. Name wheel objects containing `wheel` or `tire` for automatic rolling animation. |
-| **Eagle Descent Stage** | `public/models/descent_stage.glb` | Apollo 11 lunar module base. Positioned at `(0, 0, 0)` on the lunar surface. |
-| **Laser Retroreflector** | `public/models/retroreflector.glb` | 100-prism fused silica array placed at `(14, 0, -8)` aimed toward Earth. |
-| **Voyager 1** | `public/models/voyager.glb` | Interstellar probe for the Phase 4 cinematic outro. |
+| **Lunar ground** | `public/models/terrain.glb` | Tranquility Base terrain. Replaces the procedural ground. The rover height is raycast onto this mesh. |
+| **Eagle Descent Stage** | `public/models/descent_stage.glb` | Apollo 11 lunar module base, including the commemorative plaque. Sits at the origin. |
+| **Laser Retroreflector** | `public/models/retroreflector.glb` | LRRR kept at its Blender location, about `(-2.12, ground, 21.53)`. |
+| **Earth** | `public/models/earth.glb` | Earth and atmosphere, about 20 km from the landing site. |
+| **Sun** | `public/models/sun.glb` | Visible solar disc opposite Earth. Scene lighting stays a directional light aimed from the same direction. |
+| **Footprints** | `public/models/footprints.glb` | Exported astronaut footprints. Not loaded; the trail stays hidden. |
+| **Lunar Rover** | `public/models/rover.glb` | Optional player vehicle. Name wheel objects containing `wheel` or `tire` for automatic rolling animation. The procedural rover is used when this file is absent. |
+| **Voyager 1** | `public/models/voyager.glb` | Optional interstellar probe for the Phase 4 cinematic outro. |
 
 ## Blender Export Settings
 
@@ -16,7 +20,7 @@ You can replace any of the procedural 3D models in **NoboTara-71: Mission 01 —
 3. Select **Format: glTF Binary (.glb)**.
 4. Under **Transform**, ensure **+Y Up** is checked.
 5. Under **Geometry**, check **Apply Modifiers**, **UVs**, **Normals**, and **Materials**.
-6. Set the object origin (pivot point) to the bottom-center of the model so it sits flush on the lunar regolith ground.
+6. For a prop that should sit on the ground, set the object origin to the bottom of the model. Terrain, Earth, the Sun, and footprints keep the transforms from the Blender file.
 7. Save the file with the matching name above into this `public/models/` folder.
 
-The game will automatically detect and load your models on launch with automatic shadow casting and physical environment reflections!
+The game shows these files from the first frame. The rover, the flag, and Voyager stay built in code when their files are absent.

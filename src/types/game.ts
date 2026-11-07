@@ -14,6 +14,10 @@ export type GamePhase =
 
 export type ArtifactId = 'descent_stage' | 'retroreflector' | 'plaque';
 
+export type MarkerId = ArtifactId | 'laser_station';
+
+export type ObjectiveStep = 'lander' | 'retroreflector' | 'laser' | 'plaque' | 'free';
+
 export interface ArtifactInfo {
   id: ArtifactId;
   name: string;
@@ -48,6 +52,8 @@ export interface RoverTelemetry {
   speed: number;
   heading: number;
   distanceToTarget: number;
-  nearestArtifact: ArtifactId | null;
+  nearestArtifact: MarkerId | null;
   position: { x: number; y: number; z: number };
+  lander: { x: number; z: number };
+  rangeRadius: number;
 }

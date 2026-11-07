@@ -17,6 +17,21 @@
   font-variant-numeric: tabular-nums;
 }
 
+@keyframes dialogue-cursor-blink {
+  0%, 45% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.dialogue-cursor {
+  display: inline-block;
+  width: 0.45ch;
+  height: 1em;
+  margin-left: 2px;
+  background: #f8fafc;
+  vertical-align: text-bottom;
+  animation: dialogue-cursor-blink 0.9s steps(1) infinite;
+}
+
 /* Touch-action none for joystick canvas and draggable nodes */
 .touch-none {
   touch-action: none;

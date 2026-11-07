@@ -1,0 +1,80 @@
+{
+  "name": "Nobotara Apollo 11 Offline Voiceovers",
+  "version": "1.0.0",
+  "targetPath": "/Volumes/KINGSTON/Nobotara/NobotaraGame/public/assets/audio/voiceovers",
+  "description": "Pre-rendered offline audio voiceover clips for Apollo 11 lunar educational simulation",
+  "clips": [
+    {
+      "id": "intro_neil",
+      "speaker": "Neil Armstrong",
+      "filename": "intro_neil.mp3",
+      "size": 404210,
+      "text": "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn\u2019t just chase a rock in the sky; we went to learn what people can do when they dare.",
+      "engine": "Gemini TTS (Fenrir)"
+    },
+    {
+      "id": "descent_stage_neil",
+      "speaker": "Neil Armstrong",
+      "filename": "descent_stage_neil.mp3",
+      "size": 185198,
+      "text": "This is the Eagle\u2019s descent stage. It helped the Lunar Module land on the Moon. The ascent stage carried me and Aldrin back into lunar orbit, while the descent stage remained behind.",
+      "engine": "Gemini TTS (Fenrir)"
+    },
+    {
+      "id": "descent_stage_scientific",
+      "speaker": "Scientific Voice",
+      "filename": "descent_stage_scientific.mp3",
+      "size": 268790,
+      "text": "The Lunar Module was built in two distinct stages. The descent stage contained the throttleable rocket engine, landing gear, and propellant tanks. Since weight was critical for orbital rendezvous, only the lightweight ascent stage lifted off to return to Earth.",
+      "engine": "Gemini TTS (Fenrir)"
+    },
+    {
+      "id": "retroreflector_neil",
+      "speaker": "Neil Armstrong",
+      "filename": "retroreflector_neil.mp3",
+      "size": 244131,
+      "text": "Not everything left behind became inactive. Apollo 11 astronauts placed this laser retroreflector. Scientists on Earth can send laser pulses toward it and measure the returning light to study the distance between Earth and the Moon.",
+      "engine": "Gemini TTS (Fenrir)"
+    },
+    {
+      "id": "retroreflector_scientific",
+      "speaker": "Scientific Voice",
+      "filename": "retroreflector_scientific.mp3",
+      "size": 294286,
+      "text": "Observatories in Texas, Hawaii, and France still bounce high-energy pulsed lasers off this Apollo 11 reflector. By timing the ~2.5 second round-trip with picosecond accuracy, scientists proved the Moon is drifting away at 3.8 cm per year.",
+      "engine": "Gemini TTS (Fenrir)"
+    },
+    {
+      "id": "plaque_neil",
+      "speaker": "Neil Armstrong",
+      "filename": "plaque_neil.mp3",
+      "size": 159285,
+      "text": "This plaque commemorates humanity\u2019s first crewed lunar landing. It carries a message of peace from Earth. A message left behind for history to remember.",
+      "engine": "Gemini TTS (Fenrir)"
+    },
+    {
+      "id": "plaque_scientific",
+      "speaker": "Scientific Voice",
+      "filename": "plaque_scientific.mp3",
+      "size": 276732,
+      "text": "Engraved on stainless steel to withstand cosmic radiation and 300\u00b0C temperature swings: 'HERE MEN FROM THE PLANET EARTH FIRST SET FOOT UPON THE MOON JULY 1969 A.D. WE CAME IN PEACE FOR ALL MANKIND.'",
+      "engine": "Gemini TTS (Fenrir)"
+    },
+    {
+      "id": "puzzle_complete_neil",
+      "speaker": "Neil Armstrong",
+      "filename": "puzzle_complete_neil.mp3",
+      "size": 190632,
+      "text": "Good work, explorer. You understand why we left these pieces behind: for science, for survival, and for peace. The lunar surface keeps our story safe.",
+      "engine": "Gemini TTS (Fenrir)"
+    },
+    {
+      "id": "outro_voyager",
+      "speaker": "Neil Armstrong",
+      "filename": "outro_voyager.mp3",
+      "size": 204007,
+      "text": "The footprints at Tranquility Base proved that humanity could leave Earth. But our journey didn't stop at the Moon. We aimed further\u2014beyond the planets, into interstellar space.",
+      "engine": "Gemini TTS (Fenrir)"
+    }
+  ]
+}

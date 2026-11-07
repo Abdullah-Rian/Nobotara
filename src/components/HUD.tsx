@@ -1,12 +1,17 @@
-import React from 'react';
-import { Volume2, VolumeX, Compass, Radio, CheckCircle, Navigation, Box, HardDrive } from 'lucide-react';
-import { ArtifactId, DialogueMessage, RoverTelemetry } from '../types/game';
+import React, { useEffect, useRef, useState } from 'react';
+import { Volume2, VolumeX, Compass, Radio, CheckCircle, Navigation } from 'lucide-react';
+import { ArtifactId, DialogueMessage, MarkerId, ObjectiveStep, RoverTelemetry } from '../types/game';
 import { ARTIFACTS } from '../data/artifactsData';
+import { apolloAudio } from '../audio/apolloAudio';
 import { VirtualJoystick } from './VirtualJoystick';
+import { NavMap } from './NavMap';
+import { DisplayControls } from './DisplayControls';
 
 interface HUDProps {
   telemetry: RoverTelemetry;
-  nearArtifact: ArtifactId | null;
+  nearArtifact: MarkerId | null;
+  objective: ObjectiveStep;
+  laserCompleted: boolean;
   artifactsVisited: Record<ArtifactId, boolean>;
   activeDialogue: DialogueMessage | null;
   onInteract: () => void;
@@ -15,13 +20,17 @@ interface HUDProps {
   onToggleMute: () => void;
   onOpenChallenge: () => void;
   canOpenChallenge: boolean;
-  onOpenModels?: () => void;
-  onOpenExport?: () => void;
+  showJoystick?: boolean;
+  showMap?: boolean;
+  typeDialogue?: boolean;
+  onDialogueTyped?: () => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
   telemetry,
   nearArtifact,
+  objective,
+  laserCompleted,
   artifactsVisited,
   activeDialogue,
   onInteract,
@@ -30,11 +39,19 @@ export const HUD: React.FC<HUDProps> = ({
   onToggleMute,
   onOpenChallenge,
   canOpenChallenge,
-  onOpenModels,
-  onOpenExport
+  showJoystick = true,
+  showMap = false,
+  typeDialogue = false,
+  onDialogueTyped
 }) => {
   const visitedCount = Object.values(artifactsVisited).filter(Boolean).length;
-  const activeArtifactData = nearArtifact ? ARTIFACTS[nearArtifact] : null;
+  const activeArtifactData = nearArtifact && nearArtifact !== 'laser_station' ? ARTIFACTS[nearArtifact] : null;
+  const objectiveLabel: Record<Exclude<ObjectiveStep, 'free'>, string> = {
+    lander: 'OBJECTIVE 1 · EAGLE DESCENT STAGE',
+    retroreflector: 'OBJECTIVE 2 · LASER RETROREFLECTOR',
+    laser: 'OBJECTIVE 3 · LASER RANGING',
+    plaque: 'OBJECTIVE 4 · COMMEMORATIVE PLAQUE'
+  };
 
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 z-10 overflow-hidden">
@@ -75,29 +92,7 @@ export const HUD: React.FC<HUDProps> = ({
             )}
           </div>
 
-          {/* Export / Save to PC Button */}
-          {onOpenExport && (
-            <button
-              onClick={onOpenExport}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono-num text-amber-300 transition-colors"
-              title="Save project to Kingston drive / local PC"
-            >
-              <HardDrive className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">SAVE TO PC</span>
-            </button>
-          )}
-
-          {/* Custom 3D Models Button */}
-          {onOpenModels && (
-            <button
-              onClick={onOpenModels}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono-num text-slate-300 transition-colors"
-              title="Replace 3D models with Blender assets"
-            >
-              <Box className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">3D MODELS</span>
-            </button>
-          )}
+          <DisplayControls compact labels="never" />
 
           {/* Audio Mute Button */}
           <button
@@ -115,78 +110,179 @@ export const HUD: React.FC<HUDProps> = ({
         <div className="flex items-center gap-1.5">
           <Navigation className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
           <span className="text-slate-400">ZONE:</span>
-          <span className={`font-semibold ${activeArtifactData ? 'text-emerald-300' : 'text-slate-200'}`}>
-            {activeArtifactData ? `${activeArtifactData.shortName} [IN MARKER]` : 'AREA MARKER'}
+          <span className={`font-semibold ${nearArtifact ? 'text-emerald-300' : 'text-slate-200'}`}>
+            {objective !== 'free'
+              ? objectiveLabel[objective]
+              : nearArtifact === 'laser_station'
+                ? 'LASER STATION [IN MARKER]'
+                : activeArtifactData
+                  ? `${activeArtifactData.shortName} [IN MARKER]`
+                  : 'AREA MARKER'}
           </span>
-          <span className="text-emerald-400 ml-1">
-            ({telemetry.distanceToTarget.toFixed(1)}m)
-          </span>
+          {telemetry.distanceToTarget < 400 && (
+            <span className="text-emerald-400 ml-1">
+              ({telemetry.distanceToTarget.toFixed(1)}m)
+            </span>
+          )}
         </div>
-        <div className="h-3 w-px bg-slate-800" />
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className={artifactsVisited.descent_stage ? 'text-emerald-400' : 'text-slate-400'}>
-            Descent Stage {artifactsVisited.descent_stage && '✓'}
-          </span>
-          <span>·</span>
-          <span className={artifactsVisited.retroreflector ? 'text-emerald-400' : 'text-slate-400'}>
-            Retroreflector {artifactsVisited.retroreflector && '✓'}
-          </span>
-          <span>·</span>
-          <span className={artifactsVisited.plaque ? 'text-emerald-400' : 'text-slate-400'}>
-            Plaque {artifactsVisited.plaque && '✓'}
-          </span>
-        </div>
-      </div>
-
-      {/* Middle/Bottom: Subtitle Dialogue Box */}
-      {activeDialogue && (
-        <div className="mx-auto max-w-2xl w-full bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 shadow-xl pointer-events-auto transition-all">
-          <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
-            <div className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
-              <span className="text-xs font-bold font-mono-num text-amber-400 uppercase tracking-wider">
-                {activeDialogue.speaker}
-              </span>
-            </div>
-            <span className="text-[10px] text-slate-400 font-mono-num">
-              TRANSMISSION LINK ACTIVE
+        {objective === 'free' && (
+          <div className="h-3 w-px bg-slate-800" />
+        )}
+        {objective === 'free' && (
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className={artifactsVisited.descent_stage ? 'text-emerald-400' : 'text-slate-400'}>
+              Descent Stage {artifactsVisited.descent_stage && '✓'}
+            </span>
+            <span>·</span>
+            <span className={artifactsVisited.retroreflector ? 'text-emerald-400' : 'text-slate-400'}>
+              Retroreflector {artifactsVisited.retroreflector && '✓'}
+            </span>
+            <span>·</span>
+            <span className={laserCompleted ? 'text-emerald-400' : 'text-slate-400'}>
+              Laser {laserCompleted && '✓'}
+            </span>
+            <span>·</span>
+            <span className={artifactsVisited.plaque ? 'text-emerald-400' : 'text-slate-400'}>
+              Plaque {artifactsVisited.plaque && '✓'}
             </span>
           </div>
-          <p className="text-sm md:text-base text-slate-100 font-medium leading-relaxed">
-            "{activeDialogue.text}"
-          </p>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Bottom Area: Controls & Action Triggers */}
+      {/* Bottom Area: Dialogue, joystick, and action triggers */}
       <div className="flex justify-between items-end gap-4 pointer-events-auto">
-        {/* Virtual Joystick for Touch / Mouse */}
-        <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-2.5">
-          <VirtualJoystick onMove={onJoystickMove} />
+        <div className="flex flex-col items-start gap-3">
+          {activeDialogue && (
+            <div className="mb-12">
+              <DialoguePanel
+                message={activeDialogue}
+                typewriter={typeDialogue}
+                onTyped={onDialogueTyped}
+              />
+            </div>
+          )}
+          {showJoystick && (
+            <div className="ml-10 mb-8 bg-slate-950/80 border border-slate-800/80 rounded-2xl p-2.5">
+              <VirtualJoystick onMove={onJoystickMove} />
+            </div>
+          )}
         </div>
 
-        {/* Action Prompt Button when inside an inspection area marker */}
-        {activeArtifactData && (
-          <div className="flex flex-col items-end gap-2 animate-bounce-subtle">
-            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-950/90 border border-emerald-500/60 rounded-md text-[11px] font-mono-num text-emerald-300 shadow-lg shadow-emerald-950/50">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>MARKER ZONE ENTERED</span>
-            </div>
-            <button
-              onClick={onInteract}
-              className="flex items-center gap-3 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-bold rounded-lg shadow-xl shadow-emerald-500/30 text-sm md:text-base transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-            >
-              <span className="px-2 py-0.5 bg-slate-950 text-emerald-400 rounded text-xs font-mono-num font-bold">
-                PRESS E
-              </span>
-              <span>{activeArtifactData.actionLabel.toUpperCase()}</span>
-            </button>
-            <span className="text-xs text-emerald-300/80 font-mono-num">
-              Press [SPACE] or [E] to begin inspection
-            </span>
+        {/* Action prompt sits above the navigation map */}
+        {(showMap || (objective === 'free' && (activeArtifactData || nearArtifact === 'laser_station'))) && (
+          <div className="flex flex-col items-end gap-3">
+            {objective === 'free' && (activeArtifactData || nearArtifact === 'laser_station') && (
+              <div className="flex flex-col items-end gap-2 animate-bounce-subtle">
+                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-950/90 border border-emerald-500/60 rounded-md text-[11px] font-mono-num text-emerald-300 shadow-lg shadow-emerald-950/50">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span>MARKER ZONE ENTERED</span>
+                </div>
+                <button
+                  onClick={onInteract}
+                  className="flex items-center gap-3 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-bold rounded-lg shadow-xl shadow-emerald-500/30 text-sm md:text-base transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                >
+                  <span className="px-2 py-0.5 bg-slate-950 text-emerald-400 rounded text-xs font-mono-num font-bold">
+                    PRESS E
+                  </span>
+                  <span>{nearArtifact === 'laser_station' ? 'FIRE LASER' : activeArtifactData!.actionLabel.toUpperCase()}</span>
+                </button>
+                <span className="text-xs text-emerald-300/80 font-mono-num">
+                  Press [SPACE] or [E] to begin
+                </span>
+              </div>
+            )}
+            {showMap && (
+              <NavMap
+                telemetry={telemetry}
+                objective={objective}
+                artifactsVisited={artifactsVisited}
+                laserCompleted={laserCompleted}
+              />
+            )}
           </div>
         )}
       </div>
     </div>
   );
 };
+
+const TYPE_INTERVAL_MS = 12;
+
+export function DialoguePanel({
+  message,
+  typewriter,
+  onTyped
+}: {
+  message: DialogueMessage;
+  typewriter: boolean;
+  onTyped?: () => void;
+}) {
+  const [count, setCount] = useState(typewriter ? 0 : message.text.length);
+  const onTypedRef = useRef(onTyped);
+  onTypedRef.current = onTyped;
+
+  useEffect(() => {
+    if (!typewriter) {
+      setCount(message.text.length);
+      return;
+    }
+
+    setCount(0);
+    let revealed = 0;
+    let alive = true;
+    const timer = window.setInterval(() => {
+      if (!alive) return;
+      revealed += 1;
+      if (revealed % 4 === 1) apolloAudio.playTypeBeep();
+      if (revealed >= message.text.length) {
+        setCount(message.text.length);
+        window.clearInterval(timer);
+        onTypedRef.current?.();
+        return;
+      }
+      setCount(revealed);
+    }, TYPE_INTERVAL_MS);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [message.text, typewriter]);
+
+  const shown = message.text.slice(0, count);
+
+  return (
+    <div className="w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 shadow-xl">
+      <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
+        <div className="flex items-center gap-2">
+          <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
+          <span className="text-xs font-bold font-mono-num text-amber-400 uppercase tracking-wider">
+            {message.speaker}
+          </span>
+        </div>
+        <span className="text-[10px] text-slate-400 font-mono-num">
+          TRANSMISSION LINK ACTIVE
+        </span>
+      </div>
+      <p className="relative text-sm md:text-base text-slate-100 font-medium leading-relaxed">
+        {typewriter ? (
+          <>
+            <span className="invisible" aria-hidden="true">
+              "{message.text}"
+              <span className="dialogue-cursor" />
+            </span>
+            <span className="absolute inset-0">
+              "{shown}"
+              <span className="dialogue-cursor" aria-hidden="true" />
+            </span>
+          </>
+        ) : (
+          <>
+            "{shown}"
+            <span className="dialogue-cursor" aria-hidden="true" />
+          </>
+        )}
+      </p>
+    </div>
+  );
+}

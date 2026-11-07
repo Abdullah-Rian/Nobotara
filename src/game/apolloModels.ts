@@ -1,31 +1,41 @@
 import * as THREE from 'three';
-import { createGoldFoilTexture, createPlaqueTexture, createEarthTexture } from './proceduralTextures';
+import { createGoldFoilTexture } from './proceduralTextures';
 
 /**
- * Builds high-fidelity composite Three.js PBR models for:
- * 1. Apollo 11 Lunar Module Descent Stage ('Eagle')
- * 2. Lunar Laser Ranging Retroreflector (LRRR)
- * 3. Commemorative Plaque (on forward landing strut)
- * 4. Lunar Explorer Rover (player vehicle)
- * 5. Historic American Flag
- * 6. Voyager 1 (for Phase 4 outro)
+ * Builds the models that have no Blender file:
+ * the lunar rover, the flag, and Voyager 1.
+ * The descent stage, retroreflector, terrain, Earth, and Sun come from public/models.
  */
+
+export interface RoverRig {
+  solarHinges: THREE.Object3D[];
+  solarDeployed: number[];
+  solarStowed: number[];
+  mastStage: THREE.Object3D;
+  mastSlide: THREE.Object3D;
+  mastRetracted: number;
+  mastRaised: number;
+  antennaYaw: THREE.Object3D;
+  antennaTilt: THREE.Object3D;
+  antennaParkYaw: number;
+  antennaParkPitch: number;
+  cueMaterial: THREE.MeshStandardMaterial;
+}
 
 export interface SceneModels {
   descentStageGroup: THREE.Group;
   retroreflectorGroup: THREE.Group;
-  plaqueMesh: THREE.Mesh;
   roverGroup: THREE.Group;
   roverHeadlights: THREE.SpotLight[];
   roverWheels: THREE.Mesh[];
+  roverRig: RoverRig | null;
+  flagGroup: THREE.Group;
   voyagerGroup: THREE.Group;
-  earthMesh: THREE.Mesh;
+  earthMesh: THREE.Object3D;
 }
 
 export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneModels {
   const goldFoilTex = createGoldFoilTexture(renderer);
-  const plaqueTex = createPlaqueTexture(renderer);
-  const earthTex = createEarthTexture(renderer);
 
   // Common PBR Materials
   const goldFoilMat = new THREE.MeshStandardMaterial({
@@ -49,234 +59,6 @@ export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneMode
     roughness: 0.15
   });
 
-  const footpadMat = new THREE.MeshStandardMaterial({
-    color: 0xd97706,
-    metalness: 0.8,
-    roughness: 0.35
-  });
-
-  const engineNozzleMat = new THREE.MeshStandardMaterial({
-    color: 0x3f3f46,
-    metalness: 0.85,
-    roughness: 0.3
-  });
-
-  // -------------------------------------------------------------
-  // 1. EAGLE DESCENT STAGE (Multi-part Composite Model)
-  // -------------------------------------------------------------
-  const descentStageGroup = new THREE.Group();
-  descentStageGroup.name = 'EagleDescentStage';
-
-  // Octagonal Center Body
-  const bodyRadius = 2.1;
-  const bodyHeight = 1.6;
-  const bodyGeo = new THREE.CylinderGeometry(bodyRadius, bodyRadius * 1.05, bodyHeight, 8);
-  const bodyMesh = new THREE.Mesh(bodyGeo, goldFoilMat);
-  bodyMesh.position.y = 1.6;
-  bodyMesh.castShadow = true;
-  bodyMesh.receiveShadow = true;
-  descentStageGroup.add(bodyMesh);
-
-  // Top Equipment Deck / Interstage Ring (where Ascent Stage detached)
-  const deckGeo = new THREE.CylinderGeometry(bodyRadius * 0.9, bodyRadius * 0.9, 0.2, 8);
-  const deckMesh = new THREE.Mesh(deckGeo, blackBlanketMat);
-  deckMesh.position.y = 1.6 + bodyHeight / 2 + 0.1;
-  deckMesh.castShadow = true;
-  descentStageGroup.add(deckMesh);
-
-  // Descent Propulsion System (DPS) Engine Bell Nozzle
-  const nozzleGeo = new THREE.ConeGeometry(0.7, 1.1, 16, 1, true);
-  const nozzleMesh = new THREE.Mesh(nozzleGeo, engineNozzleMat);
-  nozzleMesh.position.y = 1.1;
-  nozzleMesh.rotation.x = Math.PI;
-  nozzleMesh.castShadow = true;
-  descentStageGroup.add(nozzleMesh);
-
-  // 4 Outrigger Trusses, Landing Legs, and Footpads
-  const legAngles = [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4];
-  const legRadius = 4.2;
-
-  legAngles.forEach((angle, idx) => {
-    const legX = Math.cos(angle) * legRadius;
-    const legZ = Math.sin(angle) * legRadius;
-
-    // Outrigger beam from body to strut pivot
-    const beamGeo = new THREE.CylinderGeometry(0.08, 0.08, 2.2);
-    const beamMesh = new THREE.Mesh(beamGeo, chromeStrutMat);
-    beamMesh.position.set(legX * 0.45, 1.7, legZ * 0.45);
-    beamMesh.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      new THREE.Vector3(legX, 0.2, legZ).normalize()
-    );
-    descentStageGroup.add(beamMesh);
-
-    // Primary Landing Strut (angled down to lunar regolith)
-    const strutGeo = new THREE.CylinderGeometry(0.09, 0.09, 3.4);
-    const strutMesh = new THREE.Mesh(strutGeo, goldFoilMat);
-    strutMesh.position.set(legX * 0.72, 1.0, legZ * 0.72);
-    strutMesh.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      new THREE.Vector3(legX * 0.6, -1.5, legZ * 0.6).normalize()
-    );
-    strutMesh.castShadow = true;
-    descentStageGroup.add(strutMesh);
-
-    // Secondary tension struts (V-truss)
-    const vStrutGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.6);
-    const vStrutMesh = new THREE.Mesh(vStrutGeo, chromeStrutMat);
-    vStrutMesh.position.set(legX * 0.65, 1.25, legZ * 0.65);
-    descentStageGroup.add(vStrutMesh);
-
-    // Circular Dish Footpad (contact with lunar soil)
-    const footpadGeo = new THREE.CylinderGeometry(0.48, 0.42, 0.08, 16);
-    const footpadMesh = new THREE.Mesh(footpadGeo, footpadMat);
-    footpadMesh.position.set(legX, 0.04, legZ);
-    footpadMesh.receiveShadow = true;
-    descentStageGroup.add(footpadMesh);
-
-    // Probe contact sensor wire extending below footpad (broken on touchdown)
-    const probeGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.6);
-    const probeMesh = new THREE.Mesh(probeGeo, chromeStrutMat);
-    probeMesh.position.set(legX + 0.1, 0.05, legZ + 0.1);
-    probeMesh.rotation.z = 0.4;
-    descentStageGroup.add(probeMesh);
-  });
-
-  // Forward Landing Gear Ladder (Mounted on the leg along angle Math.PI/4)
-  const forwardAngle = Math.PI / 4;
-  const ladderGroup = new THREE.Group();
-  const fX = Math.cos(forwardAngle);
-  const fZ = Math.sin(forwardAngle);
-
-  // Ladder vertical rails
-  const railGeo = new THREE.CylinderGeometry(0.025, 0.025, 2.6);
-  const leftRail = new THREE.Mesh(railGeo, chromeStrutMat);
-  leftRail.position.set(-0.2, 1.2, 0);
-  ladderGroup.add(leftRail);
-
-  const rightRail = new THREE.Mesh(railGeo, chromeStrutMat);
-  rightRail.position.set(0.2, 1.2, 0);
-  ladderGroup.add(rightRail);
-
-  // Ladder Rungs
-  const rungCount = 8;
-  for (let r = 0; r < rungCount; r++) {
-    const rungGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.4);
-    const rungMesh = new THREE.Mesh(rungGeo, chromeStrutMat);
-    rungMesh.rotation.z = Math.PI / 2;
-    rungMesh.position.set(0, 0.2 + r * 0.28, 0);
-    ladderGroup.add(rungMesh);
-  }
-
-  ladderGroup.position.set(fX * 2.4, 0, fZ * 2.4);
-  ladderGroup.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 0, 1),
-    new THREE.Vector3(fX, 0.3, fZ).normalize()
-  );
-  descentStageGroup.add(ladderGroup);
-
-  // -------------------------------------------------------------
-  // COMMEMORATIVE PLAQUE (Mounted on ladder between rungs)
-  // -------------------------------------------------------------
-  const plaqueGeo = new THREE.PlaneGeometry(0.48, 0.36);
-  const plaqueMat = new THREE.MeshStandardMaterial({
-    map: plaqueTex,
-    metalness: 0.9,
-    roughness: 0.25,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2
-  });
-  const plaqueMesh = new THREE.Mesh(plaqueGeo, plaqueMat);
-  plaqueMesh.name = 'CommemorativePlaque';
-  // Positioned directly on the forward ladder leg at eye height
-  plaqueMesh.position.set(0, 0.9, 0.05);
-  plaqueMesh.rotation.y = Math.PI; // Face outwards
-  ladderGroup.add(plaqueMesh);
-
-  // MESA Equipment Bay (Modular Equipment Stowage Assembly)
-  const mesaGeo = new THREE.BoxGeometry(0.8, 0.7, 0.6);
-  const mesaMesh = new THREE.Mesh(mesaGeo, blackBlanketMat);
-  mesaMesh.position.set(-1.4, 1.5, 0.9);
-  descentStageGroup.add(mesaMesh);
-
-  // RCS Propellant Helium/Fuel Spherical Tanks
-  const tankGeo = new THREE.SphereGeometry(0.38, 12, 12);
-  const tankMat = new THREE.MeshStandardMaterial({
-    color: 0xf8fafc,
-    metalness: 0.9,
-    roughness: 0.2
-  });
-  const tank1 = new THREE.Mesh(tankGeo, tankMat);
-  tank1.position.set(1.5, 1.7, 0);
-  descentStageGroup.add(tank1);
-  const tank2 = new THREE.Mesh(tankGeo, tankMat);
-  tank2.position.set(-1.5, 1.7, 0);
-  descentStageGroup.add(tank2);
-
-  // -------------------------------------------------------------
-  // 2. LASER RETROREFLECTOR (EASEP / LRRR 100-Cube Array)
-  // -------------------------------------------------------------
-  const retroreflectorGroup = new THREE.Group();
-  retroreflectorGroup.name = 'LaserRetroreflector';
-  retroreflectorGroup.position.set(14, 0, -8);
-
-  // White thermal pallet base
-  const palletGeo = new THREE.BoxGeometry(1.2, 0.15, 1.2);
-  const palletMat = new THREE.MeshStandardMaterial({
-    color: 0xf8fafc,
-    roughness: 0.6,
-    metalness: 0.1
-  });
-  const palletMesh = new THREE.Mesh(palletGeo, palletMat);
-  palletMesh.position.y = 0.08;
-  palletMesh.receiveShadow = true;
-  retroreflectorGroup.add(palletMesh);
-
-  // Gimbal angle mounting bracket (elevated 45 degrees towards Earth)
-  const gimbalGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.6);
-  const gimbalMesh = new THREE.Mesh(gimbalGeo, chromeStrutMat);
-  gimbalMesh.position.set(0, 0.35, 0);
-  retroreflectorGroup.add(gimbalMesh);
-
-  // Angled reflector tray
-  const trayGeo = new THREE.BoxGeometry(0.8, 0.1, 0.8);
-  const trayMesh = new THREE.Mesh(trayGeo, blackBlanketMat);
-  trayMesh.position.set(0, 0.6, 0);
-  trayMesh.rotation.x = -Math.PI / 4; // Tilted toward Earth sky
-  trayMesh.rotation.y = Math.PI / 6;
-  retroreflectorGroup.add(trayMesh);
-
-  // 100 Corner-Cube Prisms Array
-  const prismMat = new THREE.MeshPhysicalMaterial({
-    color: 0x38bdf8,
-    metalness: 0.95,
-    roughness: 0.05,
-    reflectivity: 1.0,
-    clearcoat: 1.0
-  });
-
-  const prismGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.03, 6);
-  const prismInstanced = new THREE.InstancedMesh(prismGeo, prismMat, 100);
-  const dummy = new THREE.Object3D();
-  let prismIdx = 0;
-  for (let ix = 0; ix < 10; ix++) {
-    for (let iz = 0; iz < 10; iz++) {
-      dummy.position.set(-0.315 + ix * 0.07, 0.06, -0.315 + iz * 0.07);
-      dummy.rotation.x = Math.PI / 2;
-      dummy.updateMatrix();
-      prismInstanced.setMatrixAt(prismIdx++, dummy.matrix);
-    }
-  }
-  prismInstanced.instanceMatrix.needsUpdate = true;
-  trayMesh.add(prismInstanced);
-
-  // Sun compass / shadow casting pointer on reflector
-  const shadowGnomonGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.2);
-  const shadowGnomon = new THREE.Mesh(shadowGnomonGeo, chromeStrutMat);
-  shadowGnomon.position.set(0.3, 0.1, 0.3);
-  trayMesh.add(shadowGnomon);
-
   // -------------------------------------------------------------
   // 3. LUNAR EXPLORER ROVER (Player Vehicle)
   // -------------------------------------------------------------
@@ -292,48 +74,246 @@ export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneMode
   roverChassis.receiveShadow = true;
   roverGroup.add(roverChassis);
 
-  // Top avionics deck & solar array
-  const solarPanelGeo = new THREE.BoxGeometry(1.4, 0.06, 0.9);
-  const solarPanelMat = new THREE.MeshStandardMaterial({
-    color: 0x1e3a8a,
-    metalness: 0.7,
-    roughness: 0.2
+  // Rear-panel markings. The chase camera looks at local -X, so viewer's left is +Z.
+  const rearDecal = (canvas: HTMLCanvasElement, width: number, height: number, y: number, z: number): THREE.Mesh => {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: 0.4,
+      metalness: 0.2,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), mat);
+    mesh.position.set(-0.818, y, z);
+    mesh.rotation.y = -Math.PI / 2;
+    roverGroup.add(mesh);
+    return mesh;
+  };
+
+  const nameCanvas = document.createElement('canvas');
+  nameCanvas.width = 512;
+  nameCanvas.height = 128;
+  const nameCtx = nameCanvas.getContext('2d')!;
+  nameCtx.fillStyle = '#1c1917';
+  nameCtx.fillRect(0, 0, 512, 128);
+  nameCtx.strokeStyle = '#d6d3d1';
+  nameCtx.lineWidth = 8;
+  nameCtx.strokeRect(8, 8, 496, 112);
+  nameCtx.fillStyle = '#f5f5f4';
+  nameCtx.font = 'bold 64px "Plus Jakarta Sans", "Segoe UI", sans-serif';
+  nameCtx.textAlign = 'center';
+  nameCtx.textBaseline = 'middle';
+  nameCtx.fillText('NOBOTARA-71', 256, 68);
+  const namePlate = new THREE.Mesh(
+    new THREE.BoxGeometry(0.014, 0.11, 0.42),
+    new THREE.MeshStandardMaterial({ color: 0x292524, metalness: 0.55, roughness: 0.4 })
+  );
+  namePlate.position.set(-0.807, 0.42, -0.22);
+  roverGroup.add(namePlate);
+  rearDecal(nameCanvas, 0.4, 0.092, 0.42, -0.22);
+
+  const nasaCanvas = document.createElement('canvas');
+  nasaCanvas.width = 256;
+  nasaCanvas.height = 256;
+  const nasaCtx = nasaCanvas.getContext('2d')!;
+  nasaCtx.beginPath();
+  nasaCtx.arc(128, 128, 120, 0, Math.PI * 2);
+  nasaCtx.fillStyle = '#0b3d91';
+  nasaCtx.fill();
+  nasaCtx.fillStyle = '#ffffff';
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI * 0.85 + i * (Math.PI * 0.7 / 9);
+    const sx = 128 + Math.cos(a) * 78;
+    const sy = 78 + Math.sin(a) * 28;
+    nasaCtx.beginPath();
+    nasaCtx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+    nasaCtx.fill();
+  }
+  nasaCtx.beginPath();
+  nasaCtx.moveTo(18, 150);
+  nasaCtx.quadraticCurveTo(128, 78, 238, 150);
+  nasaCtx.quadraticCurveTo(128, 118, 18, 150);
+  nasaCtx.fillStyle = '#e1261c';
+  nasaCtx.fill();
+  nasaCtx.fillStyle = '#ffffff';
+  nasaCtx.font = 'bold 54px "Plus Jakarta Sans", "Arial Black", sans-serif';
+  nasaCtx.textAlign = 'center';
+  nasaCtx.textBaseline = 'middle';
+  nasaCtx.fillText('NASA', 128, 168);
+  const nasaMark = rearDecal(nasaCanvas, 0.12, 0.12, 0.42, 0.14);
+  nasaMark.geometry.dispose();
+  nasaMark.geometry = new THREE.CircleGeometry(0.06, 32);
+
+  const bdFlagCanvas = document.createElement('canvas');
+  bdFlagCanvas.width = 300;
+  bdFlagCanvas.height = 180;
+  const bdFlagCtx = bdFlagCanvas.getContext('2d')!;
+  bdFlagCtx.fillStyle = '#006a4e';
+  bdFlagCtx.fillRect(0, 0, 300, 180);
+  bdFlagCtx.fillStyle = '#f42a41';
+  bdFlagCtx.beginPath();
+  bdFlagCtx.arc(135, 90, 60, 0, Math.PI * 2);
+  bdFlagCtx.fill();
+  rearDecal(bdFlagCanvas, 0.16, 0.096, 0.42, 0.32);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.04, 0.95), blackBlanketMat);
+  deck.position.y = 0.8;
+  deck.castShadow = true;
+  roverGroup.add(deck);
+
+  const cellCanvas = document.createElement('canvas');
+  cellCanvas.width = 128;
+  cellCanvas.height = 64;
+  const cellCtx = cellCanvas.getContext('2d')!;
+  cellCtx.fillStyle = '#0b1d4a';
+  cellCtx.fillRect(0, 0, 128, 64);
+  cellCtx.strokeStyle = '#d6b25e';
+  cellCtx.lineWidth = 2;
+  for (let gx = 8; gx < 128; gx += 16) {
+    cellCtx.beginPath();
+    cellCtx.moveTo(gx, 2);
+    cellCtx.lineTo(gx, 62);
+    cellCtx.stroke();
+  }
+  for (let gy = 4; gy < 64; gy += 15) {
+    cellCtx.beginPath();
+    cellCtx.moveTo(2, gy);
+    cellCtx.lineTo(126, gy);
+    cellCtx.stroke();
+  }
+  const cellTex = new THREE.CanvasTexture(cellCanvas);
+  const solarMat = new THREE.MeshStandardMaterial({
+    map: cellTex,
+    color: 0x93c5fd,
+    metalness: 0.55,
+    roughness: 0.28
   });
-  const solarPanel = new THREE.Mesh(solarPanelGeo, solarPanelMat);
-  solarPanel.position.set(0, 0.8, 0);
-  roverGroup.add(solarPanel);
+  const panelGeo = new THREE.BoxGeometry(1.05, 0.028, 0.48);
+  const knuckleGeo = new THREE.CylinderGeometry(0.032, 0.032, 0.2, 10);
+  const solarHinges: THREE.Object3D[] = [];
+  const solarDeployed: number[] = [];
+  const solarStowed: number[] = [];
+  [1, -1].forEach(side => {
+    const hinge = new THREE.Group();
+    hinge.name = side > 0 ? 'SolarHingePos' : 'SolarHingeNeg';
+    hinge.position.set(0, 0.86, side * 0.56);
+    const knuckle = new THREE.Mesh(knuckleGeo, chromeStrutMat);
+    knuckle.rotation.z = Math.PI / 2;
+    hinge.add(knuckle);
+    const panel = new THREE.Mesh(panelGeo, solarMat);
+    panel.position.set(0, 0, side * 0.25);
+    panel.castShadow = true;
+    hinge.add(panel);
+    // Tilted up and outward while charging. Folded onto the deck when stowed.
+    const deployed = side > 0 ? -0.7 : 0.7;
+    const stowed = side > 0 ? -Math.PI : Math.PI;
+    hinge.rotation.x = deployed;
+    solarHinges.push(hinge);
+    solarDeployed.push(deployed);
+    solarStowed.push(stowed);
+    roverGroup.add(hinge);
+  });
 
-  // Panoramic Camera Mast
-  const mastGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.9);
-  const mast = new THREE.Mesh(mastGeo, chromeStrutMat);
-  mast.position.set(0.5, 1.25, 0.3);
-  roverGroup.add(mast);
-
-  // Stereoscopic Camera Head
-  const camHeadGeo = new THREE.BoxGeometry(0.25, 0.14, 0.35);
-  const camHead = new THREE.Mesh(camHeadGeo, blackBlanketMat);
-  camHead.position.set(0.5, 1.7, 0.3);
-  roverGroup.add(camHead);
-
-  // Camera lenses
+  // Camera mast. Nested tubes slide straight up, the way a radio antenna extends.
+  const mastRoot = new THREE.Group();
+  mastRoot.name = 'CameraMast';
+  mastRoot.position.set(0.62, 0.84, 0);
+  const mastCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.058, 0.18, 12), chromeStrutMat);
+  mastCollar.position.y = 0.09;
+  mastRoot.add(mastCollar);
+  const mastStage = new THREE.Group();
+  mastStage.name = 'CameraMastStage';
+  const mastOuter = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.044, 0.58, 10), chromeStrutMat);
+  mastOuter.position.y = 0.12;
+  mastOuter.castShadow = true;
+  mastStage.add(mastOuter);
+  const mastSlide = new THREE.Group();
+  mastSlide.name = 'CameraMastSlide';
+  const mastInner = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.03, 0.4, 10), chromeStrutMat);
+  mastInner.position.y = 0.16;
+  mastInner.castShadow = true;
+  mastSlide.add(mastInner);
+  const camHead = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.14, 0.32), blackBlanketMat);
+  camHead.position.y = 0.44;
+  mastSlide.add(camHead);
   const lensGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.06, 12);
   const lensMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.9, roughness: 0.1 });
   const leftLens = new THREE.Mesh(lensGeo, lensMat);
   leftLens.rotation.z = Math.PI / 2;
-  leftLens.position.set(0.12, 0, 0.1);
+  leftLens.position.set(0.12, 0, 0.08);
   camHead.add(leftLens);
   const rightLens = leftLens.clone();
-  rightLens.position.set(0.12, 0, -0.1);
+  rightLens.position.set(0.12, 0, -0.08);
   camHead.add(rightLens);
+  mastStage.add(mastSlide);
+  mastRoot.add(mastStage);
+  const mastRetracted = 0;
+  const mastRaised = 0.32;
+  mastStage.position.y = mastRetracted;
+  mastSlide.position.y = mastRetracted;
+  roverGroup.add(mastRoot);
 
-  // Steerable High-Gain Parabolic Dish Antenna
-  const dishGeo = new THREE.SphereGeometry(0.3, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+  // High-gain dish on a rod. Bore of the dish is the tilt group's +Z.
+  const antennaMount = new THREE.Group();
+  antennaMount.position.set(-0.48, 0.82, -0.32);
+  const antennaRod = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.022, 0.5, 8), chromeStrutMat);
+  antennaRod.position.y = 0.25;
+  antennaMount.add(antennaRod);
+  const antennaYaw = new THREE.Group();
+  antennaYaw.position.y = 0.5;
+  antennaMount.add(antennaYaw);
+  const antennaTilt = new THREE.Group();
+  antennaYaw.add(antennaTilt);
+  const dishGeo = new THREE.SphereGeometry(0.22, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
   const dishMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.3, side: THREE.DoubleSide });
   const dish = new THREE.Mesh(dishGeo, dishMat);
-  dish.rotation.x = Math.PI / 3;
-  dish.rotation.z = -Math.PI / 4;
-  dish.position.set(-0.5, 1.3, -0.3);
-  roverGroup.add(dish);
+  dish.rotation.x = -Math.PI / 2;
+  antennaTilt.add(dish);
+  const feed = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.032, 0.07, 8), chromeStrutMat);
+  feed.rotation.x = Math.PI / 2;
+  feed.position.z = 0.09;
+  antennaTilt.add(feed);
+  const antennaParkYaw = 0.85;
+  const antennaParkPitch = -0.45;
+  antennaYaw.rotation.y = antennaParkYaw;
+  antennaTilt.rotation.x = antennaParkPitch;
+  roverGroup.add(antennaMount);
+
+  const whip = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.012, 0.38, 8), chromeStrutMat);
+  whip.position.set(-0.78, 1.02, 0);
+  roverGroup.add(whip);
+
+  const cueMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff2a2a,
+    emissive: 0xff2a2a,
+    emissiveIntensity: 2.2,
+    roughness: 0.3,
+    metalness: 0.05
+  });
+  const cue = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.07, 0.16), cueMaterial);
+  cue.position.set(-0.78, 0.9, 0.38);
+  roverGroup.add(cue);
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.1, 0.2), chromeStrutMat);
+  housing.position.set(-0.755, 0.9, 0.38);
+  roverGroup.add(housing);
+
+  const roverRig: RoverRig = {
+    solarHinges,
+    solarDeployed,
+    solarStowed,
+    mastStage,
+    mastSlide,
+    mastRetracted,
+    mastRaised,
+    antennaYaw,
+    antennaTilt,
+    antennaParkYaw,
+    antennaParkPitch,
+    cueMaterial
+  };
 
   // 6 Rocker-Bogie Wheels
   const roverWheels: THREE.Mesh[] = [];
@@ -373,11 +353,14 @@ export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneMode
     roughness: 0.25
   });
 
-  wheelPositions.forEach(pos => {
+  wheelPositions.forEach((pos, index) => {
     const wheelMesh = new THREE.Mesh(wheelGeo, wheelMat);
+    wheelMesh.name = `RoverWheel_${index}`;
     wheelMesh.position.set(pos[0], pos[1], pos[2]);
     wheelMesh.castShadow = true;
     wheelMesh.receiveShadow = true;
+    wheelMesh.userData.suspensionRest = wheelMesh.position.clone();
+    wheelMesh.userData.suspensionRadius = 0.24;
 
     // Hub cap
     const hub = new THREE.Mesh(hubGeo, hubMat);
@@ -392,12 +375,6 @@ export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneMode
 
     roverGroup.add(wheelMesh);
     roverWheels.push(wheelMesh);
-
-    // Rocker-bogie suspension strut
-    const strutG = new THREE.CylinderGeometry(0.03, 0.03, 0.4);
-    const strutM = new THREE.Mesh(strutG, chromeStrutMat);
-    strutM.position.set(pos[0], pos[1] + 0.15, pos[2] * 0.8);
-    roverGroup.add(strutM);
   });
 
   // Dual Headlights & SpotLights for cinematic lunar shadows
@@ -425,7 +402,7 @@ export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneMode
   // 4. HISTORIC AMERICAN FLAG (Planted in lunar soil)
   // -------------------------------------------------------------
   const flagGroup = new THREE.Group();
-  flagGroup.position.set(-6, 0, 8);
+  flagGroup.position.set(-23.331, 0, 2.138);
 
   const poleGeo = new THREE.CylinderGeometry(0.02, 0.02, 2.0);
   const pole = new THREE.Mesh(poleGeo, chromeStrutMat);
@@ -483,24 +460,8 @@ export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneMode
   flagMesh.position.set(0.45, 1.65, 0);
   flagMesh.castShadow = true;
   flagGroup.add(flagMesh);
+  flagGroup.name = 'HistoricFlag';
 
-  descentStageGroup.add(flagGroup);
-
-  // -------------------------------------------------------------
-  // 5. DISTANT EARTH IN LUNAR SKY
-  // -------------------------------------------------------------
-  const earthGeo = new THREE.SphereGeometry(6, 32, 32);
-  const earthMat = new THREE.MeshStandardMaterial({
-    map: earthTex,
-    roughness: 0.45,
-    metalness: 0.1,
-    emissive: 0x0369a1,
-    emissiveIntensity: 0.15
-  });
-  const earthMesh = new THREE.Mesh(earthGeo, earthMat);
-  // Positioned high up in the dark sky at azimuth
-  earthMesh.position.set(120, 95, -160);
-  earthMesh.rotation.y = 0.8;
 
   // -------------------------------------------------------------
   // 6. VOYAGER 1 (Revealed in Phase 4 Outro)
@@ -563,13 +524,21 @@ export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneMode
   rtgMesh.rotation.x = Math.PI / 6;
   voyagerGroup.add(rtgMesh);
 
+  const descentStageGroup = new THREE.Group();
+  descentStageGroup.name = 'EagleDescentStage';
+  const retroreflectorGroup = new THREE.Group();
+  retroreflectorGroup.name = 'LaserRetroreflector';
+  const earthMesh = new THREE.Group();
+  earthMesh.name = 'Earth';
+
   return {
     descentStageGroup,
     retroreflectorGroup,
-    plaqueMesh,
     roverGroup,
     roverHeadlights,
     roverWheels,
+    roverRig,
+    flagGroup,
     voyagerGroup,
     earthMesh
   };

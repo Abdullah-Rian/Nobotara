@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createRegolithTexture } from './proceduralTextures';
-import { buildApolloSceneModels, SceneModels } from './apolloModels';
-import { ArtifactId, RoverTelemetry } from '../types/game';
+import { buildApolloSceneModels, RoverRig, SceneModels } from './apolloModels';
+import { ArtifactId, MarkerId, RoverTelemetry } from '../types/game';
 import { ReplaceableModelType, customModelManager } from './modelLoader';
-import { ARTIFACTS } from '../data/artifactsData';
+import { ARTIFACTS, LASER_STATION } from '../data/artifactsData';
 
 // Software WebGL Detection
 export const isSoftwareGl = (() => {
@@ -24,7 +23,7 @@ const _vec3B = new THREE.Vector3();
 const _vec3Target = new THREE.Vector3();
 
 export interface CameraStateConfig {
-  mode: 'title' | 'intro' | 'explore' | 'inspect' | 'outro' | 'warp';
+  mode: 'title' | 'intro' | 'explore' | 'inspect' | 'ranging' | 'outro' | 'warp';
   targetArtifact?: ArtifactId | null;
   introProgress?: number; // 0 to 1
   outroProgress?: number; // 0 to 1
@@ -34,11 +33,8 @@ export interface CameraStateConfig {
  * Inspection Marker structure for the GTA Vice City-style glowing surface area markers
  */
 export interface InspectionMarkerVisual {
-  artifactId: ArtifactId;
+  artifactId: MarkerId;
   group: THREE.Group;
-  outerRing: THREE.Mesh;
-  innerRing: THREE.Mesh;
-  glowDisc: THREE.Mesh;
   cylinderBeam: THREE.Mesh;
   diamond: THREE.Mesh;
   position: THREE.Vector3;
@@ -48,26 +44,7 @@ export interface InspectionMarkerVisual {
 }
 
 /**
- * Procedural radial gradient texture for the glowing green surface corona
- */
-function createMarkerGlowTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d')!;
-  const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  grad.addColorStop(0, 'rgba(74, 222, 128, 0.95)'); // Vibrant lime core
-  grad.addColorStop(0.35, 'rgba(34, 197, 94, 0.6)');  // Emerald glow
-  grad.addColorStop(0.7, 'rgba(16, 185, 129, 0.25)'); // Soft edge
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');           // Seamless transparent border
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 256, 256);
-  const tex = new THREE.CanvasTexture(canvas);
-  return tex;
-}
-
-/**
- * Procedural vertical gradient texture for the GTA Vice City-style cylindrical light corona beam
+ * Procedural vertical gradient texture for the marker column
  */
 function createMarkerBeamTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -75,10 +52,10 @@ function createMarkerBeamTexture(): THREE.CanvasTexture {
   canvas.height = 256;
   const ctx = canvas.getContext('2d')!;
   const grad = ctx.createLinearGradient(0, 256, 0, 0);
-  grad.addColorStop(0, 'rgba(74, 222, 128, 0.75)');   // Bright near surface
-  grad.addColorStop(0.25, 'rgba(34, 197, 94, 0.45)');
-  grad.addColorStop(0.65, 'rgba(16, 185, 129, 0.15)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');           // Translucent sky fade
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+  grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.55)');
+  grad.addColorStop(0.7, 'rgba(255, 255, 255, 0.2)');
+  grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 128, 256);
   const tex = new THREE.CanvasTexture(canvas);
@@ -97,9 +74,24 @@ export class ApolloThreeEngine {
 
   // Scene Components
   public models!: SceneModels;
-  private defaultModels!: SceneModels;
   private customActiveModels: Partial<Record<ReplaceableModelType, boolean>> = {};
-  private terrainMesh!: THREE.Mesh;
+  private terrainMesh!: THREE.Object3D;
+  private terrainRaycast = false;
+  private regolithMap: THREE.Texture | null = null;
+  private regolithReady: Promise<void> = Promise.resolve();
+  private readonly heightRay = new THREE.Raycaster();
+  private readonly heightRayOrigin = new THREE.Vector3();
+  private readonly heightRayDown = new THREE.Vector3(0, -1, 0);
+  private heightField: {
+    originX: number;
+    originZ: number;
+    cellX: number;
+    cellZ: number;
+    cols: number;
+    rows: number;
+    heights: Float32Array;
+  } | null = null;
+  private readonly sunDirection = new THREE.Vector3(1000, 1500, 0).normalize();
   private starsParticles!: THREE.Points;
   private warpLines!: THREE.LineSegments;
   private warpGeometry!: THREE.BufferGeometry;
@@ -112,28 +104,75 @@ export class ApolloThreeEngine {
   private laserPacketMesh!: THREE.Mesh;
   private laserSparkMesh!: THREE.Mesh;
   private laserRippleMesh!: THREE.Mesh;
-  private earthLaserPos: THREE.Vector3 = new THREE.Vector3(120, 95, -160);
-  private reflectorLaserPos: THREE.Vector3 = new THREE.Vector3(14, 0.65, -8);
+  // Centimeters at the reflector, meters at Earth, so the line stays a thread on screen.
+  private readonly laserCoreMoon = 0.018;
+  private readonly laserCoreEarth = 26;
+  private readonly laserHaloMoon = 0.04;
+  private readonly laserHaloEarth = 46;
+  private earthLaserPos: THREE.Vector3 = new THREE.Vector3(-19890.44, 2091.26, 0);
+  private reflectorLaserPos: THREE.Vector3 = new THREE.Vector3(-2.12, 0.5, 21.53);
   private sunLight!: THREE.DirectionalLight;
 
   // Rover Kinematics
   private roverVelocity: number = 0;
   private roverHeading: number = 0;
+  private roverPose: 'charging' | 'booting' | 'ready' = 'charging';
+  private roverBootStart = 0;
+  private roverBootNotified = false;
+  public onRoverBootComplete?: () => void;
+  private readonly dishAim = new THREE.Vector3();
   private roverPosition: THREE.Vector3 = new THREE.Vector3(8, 0, 7);
+  private landerX = ARTIFACTS.descent_stage.position[0];
+  private landerZ = ARTIFACTS.descent_stage.position[2];
+  /** Radius of the circle that covers half the lunar surface, centered on the lander. */
+  private roverMaxDistance = Infinity;
   private roverTargetSpeed: number = 0;
   private roverTurnInput: number = 0;
+  private roverPitch = 0;
+  private roverRoll = 0;
+  private suspensionGroup: THREE.Object3D | null = null;
+  private suspensions: {
+    wheel: THREE.Object3D;
+    restLocal: THREE.Vector3;
+    radius: number;
+    direct: boolean;
+  }[] = [];
+  private readonly suspensionDir = new THREE.Vector3();
 
   // Camera Management
   private cameraConfig: CameraStateConfig = { mode: 'title' };
+  private introActive = false;
+  private introStartedAt = 0;
+  private introHoldUntil = 0;
+  private readonly introStartCam = new THREE.Vector3(22.669, 45, 54.138);
+  private readonly introMidCam = new THREE.Vector3(-5.331, 16, 19.138);
+  private readonly introLookStart = new THREE.Vector3(-17.331, 2, -5.862);
+  private readonly introLookMid = new THREE.Vector3(-17.331, 1.5, -5.862);
+  private shadowDirty = true;
+  private shadowAnchorX = Number.NaN;
+  private shadowAnchorZ = Number.NaN;
+  private shadowAnchorHeading = Number.NaN;
+  private telemetryStamp = '';
+  private nearStamp: MarkerId | null | undefined = undefined;
+  public onIntroCameraSettled?: () => void;
   private cameraTarget: THREE.Vector3 = new THREE.Vector3(0, 1.5, 0);
+  private readonly plaqueLook = new THREE.Vector3(-17.396, 2.706, -2.227);
+  private readonly plaqueNormal = new THREE.Vector3(0, 0.409, 0.913);
+  private readonly plaqueLocalCenter = new THREE.Vector3();
+  private readonly plaqueLocalNormal = new THREE.Vector3(0, 0, 1);
+  private plaqueAimId = 0;
+  private readonly plaqueNdc = new THREE.Vector3();
+  public readonly plaqueScreenPoint = { x: 0, y: 0, visible: false };
 
   // GTA Vice City Glowing Surface Markers
-  private inspectionMarkers: Map<ArtifactId, InspectionMarkerVisual> = new Map();
+  private inspectionMarkers: Map<MarkerId, InspectionMarkerVisual> = new Map();
+  private visibleMarkerIds: MarkerId[] | null = null;
+  private visitedArtifacts: Record<ArtifactId, boolean> | null = null;
   private elapsedTime: number = 0;
 
   // Callbacks
   public onTelemetryUpdate?: (telemetry: RoverTelemetry) => void;
-  public onNearArtifact?: (artifactId: ArtifactId | null, distance: number) => void;
+  public onNearArtifact?: (artifactId: MarkerId | null, distance: number) => void;
 
   constructor(container: HTMLDivElement) {
     this.container = container;
@@ -142,14 +181,17 @@ export class ApolloThreeEngine {
     this.renderer = new THREE.WebGLRenderer({
       antialias: !isSoftwareGl,
       powerPreference: 'high-performance',
-      alpha: false
+      alpha: false,
+      logarithmicDepthBuffer: true
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
-    this.renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.shadowMap.enabled = !isSoftwareGl;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // The shadow map only changes when something in the scene moves. The flyby camera does not.
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(this.renderer.domElement);
 
@@ -162,36 +204,149 @@ export class ApolloThreeEngine {
       55,
       container.clientWidth / container.clientHeight,
       0.1,
-      1200
+      80000
     );
-    this.camera.position.set(0, 12, 28);
+    this.camera.position.set(-17.331, 12, 22.138);
 
     // 3. Studio Reflections
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
 
-    // 4. Initialize World
+    // 4. Initialize World. Blender models are loaded before the first frame,
+    // so the procedural stand-ins are never drawn.
+    this.renderer.domElement.style.visibility = 'hidden';
     this.initLights();
-    this.initTerrain();
     this.initStars();
     this.initWarpLines();
     this.initLaser();
     this.initModels();
-    this.initInspectionMarkers();
+    this.loadRegolithMap();
 
     // 5. Window Resize Handler
     window.addEventListener('resize', this.onResize);
 
-    // 6. Start Loop
+    // 6. Start Loop once the bundled models are in the scene
     this.tick = this.tick.bind(this);
-    this.tick();
+    void this.presentBundledModels();
+  }
+
+  /** The Blender tile repeats 64 times across the kilometre-wide ground. */
+  private loadRegolithMap() {
+    this.regolithReady = new Promise(resolve => {
+      new THREE.TextureLoader().load('/models/regolith_tile.png', tex => {
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(64, 64);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+        this.regolithMap = tex;
+        if (this.terrainMesh) this.dressTerrain(this.terrainMesh);
+        resolve();
+      }, undefined, () => resolve());
+    });
+  }
+
+  private dressTerrain(root: THREE.Object3D) {
+    const map = this.regolithMap;
+    if (!map) return;
+    root.traverse(child => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach(material => {
+        if (!('map' in material)) return;
+        const mat = material as THREE.MeshStandardMaterial;
+        mat.map = map;
+        mat.bumpMap = map;
+        mat.bumpScale = 0.05;
+        mat.roughness = 0.92;
+        mat.metalness = 0;
+        mat.color.set(0xffffff);
+        mat.needsUpdate = true;
+      });
+    });
+  }
+
+  /**
+   * The exported terrain is a regular grid. Copy its heights once so the rover
+   * can sample the ground without raycasting every triangle each frame.
+   */
+  private buildTerrainHeightField(root: THREE.Object3D) {
+    this.heightField = null;
+    let source: THREE.Mesh | null = null;
+    root.updateWorldMatrix(true, true);
+    root.traverse(child => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.geometry?.attributes.position) return;
+      if (!source || mesh.geometry.attributes.position.count > source.geometry.attributes.position.count) {
+        source = mesh;
+      }
+    });
+    if (!source) return;
+    const mesh: THREE.Mesh = source;
+    const pos = mesh.geometry.attributes.position;
+    const cols = Math.round(Math.sqrt(pos.count));
+    if (cols * cols !== pos.count || cols < 2) return;
+
+    const point = new THREE.Vector3();
+    const at = (index: number) => {
+      mesh.localToWorld(point.set(pos.getX(index), pos.getY(index), pos.getZ(index)));
+      return point;
+    };
+    const origin = at(0).clone();
+    const alongCol = at(1).clone().sub(origin);
+    const alongRow = at(cols).clone().sub(origin);
+    if (Math.abs(alongCol.z) > Math.abs(alongCol.x) * 0.02) return;
+    if (Math.abs(alongRow.x) > Math.abs(alongRow.z) * 0.02) return;
+    if (Math.abs(alongCol.x) < 1e-4 || Math.abs(alongRow.z) < 1e-4) return;
+
+    const heights = new Float32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) heights[i] = at(i).y;
+    this.heightField = {
+      originX: origin.x,
+      originZ: origin.z,
+      cellX: alongCol.x,
+      cellZ: alongRow.z,
+      cols,
+      rows: cols,
+      heights
+    };
   }
 
   /**
    * Computes height on lunar regolith surface
    */
   public getLunarHeight(x: number, z: number): number {
+    const field = this.heightField;
+    if (field) {
+      const col = (x - field.originX) / field.cellX;
+      const row = (z - field.originZ) / field.cellZ;
+      if (col >= 0 && row >= 0 && col <= field.cols - 1 && row <= field.rows - 1) {
+        const c0 = Math.floor(col);
+        const r0 = Math.floor(row);
+        const c1 = Math.min(c0 + 1, field.cols - 1);
+        const r1 = Math.min(r0 + 1, field.rows - 1);
+        const tx = col - c0;
+        const tz = row - r0;
+        const h = field.heights;
+        const cols = field.cols;
+        const h00 = h[r0 * cols + c0];
+        const h10 = h[r0 * cols + c1];
+        const h01 = h[r1 * cols + c0];
+        const h11 = h[r1 * cols + c1];
+        return (h00 + (h10 - h00) * tx) * (1 - tz) + (h01 + (h11 - h01) * tx) * tz;
+      }
+    }
+
+    if (this.terrainRaycast && this.terrainMesh) {
+      this.heightRayOrigin.set(x, 4000, z);
+      this.heightRay.set(this.heightRayOrigin, this.heightRayDown);
+      const hits = this.heightRay.intersectObject(this.terrainMesh, true);
+      if (hits.length > 0) return hits[0].point.y;
+      return 0;
+    }
+
     // Keep landing zone smooth around Eagle (0, 0)
     const distFromCenter = Math.hypot(x, z);
     const flatFactor = Math.min(1, Math.max(0, (distFromCenter - 6) / 12));
@@ -220,7 +375,9 @@ export class ApolloThreeEngine {
   private initLights() {
     // Direct Solar Beam (harsh vacuum sunlight)
     this.sunLight = new THREE.DirectionalLight(0xfffaed, 3.2);
-    this.sunLight.position.set(45, 55, 35);
+    this.sunLight.position.copy(this.sunDirection).multiplyScalar(80);
+    this.sunLight.target.position.set(0, 0, 0);
+    this.scene.add(this.sunLight.target);
     this.sunLight.castShadow = !isSoftwareGl;
     if (!isSoftwareGl) {
       this.sunLight.shadow.mapSize.width = 2048;
@@ -244,47 +401,6 @@ export class ApolloThreeEngine {
     // Subtle hemisphere ambient fill
     const hemiLight = new THREE.HemisphereLight(0x0f172a, 0x1e293b, 0.45);
     this.scene.add(hemiLight);
-  }
-
-  private initTerrain() {
-    const size = 180;
-    const segments = 100;
-    const geo = new THREE.PlaneGeometry(size, size, segments, segments);
-    geo.rotateX(-Math.PI / 2);
-
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      pos.setY(i, this.getLunarHeight(x, z));
-    }
-    geo.computeVertexNormals();
-
-    const regolithTex = createRegolithTexture(this.renderer);
-    const mat = new THREE.MeshStandardMaterial({
-      map: regolithTex,
-      roughness: 0.92,
-      metalness: 0.05,
-      bumpMap: regolithTex,
-      bumpScale: 0.06
-    });
-
-    this.terrainMesh = new THREE.Mesh(geo, mat);
-    this.terrainMesh.receiveShadow = true;
-    this.scene.add(this.terrainMesh);
-
-    // Contact shadow beneath Eagle descent stage
-    const contactGeo = new THREE.CircleGeometry(5.2, 32);
-    contactGeo.rotateX(-Math.PI / 2);
-    const contactMat = new THREE.MeshBasicMaterial({
-      color: 0x05070a,
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false
-    });
-    const contactMesh = new THREE.Mesh(contactGeo, contactMat);
-    contactMesh.position.set(0, 0.02, 0);
-    this.scene.add(contactMesh);
   }
 
   private initStars() {
@@ -373,63 +489,67 @@ export class ApolloThreeEngine {
       dir.clone().normalize()
     );
 
-    // 1. Intense solid neon-green core beam cylinder (replaces 1px WebGL line)
-    const coreGeo = new THREE.CylinderGeometry(0.14, 0.14, length, 16, 1, true);
+    // A 532 nm ranging pulse is a few centimeters long and does not light the vacuum,
+    // so the trace is a hairline. It widens toward Earth only enough to stay visible.
+    const coreGeo = this.laserBeamGeometry(length, this.laserCoreMoon, this.laserCoreEarth);
     const coreMat = new THREE.MeshBasicMaterial({
-      color: 0x86efac,
+      color: 0x3ddc6e,
       transparent: true,
-      opacity: 0.95,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+      opacity: 0.92,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      fog: false
     });
     this.laserCoreMesh = new THREE.Mesh(coreGeo, coreMat);
     this.laserCoreMesh.position.copy(mid);
     this.laserCoreMesh.quaternion.copy(orientation);
     this.laserPulseGroup.add(this.laserCoreMesh);
 
-    // 2. Wide outer volumetric halo bloom cylinder
-    const haloGeo = new THREE.CylinderGeometry(0.55, 0.55, length, 16, 1, true);
+    const haloGeo = this.laserBeamGeometry(length, this.laserHaloMoon, this.laserHaloEarth);
     const haloMat = new THREE.MeshBasicMaterial({
-      color: 0x22c55e,
+      color: 0x4ade80,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.28,
       side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+      depthWrite: false,
+      fog: false
     });
     this.laserHaloMesh = new THREE.Mesh(haloGeo, haloMat);
     this.laserHaloMesh.position.copy(mid);
     this.laserHaloMesh.quaternion.copy(orientation);
     this.laserPulseGroup.add(this.laserHaloMesh);
 
-    // 3. High-energy traveling photon plasma bolt packet (travels Earth -> Moon -> Earth)
-    const packetGeo = new THREE.SphereGeometry(0.85, 16, 16);
+    // Short streak standing in for the pulse. Scaled each frame so it stays a dash, not a ball.
+    const packetGeo = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true);
     const packetMat = new THREE.MeshBasicMaterial({
-      color: 0xdcfce7,
+      color: 0xd1fae5,
       transparent: true,
       opacity: 0.95,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      fog: false
     });
     this.laserPacketMesh = new THREE.Mesh(packetGeo, packetMat);
     this.laserPacketMesh.position.copy(earthPos);
+    this.laserPacketMesh.quaternion.copy(orientation);
     this.laserPulseGroup.add(this.laserPacketMesh);
 
-    // 4. Glowing impact spark burst at the Retroreflector
-    const sparkGeo = new THREE.SphereGeometry(0.6, 16, 16);
+    // Glint on the corner-cube array. The Apollo 11 panel is 46 cm across.
+    const sparkGeo = new THREE.SphereGeometry(0.16, 16, 12);
     const sparkMat = new THREE.MeshBasicMaterial({
       color: 0x4ade80,
       transparent: true,
       opacity: 0.9,
       blending: THREE.AdditiveBlending,
-      depthWrite: false
+      depthWrite: false,
+      fog: false
     });
     this.laserSparkMesh = new THREE.Mesh(sparkGeo, sparkMat);
     this.laserSparkMesh.position.copy(reflectorPos);
     this.laserPulseGroup.add(this.laserSparkMesh);
 
-    // 5. Expanding impact shockwave ripple ring on the ground
-    const rippleGeo = new THREE.RingGeometry(0.2, 0.45, 32);
+    // Small glint ring on the array, not a ground shockwave.
+    const rippleGeo = new THREE.RingGeometry(0.12, 0.22, 32);
     rippleGeo.rotateX(-Math.PI / 2);
     const rippleMat = new THREE.MeshBasicMaterial({
       color: 0x86efac,
@@ -437,7 +557,8 @@ export class ApolloThreeEngine {
       opacity: 0.8,
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
-      depthWrite: false
+      depthWrite: false,
+      fog: false
     });
     this.laserRippleMesh = new THREE.Mesh(rippleGeo, rippleMat);
     this.laserRippleMesh.position.set(reflectorPos.x, reflectorPos.y + 0.05, reflectorPos.z);
@@ -448,36 +569,38 @@ export class ApolloThreeEngine {
 
   private initModels() {
     this.models = buildApolloSceneModels(this.renderer);
-    this.defaultModels = { ...this.models };
 
-    // Add models to scene
-    this.scene.add(this.models.descentStageGroup);
-    this.scene.add(this.models.retroreflectorGroup);
+    // The rover, flag, and Voyager have no Blender file. The lander, reflector,
+    // and Earth are added only after their GLBs load.
     this.scene.add(this.models.roverGroup);
-    this.scene.add(this.models.earthMesh);
+    this.scene.add(this.models.flagGroup);
     this.scene.add(this.models.voyagerGroup);
 
-    // Position Descent Stage flush on ground
-    const stageY = this.getLunarHeight(0, 0);
-    this.models.descentStageGroup.position.set(0, stageY, 0);
+    this.models.flagGroup.position.y = this.getLunarHeight(-23.331, 2.138);
 
-    // Position Retroreflector flush on ground
-    const retroY = this.getLunarHeight(14, -8);
-    this.models.retroreflectorGroup.position.set(14, retroY, -8);
-
-    // Initial Rover Position and Heading
     this.roverPosition.set(8, this.getLunarHeight(8, 7), 7);
     this.models.roverGroup.position.copy(this.roverPosition);
     this.models.roverGroup.rotation.y = this.roverHeading - Math.PI / 2;
+  }
 
-    // Check if custom .glb files exist in /models/
-    this.checkDefaultPublicModels();
+  /** Load every bundled GLB, then reveal the canvas. */
+  private async presentBundledModels() {
+    await Promise.all([this.checkDefaultPublicModels(), this.regolithReady]);
+    if (this.isDisposed) return;
+    if (this.terrainMesh) this.dressTerrain(this.terrainMesh);
+    this.initInspectionMarkers();
+    this.reseatSurfaceObjects();
+    this.retargetLaser();
+    this.shadowDirty = true;
+    this.renderer.domElement.style.visibility = 'visible';
+    this.tick();
   }
 
   /**
    * Replace any of the game's 3D models with a custom Blender model
    */
   public replaceModel(type: ReplaceableModelType, newGroup: THREE.Group, wheels?: THREE.Mesh[]) {
+    this.shadowDirty = true;
     if (type === 'rover') {
       this.scene.remove(this.models.roverGroup);
       this.models.roverGroup = newGroup;
@@ -487,20 +610,24 @@ export class ApolloThreeEngine {
       if (wheels && wheels.length > 0) {
         this.models.roverWheels = wheels;
       }
+      this.models.roverRig = null;
+      this.suspensionGroup = null;
       this.customActiveModels.rover = true;
 
     } else if (type === 'descent_stage') {
       this.scene.remove(this.models.descentStageGroup);
       this.models.descentStageGroup = newGroup;
-      newGroup.position.set(0, this.getLunarHeight(0, 0), 0);
       this.scene.add(newGroup);
+      this.seatOnGround(newGroup, 0.22);
+      this.updateLanderAnchor();
       this.customActiveModels.descent_stage = true;
 
     } else if (type === 'retroreflector') {
       this.scene.remove(this.models.retroreflectorGroup);
       this.models.retroreflectorGroup = newGroup;
-      newGroup.position.set(14, this.getLunarHeight(14, -8), -8);
       this.scene.add(newGroup);
+      this.seatOnGround(newGroup);
+      this.syncReflectorLaserPos();
       this.customActiveModels.retroreflector = true;
 
     } else if (type === 'voyager') {
@@ -509,67 +636,202 @@ export class ApolloThreeEngine {
       newGroup.position.set(0, -500, 0);
       this.scene.add(newGroup);
       this.customActiveModels.voyager = true;
+
+    } else if (type === 'terrain') {
+      if (this.terrainMesh) this.scene.remove(this.terrainMesh);
+      this.setShadowFlags(newGroup, false, true);
+      this.terrainMesh = newGroup;
+      this.scene.add(newGroup);
+      this.terrainRaycast = true;
+      this.dressTerrain(newGroup);
+      this.buildTerrainHeightField(newGroup);
+      this.updateRoverRange(newGroup);
+      this.customActiveModels.terrain = true;
+      this.reseatSurfaceObjects();
+      if (this.customActiveModels.descent_stage) {
+        this.seatOnGround(this.models.descentStageGroup, 0.22);
+        this.updateLanderAnchor();
+      }
+      if (this.customActiveModels.retroreflector) {
+        this.seatOnGround(this.models.retroreflectorGroup);
+        this.syncReflectorLaserPos();
+      }
+
+    } else if (type === 'earth') {
+      this.scene.remove(this.models.earthMesh);
+      this.setShadowFlags(newGroup, false, false);
+      this.setFogEnabled(newGroup, false);
+      this.tuneEarth(newGroup);
+      this.models.earthMesh = newGroup;
+      this.scene.add(newGroup);
+      new THREE.Box3().setFromObject(newGroup).getCenter(this.earthLaserPos);
+      this.retargetLaser();
+      this.customActiveModels.earth = true;
+
+    } else if (type === 'sun') {
+      this.setShadowFlags(newGroup, false, false);
+      this.setFogEnabled(newGroup, false);
+      this.scene.add(newGroup);
+      this.customActiveModels.sun = true;
+
+    } else if (type === 'footprints') {
+      newGroup.visible = false;
+      this.scene.add(newGroup);
+      this.customActiveModels.footprints = true;
     }
-  }
-
-  /**
-   * Reset model back to procedural high-fidelity default
-   */
-  public resetModel(type: ReplaceableModelType) {
-    if (type === 'rover') {
-      this.scene.remove(this.models.roverGroup);
-      this.models.roverGroup = this.defaultModels.roverGroup;
-      this.models.roverWheels = this.defaultModels.roverWheels;
-      this.models.roverGroup.position.copy(this.roverPosition);
-      this.models.roverGroup.rotation.y = this.roverHeading - Math.PI / 2;
-      this.scene.add(this.models.roverGroup);
-      this.customActiveModels.rover = false;
-
-    } else if (type === 'descent_stage') {
-      this.scene.remove(this.models.descentStageGroup);
-      this.models.descentStageGroup = this.defaultModels.descentStageGroup;
-      this.models.descentStageGroup.position.set(0, this.getLunarHeight(0, 0), 0);
-      this.scene.add(this.models.descentStageGroup);
-      this.customActiveModels.descent_stage = false;
-
-    } else if (type === 'retroreflector') {
-      this.scene.remove(this.models.retroreflectorGroup);
-      this.models.retroreflectorGroup = this.defaultModels.retroreflectorGroup;
-      this.models.retroreflectorGroup.position.set(14, this.getLunarHeight(14, -8), -8);
-      this.scene.add(this.models.retroreflectorGroup);
-      this.customActiveModels.retroreflector = false;
-
-    } else if (type === 'voyager') {
-      this.scene.remove(this.models.voyagerGroup);
-      this.models.voyagerGroup = this.defaultModels.voyagerGroup;
-      this.scene.add(this.models.voyagerGroup);
-      this.customActiveModels.voyager = false;
-    }
-  }
-
-  public getCustomActiveModels(): Partial<Record<ReplaceableModelType, boolean>> {
-    return { ...this.customActiveModels };
   }
 
   private async checkDefaultPublicModels() {
     const defaultPaths: { type: ReplaceableModelType; url: string }[] = [
-      { type: 'rover', url: '/models/rover.glb' },
+      { type: 'terrain', url: '/models/terrain.glb' },
       { type: 'descent_stage', url: '/models/descent_stage.glb' },
       { type: 'retroreflector', url: '/models/retroreflector.glb' },
+      { type: 'earth', url: '/models/earth.glb' },
+      { type: 'sun', url: '/models/sun.glb' },
+      { type: 'rover', url: '/models/rover.glb' },
       { type: 'voyager', url: '/models/voyager.glb' },
     ];
 
-    for (const item of defaultPaths) {
+    await Promise.all(defaultPaths.map(async (item) => {
       try {
         const res = await fetch(item.url, { method: 'HEAD' });
-        if (res.ok) {
-          const loaded = await customModelManager.loadFromUrl(item.url, item.type);
-          this.replaceModel(item.type, loaded.scene, loaded.wheels);
-        }
+        if (!res.ok || this.isDisposed) return;
+        const loaded = await customModelManager.loadFromUrl(item.url, item.type);
+        if (this.isDisposed) return;
+        this.replaceModel(item.type, loaded.scene, loaded.wheels);
       } catch {
-        // Fallback remains active seamlessly
+        // A missing optional file, such as the rover, keeps its built model.
       }
+    }));
+  }
+
+  /** Drop a model so its lowest point rests on the lunar surface without moving it sideways. */
+  private seatOnGround(group: THREE.Object3D, extraDrop = 0) {
+    group.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(group);
+    if (box.isEmpty()) return;
+    const center = box.getCenter(new THREE.Vector3());
+    const groundY = this.getLunarHeight(center.x, center.z);
+    // The slope under Eagle leaves the +X foot about 22cm in the air when the body sits on the center.
+    group.position.y += groundY - box.min.y - extraDrop;
+  }
+
+  private reseatSurfaceObjects() {
+    this.roverPosition.y = this.getLunarHeight(this.roverPosition.x, this.roverPosition.z);
+    this.models.roverGroup.position.y = this.roverPosition.y;
+    this.models.flagGroup.position.y = this.getLunarHeight(-23.331, 2.138);
+    for (const marker of this.inspectionMarkers.values()) {
+      const y = this.getLunarHeight(marker.position.x, marker.position.z);
+      marker.position.y = y;
+      marker.group.position.y = y;
     }
+  }
+
+  /** +Y of the cylinder points at the Moon, so the top radius is the lunar end. */
+  private laserBeamGeometry(length: number, moonRadius: number, earthRadius: number) {
+    return new THREE.CylinderGeometry(moonRadius, earthRadius, length, 8, 1, true);
+  }
+
+  private placeLaserPacket(position: THREE.Vector3) {
+    this.laserPacketMesh.position.copy(position);
+    this.laserPacketMesh.quaternion.copy(this.laserCoreMesh.quaternion);
+    const dist = Math.max(6, this.camera.position.distanceTo(position));
+    const viewHeight = this.renderer.domElement.clientHeight || 800;
+    const fov = (this.camera.fov * Math.PI) / 180;
+    const metersPerPixel = (2 * Math.tan(fov / 2) * dist) / viewHeight;
+    const length = Math.max(0.35, metersPerPixel * 8);
+    const radius = Math.max(0.01, Math.min(length * 0.08, metersPerPixel * 1.2));
+    this.laserPacketMesh.scale.set(radius, length, radius);
+  }
+
+  private syncReflectorLaserPos() {
+    const box = new THREE.Box3().setFromObject(this.models.retroreflectorGroup);
+    if (!box.isEmpty()) box.getCenter(this.reflectorLaserPos);
+  }
+
+  private retargetLaser() {
+    const dir = new THREE.Vector3().subVectors(this.reflectorLaserPos, this.earthLaserPos);
+    const length = Math.max(dir.length(), 0.001);
+    const mid = new THREE.Vector3().addVectors(this.earthLaserPos, this.reflectorLaserPos).multiplyScalar(0.5);
+    const orientation = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      dir.normalize()
+    );
+    const beams: { mesh: THREE.Mesh; moon: number; earth: number }[] = [
+      { mesh: this.laserCoreMesh, moon: this.laserCoreMoon, earth: this.laserCoreEarth },
+      { mesh: this.laserHaloMesh, moon: this.laserHaloMoon, earth: this.laserHaloEarth },
+    ];
+    for (const beam of beams) {
+      beam.mesh.geometry.dispose();
+      beam.mesh.geometry = this.laserBeamGeometry(length, beam.moon, beam.earth);
+      beam.mesh.position.copy(mid);
+      beam.mesh.quaternion.copy(orientation);
+    }
+    this.laserPacketMesh.quaternion.copy(orientation);
+    this.laserSparkMesh.position.copy(this.reflectorLaserPos);
+    this.laserRippleMesh.position.set(
+      this.reflectorLaserPos.x,
+      this.reflectorLaserPos.y + 0.05,
+      this.reflectorLaserPos.z
+    );
+  }
+
+  private setShadowFlags(root: THREE.Object3D, cast: boolean, receive: boolean) {
+    root.traverse(child => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.castShadow = cast;
+        mesh.receiveShadow = receive;
+      }
+    });
+  }
+
+  /** Keep the Blue Marble readable and wrap it in a soft spherical atmosphere. */
+  private tuneEarth(root: THREE.Object3D) {
+    root.traverse(child => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach(material => {
+        if (!('name' in material)) return;
+        const named = material as THREE.Material;
+        if (named.name === 'EarthAtmosphere') {
+          mesh.material = this.createEarthGlowMaterial();
+          mesh.scale.setScalar(1.2);
+          mesh.visible = true;
+          mesh.renderOrder = 1;
+        } else if (named.name === 'EarthSurface' && 'emissive' in named) {
+          const surface = named as THREE.MeshStandardMaterial;
+          surface.emissive.setRGB(0, 0, 0);
+          surface.emissiveIntensity = 0;
+          surface.color.setScalar(1);
+          surface.roughness = 0.55;
+        }
+      });
+    });
+  }
+
+  /** Even blue shell so the atmosphere reads as a sphere wrapped around Earth. */
+  private createEarthGlowMaterial() {
+    return new THREE.MeshBasicMaterial({
+      name: 'EarthAtmosphere',
+      color: 0x7eb6ff,
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false,
+      side: THREE.FrontSide
+    });
+  }
+
+  private setFogEnabled(root: THREE.Object3D, enabled: boolean) {
+    root.traverse(child => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach(material => {
+        if ('fog' in material) material.fog = enabled;
+      });
+    });
   }
 
   /**
@@ -577,82 +839,38 @@ export class ApolloThreeEngine {
    * at each artifact inspection zone on the lunar regolith.
    */
   private initInspectionMarkers() {
-    const glowTex = createMarkerGlowTexture();
     const beamTex = createMarkerBeamTexture();
 
-    const artifactList: ArtifactId[] = ['descent_stage', 'retroreflector', 'plaque'];
+    const markerSpecs: { id: MarkerId; position: [number, number, number]; radius: number }[] = [
+      { id: 'descent_stage', position: ARTIFACTS.descent_stage.markerPosition, radius: ARTIFACTS.descent_stage.markerRadius },
+      { id: 'retroreflector', position: ARTIFACTS.retroreflector.markerPosition, radius: ARTIFACTS.retroreflector.markerRadius },
+      { id: 'plaque', position: ARTIFACTS.plaque.markerPosition, radius: ARTIFACTS.plaque.markerRadius },
+      { id: 'laser_station', position: LASER_STATION.position, radius: LASER_STATION.radius }
+    ];
 
-    artifactList.forEach(id => {
-      const art = ARTIFACTS[id];
-      if (!art || !art.markerPosition) return;
-
-      const [mx, , mz] = art.markerPosition;
+    markerSpecs.forEach(spec => {
+      const id = spec.id;
+      const [mx, , mz] = spec.position;
       const my = this.getLunarHeight(mx, mz);
-      const radius = art.markerRadius || 1.6;
+      const radius = spec.radius || 1.6;
 
       const group = new THREE.Group();
       group.position.set(mx, my, mz);
 
-      // 1. Soft radial ground glow disc
-      const discGeo = new THREE.CircleGeometry(radius, 48);
-      discGeo.rotateX(-Math.PI / 2);
-      const discMat = new THREE.MeshBasicMaterial({
-        map: glowTex,
-        transparent: true,
-        opacity: 0.75,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const glowDisc = new THREE.Mesh(discGeo, discMat);
-      glowDisc.position.y = 0.03;
-      group.add(glowDisc);
-
-      // 2. Outer pulsing neon green ground ring
-      const ringGeo = new THREE.RingGeometry(radius * 0.9, radius, 48);
-      ringGeo.rotateX(-Math.PI / 2);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: 0x4ade80,
-        transparent: true,
-        opacity: 0.85,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const outerRing = new THREE.Mesh(ringGeo, ringMat);
-      outerRing.position.y = 0.04;
-      group.add(outerRing);
-
-      // 3. Inner rotating concentric ring
-      const innerGeo = new THREE.RingGeometry(radius * 0.42, radius * 0.48, 32);
-      innerGeo.rotateX(-Math.PI / 2);
-      const innerMat = new THREE.MeshBasicMaterial({
-        color: 0x86efac,
-        transparent: true,
-        opacity: 0.75,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const innerRing = new THREE.Mesh(innerGeo, innerMat);
-      innerRing.position.y = 0.05;
-      group.add(innerRing);
-
-      // 4. Vertical translucent cylinder corona beam (iconic GTA Vice City cylindrical column)
       const beamGeo = new THREE.CylinderGeometry(radius * 0.95, radius * 0.95, 1.8, 32, 1, true);
-      beamGeo.translate(0, 0.9, 0); // Ground up to 1.8m
+      beamGeo.translate(0, 0.9, 0);
       const beamMat = new THREE.MeshBasicMaterial({
         map: beamTex,
+        color: 0x00a844,
         transparent: true,
-        opacity: 0.4,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
+        opacity: 0.5,
+        side: THREE.FrontSide,
         depthWrite: false
       });
       const cylinderBeam = new THREE.Mesh(beamGeo, beamMat);
       group.add(cylinderBeam);
 
-      // 5. Floating rotating diamond beacon
+      // Floating diamond beacon
       const diamondGeo = new THREE.OctahedronGeometry(0.24, 0);
       const diamondMat = new THREE.MeshStandardMaterial({
         color: 0x22c55e,
@@ -665,14 +883,12 @@ export class ApolloThreeEngine {
       diamond.position.y = 2.2;
       group.add(diamond);
 
+      group.visible = id === 'descent_stage';
       this.scene.add(group);
 
       this.inspectionMarkers.set(id, {
         artifactId: id,
         group,
-        outerRing,
-        innerRing,
-        glowDisc,
         cylinderBeam,
         diamond,
         position: new THREE.Vector3(mx, my, mz),
@@ -681,13 +897,26 @@ export class ApolloThreeEngine {
         inside: false
       });
     });
+
+    if (this.visibleMarkerIds) this.setVisibleMarkers(this.visibleMarkerIds);
+    if (this.visitedArtifacts) this.setArtifactsVisited(this.visitedArtifacts);
   }
 
   /**
    * Updates visited status on all inspection markers
    */
-  public setArtifactsVisited(visited: Record<ArtifactId, boolean>) {
+  public setVisibleMarkers(ids: MarkerId[]) {
+    this.visibleMarkerIds = ids;
+    const allow = new Set(ids);
     for (const [id, marker] of this.inspectionMarkers.entries()) {
+      marker.group.visible = allow.has(id);
+    }
+  }
+
+  public setArtifactsVisited(visited: Record<ArtifactId, boolean>) {
+    this.visitedArtifacts = visited;
+    for (const [id, marker] of this.inspectionMarkers.entries()) {
+      if (id === 'laser_station') continue;
       marker.visited = Boolean(visited[id]);
       if (marker.visited) {
         (marker.diamond.material as THREE.MeshStandardMaterial).color.setHex(0x10b981);
@@ -700,7 +929,7 @@ export class ApolloThreeEngine {
    * Set inputs from keyboard or touch joystick
    */
   public setRoverInputs(forwardInput: number, turnInput: number) {
-    this.roverTargetSpeed = forwardInput * 5.2; // max speed 5.2 m/s
+    this.roverTargetSpeed = forwardInput * 10.4; // max speed 10.4 m/s
     this.roverTurnInput = turnInput;
   }
 
@@ -708,7 +937,27 @@ export class ApolloThreeEngine {
    * Switch active camera choreography mode
    */
   public setCameraMode(config: CameraStateConfig) {
+    if (config.mode !== 'intro' && this.introActive) this.cancelIntroFlyby();
     this.cameraConfig = config;
+  }
+
+  /** The opening move runs on the render clock and eases to a stop before the boot. */
+  public beginIntroFlyby() {
+    if (this.introActive) return;
+    this.introActive = true;
+    this.introStartedAt = performance.now();
+    this.introHoldUntil = 0;
+    this.cameraConfig = { mode: 'intro', introProgress: 0 };
+  }
+
+  public cancelIntroFlyby() {
+    this.introActive = false;
+    this.introHoldUntil = 0;
+  }
+
+  public snapExploreCamera() {
+    this.chaseCameraPose(this.camera.position, this.cameraTarget);
+    this.camera.lookAt(this.cameraTarget);
   }
 
   /**
@@ -742,10 +991,9 @@ export class ApolloThreeEngine {
     // 4. Update Camera Choreography
     this.updateCamera(dt);
 
-    // 5. Slowly rotate Earth
-    if (this.models.earthMesh) {
-      this.models.earthMesh.rotation.y += 0.0003;
-    }
+    // 5. Slowly rotate the distant Earth in place
+    const earthNode = this.models.earthMesh.getObjectByName('Earth') ?? this.models.earthMesh;
+    earthNode.rotation.y += 0.0003;
 
     // 6. Render Scene
     this.renderer.render(this.scene, this.camera);
@@ -753,9 +1001,193 @@ export class ApolloThreeEngine {
     this.frameId = requestAnimationFrame(this.tick);
   }
 
+  /** Remember each wheel's unloaded pose. Rebuilt when the rover mesh is swapped. */
+  private bindSuspensions() {
+    const group = this.models.roverGroup;
+    group.rotation.order = 'YXZ';
+    group.rotation.x = 0;
+    group.rotation.z = 0;
+    group.updateWorldMatrix(true, true);
+
+    const wheels = (this.models.roverWheels ?? []).filter(wheel => group.getObjectById(wheel.id));
+    this.suspensions = wheels.map(wheel => {
+      const storedRest = wheel.userData.suspensionRest as THREE.Vector3 | undefined;
+      if (storedRest) wheel.position.copy(storedRest);
+      const restLocal = group.worldToLocal(wheel.getWorldPosition(new THREE.Vector3()));
+      let radius = wheel.userData.suspensionRadius as number | undefined;
+      if (!radius && wheel.geometry) {
+        if (!wheel.geometry.boundingSphere) wheel.geometry.computeBoundingSphere();
+        radius = wheel.geometry.boundingSphere?.radius;
+      }
+      return {
+        wheel,
+        restLocal,
+        radius: radius && radius > 0 ? radius : 0.24,
+        direct: wheel.parent === group
+      };
+    });
+    this.suspensionGroup = group;
+  }
+
+  /**
+   * Tilt the chassis to the ground under the wheels, then let each wheel
+   * travel vertically so its bottom stays on its own patch of regolith.
+   */
+  private poseRoverOnTerrain(dt: number) {
+    if (this.suspensionGroup !== this.models.roverGroup) this.bindSuspensions();
+
+    const group = this.models.roverGroup;
+    const yaw = this.roverHeading - Math.PI / 2;
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+
+    if (this.suspensions.length === 0) {
+      this.roverPosition.y = this.getLunarHeight(this.roverPosition.x, this.roverPosition.z);
+      group.position.copy(this.roverPosition);
+      group.rotation.set(0, yaw, 0);
+      return;
+    }
+
+    const samples = this.suspensions.map(link => {
+      const lx = link.restLocal.x;
+      const lz = link.restLocal.z;
+      const x = this.roverPosition.x + cos * lx + sin * lz;
+      const z = this.roverPosition.z - sin * lx + cos * lz;
+      return { link, lx, lz, ground: this.getLunarHeight(x, z) };
+    });
+
+    let groundSum = 0;
+    let contactSum = 0;
+    for (const sample of samples) {
+      groundSum += sample.ground;
+      contactSum += sample.link.restLocal.y - sample.link.radius;
+    }
+    const avgGround = groundSum / samples.length;
+    this.roverPosition.y = avgGround - contactSum / samples.length;
+
+    let sxx = 0, szz = 0, sxz = 0, sxh = 0, szh = 0;
+    for (const sample of samples) {
+      const dh = sample.ground - avgGround;
+      sxx += sample.lx * sample.lx;
+      szz += sample.lz * sample.lz;
+      sxz += sample.lx * sample.lz;
+      sxh += sample.lx * dh;
+      szh += sample.lz * dh;
+    }
+    const det = sxx * szz - sxz * sxz;
+    let targetPitch = 0;
+    let targetRoll = 0;
+    if (Math.abs(det) > 1e-4) {
+      targetPitch = (sxh * szz - szh * sxz) / det;
+      targetRoll = -((sxx * szh - sxz * sxh) / det);
+      const limit = 0.4;
+      targetPitch = THREE.MathUtils.clamp(targetPitch, -limit, limit);
+      targetRoll = THREE.MathUtils.clamp(targetRoll, -limit, limit);
+    }
+    this.roverPitch = THREE.MathUtils.damp(this.roverPitch, targetPitch, 6, dt);
+    this.roverRoll = THREE.MathUtils.damp(this.roverRoll, targetRoll, 6, dt);
+
+    group.position.copy(this.roverPosition);
+    group.rotation.set(this.roverRoll, yaw, this.roverPitch);
+    group.updateMatrix();
+    const e = group.matrix.elements;
+
+    const travel = 0.18;
+    for (const sample of samples) {
+      const { link, lx, lz, ground } = sample;
+      const targetWheelY = ground + link.radius;
+      let idealY = link.restLocal.y;
+      if (link.direct && Math.abs(e[5]) > 0.2) {
+        idealY = (targetWheelY - e[1] * lx - e[9] * lz - e[13]) / e[5];
+      } else {
+        link.wheel.updateWorldMatrix(true, false);
+        const worldY = link.wheel.getWorldPosition(this.suspensionDir).y;
+        idealY = link.wheel.position.y + (targetWheelY - worldY);
+      }
+      const clamped = THREE.MathUtils.clamp(idealY, link.restLocal.y - travel, link.restLocal.y + travel);
+      link.wheel.position.y = THREE.MathUtils.damp(link.wheel.position.y, clamped, 10, dt);
+      if (link.direct) {
+        link.wheel.position.x = link.restLocal.x;
+        link.wheel.position.z = link.restLocal.z;
+      }
+    }
+  }
+
+  /**
+   * Half the terrain's ground area, as a circle around the lander.
+   * On the 1 km square that radius is about 399 m, and it stays on the mesh.
+   */
+  private updateRoverRange(root: THREE.Object3D) {
+    let area = 0;
+    const field = this.heightField;
+    if (field) {
+      area = Math.abs(field.cellX) * (field.cols - 1) * Math.abs(field.cellZ) * (field.rows - 1);
+    }
+    if (area < 1) {
+      root.updateWorldMatrix(true, true);
+      const box = new THREE.Box3().setFromObject(root);
+      if (!box.isEmpty()) {
+        const size = box.getSize(new THREE.Vector3());
+        area = size.x * size.z;
+      }
+    }
+    if (area < 1) return;
+    this.roverMaxDistance = Math.sqrt(area / (2 * Math.PI));
+  }
+
+  private updateLanderAnchor() {
+    const group = this.models?.descentStageGroup;
+    if (!group) return;
+    group.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(group);
+    if (box.isEmpty()) return;
+    const center = box.getCenter(new THREE.Vector3());
+    this.landerX = center.x;
+    this.landerZ = center.z;
+  }
+
+  /** True when throttle would carry the rover past the circle this frame. */
+  private roverHeldAtRange(): boolean {
+    const limit = this.roverMaxDistance;
+    if (!Number.isFinite(limit)) return false;
+    const dx = this.roverPosition.x - this.landerX;
+    const dz = this.roverPosition.z - this.landerZ;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 1e-4) return false;
+    const headingX = Math.sin(this.roverHeading);
+    const headingZ = Math.cos(this.roverHeading);
+    const outward = (headingX * dx + headingZ * dz) / dist;
+    if (this.roverTargetSpeed * outward <= 0.2) return false;
+    const step = Math.max(this.roverVelocity, this.roverTargetSpeed) * 0.02;
+    return dist + step >= limit;
+  }
+
+  /** Keep the rover on or inside the circle around the lander. */
+  private holdRoverNearLander(forwardX: number, forwardZ: number) {
+    const limit = this.roverMaxDistance;
+    if (!Number.isFinite(limit)) return;
+    const dx = this.roverPosition.x - this.landerX;
+    const dz = this.roverPosition.z - this.landerZ;
+    const dist = Math.hypot(dx, dz);
+    if (dist <= limit || dist < 1e-4) return;
+    const nx = dx / dist;
+    const nz = dz / dist;
+    this.roverPosition.x = this.landerX + nx * limit;
+    this.roverPosition.z = this.landerZ + nz * limit;
+    if ((forwardX * nx + forwardZ * nz) * this.roverVelocity > 0) {
+      this.roverVelocity = 0;
+    }
+  }
+
   private updateRover(dt: number) {
-    // Smooth acceleration & deceleration
-    this.roverVelocity = THREE.MathUtils.damp(this.roverVelocity, this.roverTargetSpeed, 4.0, dt);
+    // Smooth acceleration & deceleration. At the range edge, ignore throttle that points farther out.
+    const heldAtRange = this.roverHeldAtRange();
+    this.roverVelocity = THREE.MathUtils.damp(
+      this.roverVelocity,
+      heldAtRange ? 0 : this.roverTargetSpeed,
+      4.0,
+      dt
+    );
 
     // Turn rate scales with speed & reverse steering
     if (Math.abs(this.roverTurnInput) > 0.05) {
@@ -769,13 +1201,11 @@ export class ApolloThreeEngine {
 
     this.roverPosition.x += forwardX * this.roverVelocity * dt;
     this.roverPosition.z += forwardZ * this.roverVelocity * dt;
+    this.holdRoverNearLander(forwardX, forwardZ);
 
-    // Ground clamp & surface normal tilt
-    const groundY = this.getLunarHeight(this.roverPosition.x, this.roverPosition.z);
-    this.roverPosition.y = groundY;
+    this.poseRoverOnTerrain(dt);
 
-    this.models.roverGroup.position.copy(this.roverPosition);
-    this.models.roverGroup.rotation.y = this.roverHeading - Math.PI / 2;
+    this.refreshShadows();
 
     // Rotate wheels smoothly around their Z-axis axle (zero Y-axis spin)
     if (this.models.roverWheels) {
@@ -787,12 +1217,112 @@ export class ApolloThreeEngine {
 
     // Check proximity to glowing green surface area markers
     this.checkArtifactProximity();
+    this.applyRoverPose();
+  }
+
+  public beginRoverBoot() {
+    if (!this.models?.roverRig) {
+      this.roverPose = 'ready';
+      this.roverBootNotified = true;
+      this.onRoverBootComplete?.();
+      return;
+    }
+    if (this.roverPose !== 'charging') return;
+    this.roverPose = 'booting';
+    this.roverBootStart = performance.now();
+    this.roverBootNotified = false;
+  }
+
+  public isRoverBooting() {
+    return this.roverPose === 'booting';
+  }
+
+  public snapRoverReady() {
+    this.roverPose = 'ready';
+    this.roverBootNotified = true;
+    this.applyRoverPose();
+  }
+
+  private applyRoverPose() {
+    const rig = this.models?.roverRig;
+    if (!rig) return;
+
+    const now = performance.now();
+    const elapsed = now - this.roverBootStart;
+    // Cue finishes, then the wings, then the mast, then the dish. Each waits for the one before it.
+    const cueMs = 1200;
+    const stepMs = 1400;
+    const gapMs = 250;
+    const wingAt = cueMs + gapMs;
+    const mastAt = wingAt + stepMs + gapMs;
+    const dishAt = mastAt + stepMs + gapMs;
+    const bootMs = dishAt + stepMs;
+    if (this.roverPose === 'booting' && elapsed >= bootMs) {
+      this.roverPose = 'ready';
+      this.shadowDirty = true;
+      if (!this.roverBootNotified) {
+        this.roverBootNotified = true;
+        this.onRoverBootComplete?.();
+      }
+    }
+    const bootT = this.roverPose === 'booting' ? elapsed : this.roverPose === 'ready' ? bootMs : 0;
+    const wing = this.roverPose === 'charging' ? 0 : this.smoothStep((bootT - wingAt) / stepMs);
+    const mast = this.roverPose === 'charging' ? 0 : this.smoothStep((bootT - mastAt) / stepMs);
+    const dish = this.roverPose === 'charging' ? 0 : this.smoothStep((bootT - dishAt) / stepMs);
+
+    rig.solarHinges.forEach((hinge, index) => {
+      hinge.rotation.x = rig.solarDeployed[index] + (rig.solarStowed[index] - rig.solarDeployed[index]) * wing;
+    });
+    const mastY = rig.mastRetracted + (rig.mastRaised - rig.mastRetracted) * mast;
+    rig.mastStage.position.y = mastY;
+    rig.mastSlide.position.y = mastY;
+
+    const aim = this.dishTargetAngles(rig);
+    const yawDelta = Math.atan2(Math.sin(aim.yaw - rig.antennaParkYaw), Math.cos(aim.yaw - rig.antennaParkYaw));
+    const pitchDelta = Math.atan2(Math.sin(aim.pitch - rig.antennaParkPitch), Math.cos(aim.pitch - rig.antennaParkPitch));
+    rig.antennaYaw.rotation.y = rig.antennaParkYaw + yawDelta * dish;
+    rig.antennaTilt.rotation.x = rig.antennaParkPitch + pitchDelta * dish;
+
+    if (this.roverPose === 'charging') {
+      const pulse = 1.7 + 0.5 * Math.sin(now * 0.004);
+      this.setCue(rig, 0xff2a2a, pulse);
+    } else if (this.roverPose === 'booting' && elapsed < cueMs) {
+      const on = ((elapsed / cueMs) * 3) % 1 < 0.5;
+      this.setCue(rig, 0xf5c542, on ? 2.4 : 0.05);
+    } else {
+      this.setCue(rig, 0x22c55e, 2.0);
+    }
+  }
+
+  private dishTargetAngles(rig: RoverRig) {
+    const mount = rig.antennaYaw.parent;
+    if (!mount) return { yaw: rig.antennaParkYaw, pitch: rig.antennaParkPitch };
+    mount.updateWorldMatrix(true, false);
+    this.dishAim.copy(this.earthLaserPos);
+    mount.worldToLocal(this.dishAim);
+    this.dishAim.sub(rig.antennaYaw.position);
+    const dx = this.dishAim.x;
+    const dy = this.dishAim.y;
+    const dz = this.dishAim.z;
+    return {
+      yaw: Math.atan2(dx, dz),
+      pitch: Math.atan2(-dy, Math.hypot(dx, dz) || 0.001)
+    };
+  }
+
+  private setCue(rig: RoverRig, hex: number, intensity: number) {
+    rig.cueMaterial.color.setHex(hex);
+    rig.cueMaterial.emissive.setHex(hex);
+    rig.cueMaterial.emissiveIntensity = intensity;
+  }
+
+  private smoothStep(t: number) {
+    const c = Math.min(1, Math.max(0, t));
+    return c * c * (3 - 2 * c);
   }
 
   /**
-   * Animates the GTA Vice City glowing green surface area markers:
-   * outer ring scaling/pulsing, inner concentric ring spinning,
-   * cylindrical corona beam glowing, and floating diamond beacon bobbing.
+   * Bobs the beacon and keeps the column at a low glow, a little brighter when the rover is inside.
    */
   private updateInspectionMarkers(dt: number) {
     this.elapsedTime += dt;
@@ -800,34 +1330,18 @@ export class ApolloThreeEngine {
     const fastPulse = Math.sin(this.elapsedTime * 7.5);
 
     for (const marker of this.inspectionMarkers.values()) {
-      // 1. Rotate inner concentric ring
-      marker.innerRing.rotation.z += dt * 1.6;
-
-      // 2. Bob and spin floating diamond beacon
       marker.diamond.position.y = 2.2 + Math.sin(this.elapsedTime * 2.8 + marker.position.x * 0.5) * 0.15;
       marker.diamond.rotation.y += dt * 2.2;
       marker.diamond.rotation.x += dt * 0.9;
 
       const beamMat = marker.cylinderBeam.material as THREE.MeshBasicMaterial;
-      const ringMat = marker.outerRing.material as THREE.MeshBasicMaterial;
-      const discMat = marker.glowDisc.material as THREE.MeshBasicMaterial;
       const diamondMat = marker.diamond.material as THREE.MeshStandardMaterial;
 
       if (marker.inside) {
-        // Player rover is inside the marker! Energized GTA Vice City active state
-        marker.outerRing.scale.setScalar(1.0 + 0.08 * fastPulse);
-        ringMat.color.setHex(0x86efac);
-        ringMat.opacity = 0.95;
-        beamMat.opacity = 0.65 + 0.25 * fastPulse;
-        discMat.opacity = 0.9;
+        beamMat.opacity = 0.62 + 0.06 * fastPulse;
         diamondMat.emissiveIntensity = 1.4 + 0.5 * fastPulse;
       } else {
-        // Idling allure pulse
-        marker.outerRing.scale.setScalar(1.0 + 0.04 * pulse);
-        ringMat.color.setHex(marker.visited ? 0x10b981 : 0x4ade80);
-        ringMat.opacity = 0.75 + 0.15 * pulse;
-        beamMat.opacity = 0.35 + 0.12 * pulse;
-        discMat.opacity = 0.6 + 0.15 * pulse;
+        beamMat.opacity = 0.48 + 0.05 * pulse;
         diamondMat.emissiveIntensity = marker.visited ? 0.6 : 0.85;
       }
     }
@@ -841,11 +1355,15 @@ export class ApolloThreeEngine {
     const rx = this.roverPosition.x;
     const rz = this.roverPosition.z;
 
-    let nearestInside: ArtifactId | null = null;
+    let nearestInside: MarkerId | null = null;
     let minMarkerDist = 999;
-    let nearestArtifactId: ArtifactId = 'descent_stage';
+    let nearestArtifactId: MarkerId | null = null;
 
     for (const [id, marker] of this.inspectionMarkers.entries()) {
+      if (!marker.group.visible) {
+        marker.inside = false;
+        continue;
+      }
       const dist = Math.hypot(rx - marker.position.x, rz - marker.position.z);
       if (dist < minMarkerDist) {
         minMarkerDist = dist;
@@ -861,18 +1379,25 @@ export class ApolloThreeEngine {
       }
     }
 
-    if (this.onNearArtifact) {
-      this.onNearArtifact(nearestInside, minMarkerDist);
-    }
-
-    if (this.onTelemetryUpdate) {
-      this.onTelemetryUpdate({
-        speed: Math.abs(this.roverVelocity),
-        heading: (this.roverHeading * (180 / Math.PI)) % 360,
+    const speed = Math.abs(this.roverVelocity);
+    const heading = (this.roverHeading * (180 / Math.PI)) % 360;
+    const rangeRadius = Number.isFinite(this.roverMaxDistance) ? this.roverMaxDistance : 0;
+    const stamp = `${speed.toFixed(1)}|${heading.toFixed(0)}|${rx.toFixed(1)}|${rz.toFixed(1)}|${minMarkerDist.toFixed(0)}|${nearestInside ?? ''}|${this.landerX.toFixed(1)}|${this.landerZ.toFixed(1)}|${rangeRadius.toFixed(0)}`;
+    if (stamp !== this.telemetryStamp) {
+      this.telemetryStamp = stamp;
+      this.onTelemetryUpdate?.({
+        speed,
+        heading,
         distanceToTarget: minMarkerDist,
         nearestArtifact: nearestInside || nearestArtifactId,
-        position: { x: rx, y: this.roverPosition.y, z: rz }
+        position: { x: rx, y: this.roverPosition.y, z: rz },
+        lander: { x: this.landerX, z: this.landerZ },
+        rangeRadius
       });
+    }
+    if (nearestInside !== this.nearStamp) {
+      this.nearStamp = nearestInside;
+      this.onNearArtifact?.(nearestInside, minMarkerDist);
     }
   }
 
@@ -890,38 +1415,33 @@ export class ApolloThreeEngine {
 
     // Pulse core and halo intensity
     const beamPulse = Math.sin(this.laserProgress * 22);
-    coreMat.opacity = 0.85 + 0.15 * beamPulse;
-    haloMat.opacity = 0.45 + 0.25 * beamPulse;
+    coreMat.opacity = 0.82 + 0.1 * beamPulse;
+    haloMat.opacity = 0.22 + 0.08 * beamPulse;
 
     if (this.laserProgress < halfDuration) {
-      // Outbound phase: High-energy photon plasma bolt travels from Earth down to the Retroreflector
       const t = this.laserProgress / halfDuration;
-      this.laserPacketMesh.position.lerpVectors(this.earthLaserPos, this.reflectorLaserPos, t);
-      this.laserPacketMesh.scale.setScalar(1.0 + 0.3 * Math.sin(t * Math.PI));
+      this.placeLaserPacket(_vec3A.lerpVectors(this.earthLaserPos, this.reflectorLaserPos, t));
       this.laserPacketMesh.visible = true;
 
-      this.laserSparkMesh.scale.setScalar(0.4 + 0.2 * Math.sin(this.laserProgress * 15));
+      this.laserSparkMesh.scale.setScalar(0.45 + 0.15 * Math.sin(this.laserProgress * 15));
       this.laserRippleMesh.visible = false;
     } else {
-      // Return phase: Photon pulse reflects from lunar corner-cube array back to Earth!
       const t = (this.laserProgress - halfDuration) / halfDuration;
-      this.laserPacketMesh.position.lerpVectors(this.reflectorLaserPos, this.earthLaserPos, t);
-      this.laserPacketMesh.scale.setScalar(1.0 + 0.3 * Math.sin(t * Math.PI));
+      this.placeLaserPacket(_vec3A.lerpVectors(this.reflectorLaserPos, this.earthLaserPos, t));
 
-      // Impact explosion and expanding ripple ring on the ground at the retroreflector pallet
       const impactTime = this.laserProgress - halfDuration;
-      if (impactTime < 0.9) {
+      if (impactTime < 0.7) {
         this.laserRippleMesh.visible = true;
-        const rippleScale = 1.0 + impactTime * 5.5;
+        const rippleScale = 1.0 + impactTime * 1.6;
         this.laserRippleMesh.scale.set(rippleScale, rippleScale, rippleScale);
-        rippleMat.opacity = Math.max(0, 0.85 - impactTime * 0.95);
+        rippleMat.opacity = Math.max(0, 0.8 - impactTime * 1.1);
 
-        // Flash spark
-        this.laserSparkMesh.scale.setScalar(1.8 + (0.9 - impactTime) * 2.2);
-        sparkMat.opacity = Math.max(0.4, 1.0 - impactTime * 0.6);
+        this.laserSparkMesh.scale.setScalar(1.5 + (0.7 - impactTime) * 0.8);
+        sparkMat.opacity = Math.max(0.25, 1.0 - impactTime * 0.9);
       } else {
         this.laserRippleMesh.visible = false;
-        sparkMat.opacity = 0.4;
+        sparkMat.opacity = 0.3;
+        this.laserSparkMesh.scale.setScalar(0.6);
       }
     }
 
@@ -932,85 +1452,61 @@ export class ApolloThreeEngine {
   }
 
   private updateCamera(dt: number) {
+    this.plaqueScreenPoint.visible = false;
     const mode = this.cameraConfig.mode;
 
     if (mode === 'title') {
       // Atmospheric orbit around the Sea of Tranquility landing site
       const time = performance.now() * 0.00018;
       const camRadius = 26;
-      _vec3Target.set(Math.sin(time) * camRadius, 10 + Math.sin(time * 0.5) * 2, Math.cos(time) * camRadius);
+      _vec3Target.set(-17.331 + Math.sin(time) * camRadius, 10 + Math.sin(time * 0.5) * 2, -5.862 + Math.cos(time) * camRadius);
       this.camera.position.lerp(_vec3Target, dt * 2.5);
-      this.cameraTarget.set(0, 1.8, 0);
+      this.cameraTarget.set(-17.331, 1.8, -5.862);
       this.camera.lookAt(this.cameraTarget);
 
     } else if (mode === 'intro') {
-      // 15-second cinematic flyby
-      const p = this.cameraConfig.introProgress ?? 0;
-      // Start high in orbit looking at Earth and Moon, swoop down to Eagle
-      const startCam = _vec3A.set(40, 45, 60);
-      const midCam = _vec3B.set(12, 16, 25);
-      const endCam = _vec3Target.set(
-        this.roverPosition.x - Math.sin(this.roverHeading) * 7,
-        this.roverPosition.y + 3.2,
-        this.roverPosition.z - Math.cos(this.roverHeading) * 7
-      );
-
-      if (p < 0.5) {
-        this.camera.position.lerpVectors(startCam, midCam, p * 2);
-        this.cameraTarget.lerpVectors(new THREE.Vector3(0, 2, 0), new THREE.Vector3(0, 1.5, 0), p * 2);
-      } else {
-        this.camera.position.lerpVectors(midCam, endCam, (p - 0.5) * 2);
-        this.cameraTarget.lerpVectors(new THREE.Vector3(0, 1.5, 0), this.roverPosition, (p - 0.5) * 2);
-      }
-      this.camera.lookAt(this.cameraTarget);
+      this.updateIntroFlyby();
 
     } else if (mode === 'explore') {
-      // Third-person chase camera behind the rover
-      const chaseDistance = 6.8;
-      const chaseHeight = 2.9;
-
-      const idealCamX = this.roverPosition.x - Math.sin(this.roverHeading) * chaseDistance;
-      const idealCamZ = this.roverPosition.z - Math.cos(this.roverHeading) * chaseDistance;
-      const idealCamY = Math.max(this.roverPosition.y + chaseHeight, this.getLunarHeight(idealCamX, idealCamZ) + 1.2);
-
-      _vec3Target.set(idealCamX, idealCamY, idealCamZ);
+      this.chaseCameraPose(_vec3Target, _vec3A);
       this.camera.position.lerp(_vec3Target, dt * 4.5);
-
-      _vec3A.set(this.roverPosition.x, this.roverPosition.y + 1.2, this.roverPosition.z);
       this.cameraTarget.lerp(_vec3A, dt * 6.0);
       this.camera.lookAt(this.cameraTarget);
 
     } else if (mode === 'inspect') {
-      // Close up inspection shots based on targetArtifact
       const target = this.cameraConfig.targetArtifact;
       if (target === 'plaque') {
-        // Tight focus on the ladder plaque
-        _vec3Target.set(2.4, 1.3, 2.4);
-        this.camera.position.lerp(_vec3Target, dt * 4.0);
-        this.cameraTarget.set(1.7, 1.1, 1.7);
-        this.camera.lookAt(this.cameraTarget);
-      } else if (target === 'retroreflector') {
-        if (this.isLaserFiring) {
-          // Dynamic wide-angle cinematic shot framing BOTH Earth in the starry sky AND the retroreflector on the moon!
-          _vec3Target.set(10.5, 2.2, 3.5);
-          this.camera.position.lerp(_vec3Target, dt * 5.0);
-          _vec3A.set(38, 22, -45);
-          this.cameraTarget.lerp(_vec3A, dt * 5.0);
-          this.camera.lookAt(this.cameraTarget);
-        } else {
-          // Angled view on the retroreflector array
-          _vec3Target.set(15.8, 1.8, -6.5);
-          this.camera.position.lerp(_vec3Target, dt * 4.0);
-          this.cameraTarget.set(14, 0.6, -8);
-          this.camera.lookAt(this.cameraTarget);
-        }
+        this.holdPlaqueCamera(dt);
       } else {
-        // Descent stage dramatic view
-        _vec3Target.set(5.5, 3.2, 5.5);
-        this.camera.position.lerp(_vec3Target, dt * 4.0);
-        this.cameraTarget.set(0, 1.8, 0);
+        // Slow orbit around the artifact while the narration plays. One turn takes about 40 seconds.
+        let lookX = -17.331;
+        let lookY = 1.8;
+        let lookZ = -5.862;
+        let radius = 12;
+        let height = 3.4;
+        if (target === 'retroreflector') {
+          lookX = -2.12;
+          lookY = 0.55;
+          lookZ = 21.53;
+          radius = 6.5;
+          height = 2.0;
+        }
+        const angle = this.elapsedTime * ((Math.PI * 2) / 40);
+        const camX = lookX + Math.cos(angle) * radius;
+        const camZ = lookZ + Math.sin(angle) * radius;
+        const ground = this.getLunarHeight(camX, camZ);
+        _vec3Target.set(camX, Math.max(lookY + height, ground + 1.2), camZ);
+        this.camera.position.lerp(_vec3Target, dt * 2.4);
+        this.cameraTarget.set(lookX, lookY, lookZ);
         this.camera.lookAt(this.cameraTarget);
       }
+
+    } else if (mode === 'ranging') {
+      // Stand off the reflector, opposite Earth, so the array sits in front of the planet.
+      _vec3Target.set(8, 2.4, 21.5);
+      this.camera.position.lerp(_vec3Target, dt * 1.4);
+      this.cameraTarget.lerp(this.earthLaserPos, dt * 1.4);
+      this.camera.lookAt(this.cameraTarget);
 
     } else if (mode === 'outro' || mode === 'warp') {
       const p = this.cameraConfig.outroProgress ?? 0;
@@ -1019,8 +1515,8 @@ export class ApolloThreeEngine {
         // Camera pulling vertically up away from Sea of Tranquility
         const h = THREE.MathUtils.lerp(15, 200, p * 2);
         const z = THREE.MathUtils.lerp(25, 120, p * 2);
-        this.camera.position.set(0, h, z);
-        this.camera.lookAt(0, 0, 0);
+        this.camera.position.set(-17.331, h, -5.862 + z);
+        this.camera.lookAt(-17.331, 0, -5.862);
 
         // Hide Voyager during initial pull away
         this.models.voyagerGroup.position.set(0, -500, 0);
@@ -1052,18 +1548,138 @@ export class ApolloThreeEngine {
     this.renderer.setSize(w, h);
   };
 
+  private refreshShadows() {
+    if (isSoftwareGl || !this.sunLight.castShadow) return;
+    const bootMoving = this.roverPose === 'booting';
+    const moved = this.shadowDirty
+      || bootMoving
+      || Math.abs(this.shadowAnchorX - this.roverPosition.x) > 0.02
+      || Math.abs(this.shadowAnchorZ - this.roverPosition.z) > 0.02
+      || Math.abs(this.shadowAnchorHeading - this.roverHeading) > 0.01;
+    if (!moved) return;
+    this.shadowDirty = false;
+    this.shadowAnchorX = this.roverPosition.x;
+    this.shadowAnchorZ = this.roverPosition.z;
+    this.shadowAnchorHeading = this.roverHeading;
+    this.sunLight.position.copy(this.roverPosition).addScaledVector(this.sunDirection, 80);
+    this.sunLight.target.position.copy(this.roverPosition);
+    this.sunLight.target.updateMatrixWorld();
+    this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  /** Face of the commemorative plaque on the lander, in world space. */
+  private syncPlaqueAim() {
+    const root = this.models?.descentStageGroup?.getObjectByName('CommemorativePlaque');
+    if (!root) return;
+    if (this.plaqueAimId !== root.id) {
+      this.plaqueAimId = root.id;
+      root.updateWorldMatrix(true, true);
+      const inverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
+      const box = new THREE.Box3();
+      const vertex = new THREE.Vector3();
+      root.traverse(child => {
+        const mesh = child as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.geometry?.attributes.position) return;
+        const attr = mesh.geometry.attributes.position;
+        for (let i = 0; i < attr.count; i++) {
+          vertex.fromBufferAttribute(attr, i).applyMatrix4(mesh.matrixWorld).applyMatrix4(inverse);
+          box.expandByPoint(vertex);
+        }
+      });
+      if (!box.isEmpty()) {
+        box.getCenter(this.plaqueLocalCenter);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        if (size.x <= size.y && size.x <= size.z) this.plaqueLocalNormal.set(1, 0, 0);
+        else if (size.y <= size.x && size.y <= size.z) this.plaqueLocalNormal.set(0, 1, 0);
+        else this.plaqueLocalNormal.set(0, 0, 1);
+      }
+    }
+    root.updateWorldMatrix(true, false);
+    this.plaqueLook.copy(this.plaqueLocalCenter).applyMatrix4(root.matrixWorld);
+    this.plaqueNormal.copy(this.plaqueLocalNormal).transformDirection(root.matrixWorld).normalize();
+  }
+
+  /** Fixed view of the ladder plaque, held in the right half so the photograph can sit on the left. */
+  private holdPlaqueCamera(dt: number) {
+    this.syncPlaqueAim();
+    const look = this.plaqueLook;
+    _vec3Target.copy(look).addScaledVector(this.plaqueNormal, 2.35);
+    _vec3Target.x -= 1.25;
+    const ground = this.getLunarHeight(_vec3Target.x, _vec3Target.z);
+    _vec3Target.y = Math.max(_vec3Target.y, ground + 0.9);
+    this.camera.position.lerp(_vec3Target, dt * 2.4);
+    // Look to the left of the plaque so the model sits in the right half of the frame.
+    this.cameraTarget.copy(look);
+    this.cameraTarget.x -= 0.72;
+    this.camera.lookAt(this.cameraTarget);
+
+    this.plaqueNdc.copy(look).project(this.camera);
+    const bounds = this.container.getBoundingClientRect();
+    this.plaqueScreenPoint.x = bounds.left + (this.plaqueNdc.x * 0.5 + 0.5) * bounds.width;
+    this.plaqueScreenPoint.y = bounds.top + (-this.plaqueNdc.y * 0.5 + 0.5) * bounds.height;
+    this.plaqueScreenPoint.visible = this.plaqueNdc.z < 1;
+  }
+
+  private chaseCameraPose(outPos: THREE.Vector3, outTarget: THREE.Vector3) {
+    const chaseDistance = 6.8;
+    const chaseHeight = 2.9;
+    const idealCamX = this.roverPosition.x - Math.sin(this.roverHeading) * chaseDistance;
+    const idealCamZ = this.roverPosition.z - Math.cos(this.roverHeading) * chaseDistance;
+    const idealCamY = Math.max(this.roverPosition.y + chaseHeight, this.getLunarHeight(idealCamX, idealCamZ) + 1.2);
+    outPos.set(idealCamX, idealCamY, idealCamZ);
+    outTarget.set(this.roverPosition.x, this.roverPosition.y + 1.2, this.roverPosition.z);
+  }
+
+  private poseIntroCamera(p: number) {
+    this.chaseCameraPose(_vec3Target, _vec3A);
+    const span = p < 0.5 ? p * 2 : (p - 0.5) * 2;
+    if (p < 0.5) {
+      this.camera.position.lerpVectors(this.introStartCam, this.introMidCam, span);
+      this.cameraTarget.lerpVectors(this.introLookStart, this.introLookMid, span);
+    } else {
+      this.camera.position.lerpVectors(this.introMidCam, _vec3Target, span);
+      this.cameraTarget.lerpVectors(this.introLookMid, _vec3A, span);
+    }
+    this.camera.lookAt(this.cameraTarget);
+  }
+
+  /** Slow the last part of the flyby so the camera arrives with no leftover speed. */
+  private easeIntro(linear: number) {
+    const easeFrom = 0.84;
+    if (linear <= easeFrom) return linear;
+    const u = (linear - easeFrom) / (1 - easeFrom);
+    const s = u * u * (3 - 2 * u);
+    return easeFrom + (1 - easeFrom) * s;
+  }
+
+  private updateIntroFlyby() {
+    if (!this.introActive) {
+      this.poseIntroCamera(this.cameraConfig.introProgress ?? 0);
+      return;
+    }
+    const now = performance.now();
+    const linear = Math.min(1, (now - this.introStartedAt) / 15000);
+    const p = this.easeIntro(linear);
+    this.cameraConfig.introProgress = p;
+    if (linear < 1) {
+      this.poseIntroCamera(p);
+      return;
+    }
+    if (this.introHoldUntil === 0) this.introHoldUntil = now + 500;
+    this.snapExploreCamera();
+    if (now < this.introHoldUntil) return;
+    this.introActive = false;
+    this.cameraConfig = { mode: 'explore' };
+    this.onIntroCameraSettled?.();
+  }
+
   public dispose() {
     this.isDisposed = true;
     cancelAnimationFrame(this.frameId);
     window.removeEventListener('resize', this.onResize);
     for (const marker of this.inspectionMarkers.values()) {
       this.scene.remove(marker.group);
-      marker.outerRing.geometry.dispose();
-      (marker.outerRing.material as THREE.Material).dispose();
-      marker.innerRing.geometry.dispose();
-      (marker.innerRing.material as THREE.Material).dispose();
-      marker.glowDisc.geometry.dispose();
-      (marker.glowDisc.material as THREE.Material).dispose();
       marker.cylinderBeam.geometry.dispose();
       (marker.cylinderBeam.material as THREE.Material).dispose();
       marker.diamond.geometry.dispose();

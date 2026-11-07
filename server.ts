@@ -43,18 +43,17 @@ app.post('/api/narrator', async (req, res) => {
       return res.json({ useFallback: true, reason: 'No API key configured' });
     }
 
-    const isNeil = speaker && String(speaker).toLowerCase().includes('neil');
-    // Fenrir is a deep, calm, grounded male voice ideal for Neil Armstrong
-    const voiceName = isNeil ? 'Fenrir' : 'Puck';
+    // Fenrir is the voice used for the opening line. Every line uses it so the
+    // narration stays one clear studio voice instead of a second, thinner one.
+    const voiceName = 'Fenrir';
     const cacheKey = `${voiceName}:${text}`;
 
     if (audioCache.has(cacheKey)) {
       return res.json({ audioData: audioCache.get(cacheKey), mimeType: 'audio/wav' });
     }
 
-    const speechStyle = isNeil
-      ? "Calm, deliberate, midwestern American male astronaut speaking over Apollo radio communication link with quiet confidence and historical reverence"
-      : "Clear, articulated, professional male science narrator";
+    const speechStyle =
+      'Calm, clear, natural male voice with a warm full tone and a steady pace. Studio recording, the same voice as the opening narration. No radio filter, no static, no distortion.';
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash-lite-tts',
@@ -112,57 +111,7 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-// Explicit binary download endpoints with strict attachment headers
-app.get(['/nobotara-apollo11-project.zip', '/api/download-zip'], (req, res) => {
-  const filePath = path.resolve(__dirname, 'public', 'nobotara-apollo11-project.zip');
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send('ZIP archive not found');
-  }
-  const stat = fs.statSync(filePath);
-  res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', 'attachment; filename="nobotara-apollo11-project.zip"');
-  res.setHeader('Content-Length', stat.size);
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.sendFile(filePath);
-});
-
-app.get(['/nobotara-apollo11-project.tar.gz', '/api/download-targz'], (req, res) => {
-  const filePath = path.resolve(__dirname, 'public', 'nobotara-apollo11-project.tar.gz');
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send('TAR.GZ archive not found');
-  }
-  const stat = fs.statSync(filePath);
-  res.setHeader('Content-Type', 'application/gzip');
-  res.setHeader('Content-Disposition', 'attachment; filename="nobotara-apollo11-project.tar.gz"');
-  res.setHeader('Content-Length', stat.size);
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.sendFile(filePath);
-});
-
-// JSON Base64 endpoint for rock-solid in-browser blob creation (bypasses all iframe download blocks)
-app.get('/api/download-base64', (req, res) => {
-  try {
-    const format = req.query.format === 'targz' ? 'tar.gz' : 'zip';
-    const filename = `nobotara-apollo11-project.${format}`;
-    const filePath = path.resolve(__dirname, 'public', filename);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'Archive not found' });
-    }
-    const fileBuffer = fs.readFileSync(filePath);
-    const base64 = fileBuffer.toString('base64');
-    res.json({
-      filename,
-      format,
-      size: fileBuffer.length,
-      base64,
-    });
-  } catch (error) {
-    console.error('Error sending base64 archive:', error);
-    res.status(500).json({ error: String(error) });
-  }
-});
-
-// Explicitly serve public assets (models, zip downloads, icons)
+// Explicitly serve public assets (models, images, icons)
 app.use(express.static(path.resolve(__dirname, 'public')));
 
 async function startServer() {

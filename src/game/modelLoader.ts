@@ -6,7 +6,11 @@ export type ReplaceableModelType =
   | 'descent_stage' 
   | 'retroreflector' 
   | 'plaque' 
-  | 'voyager';
+  | 'voyager'
+  | 'terrain'
+  | 'earth'
+  | 'sun'
+  | 'footprints';
 
 export interface ModelLoadResult {
   scene: THREE.Group;
@@ -37,20 +41,6 @@ export class CustomModelManager {
         (err) => reject(err)
       );
     });
-  }
-
-  /**
-   * Load a GLTF/GLB file uploaded via drag-and-drop or file input
-   */
-  public async loadFromFile(file: File, type: ReplaceableModelType): Promise<ModelLoadResult> {
-    const objectUrl = URL.createObjectURL(file);
-    try {
-      const result = await this.loadFromUrl(objectUrl, type);
-      return result;
-    } finally {
-      // Allow memory release after parsing
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
-    }
   }
 
   /**

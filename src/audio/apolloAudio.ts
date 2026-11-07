@@ -12,6 +12,8 @@ class ApolloAudioSystem {
   private roverGain: GainNode | null = null;
   private ambientNoiseNode: AudioNode | null = null;
   private currentAudioSource: AudioBufferSourceNode | null = null;
+  private currentAudioElement: HTMLAudioElement | null = null;
+  private speakGeneration = 0;
   private initialized: boolean = false;
   private voices: SpeechSynthesisVoice[] = [];
 
@@ -99,6 +101,33 @@ class ApolloAudioSystem {
 
       // Squelch static burst along with Quindar tone
       this.playStaticBurst(0.18, 0.03);
+    } catch {
+      // Audio failure fallback
+    }
+  }
+
+  /**
+   * Short high beep for the intro typewriter.
+   */
+  public playTypeBeep() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(2400, now);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.03, now + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.027);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.03);
     } catch {
       // Audio failure fallback
     }
@@ -349,19 +378,31 @@ class ApolloAudioSystem {
   }
 
   /**
-   * Speak dialogue using server-side Gemini TTS (Fenrir grounded male voice)
-   * with seamless fallback to client-side male Web Speech API.
+   * Speak dialogue prioritizing local offline MP3 assets (/assets/audio/voiceovers/*.mp3),
+   * with seamless fallback to server-side Gemini TTS and client-side male Web Speech API.
    */
-  public async speakDialogue(text: string, speaker: string, onEnd?: () => void) {
+  public async speakDialogue(text: string, speaker: string, onEnd?: () => void, clipId?: string) {
     if (this.isMuted) {
       if (onEnd) onEnd();
       return;
     }
 
     this.stopSpeaking();
+    const generation = this.speakGeneration;
     this.playQuindarTone('intro');
 
-    // 1. Attempt to fetch authentic audio from /api/narrator (Gemini TTS Fenrir male voice)
+    // 1. First priority: Check for pre-rendered local offline audio asset
+    if (clipId) {
+      const localLoaded = await this.playLocalAudioClip(clipId, onEnd, generation);
+      if (generation !== this.speakGeneration) return;
+      if (localLoaded) {
+        return;
+      }
+    }
+
+    if (generation !== this.speakGeneration) return;
+
+    // 2. Second priority: Attempt to fetch authentic audio from /api/narrator (Gemini TTS)
     try {
       const response = await fetch('/api/narrator', {
         method: 'POST',
@@ -369,10 +410,12 @@ class ApolloAudioSystem {
         body: JSON.stringify({ text, speaker })
       });
 
+      if (generation !== this.speakGeneration) return;
+
       if (response.ok) {
         const data = await response.json();
         if (data.audioData && !data.useFallback) {
-          await this.playBase64Wav(data.audioData, onEnd);
+          await this.playBase64Wav(data.audioData, onEnd, generation);
           return;
         }
       }
@@ -380,14 +423,74 @@ class ApolloAudioSystem {
       // Network or API unavailable, fall back seamlessly to client-side male voice
     }
 
-    // 2. Client-side fallback with strictly male voice selection & Apollo tuning
+    if (generation !== this.speakGeneration) return;
+
+    // 3. Third priority: Client-side fallback with strictly male voice selection & Apollo tuning
     this.speakClientFallback(text, speaker, onEnd);
   }
 
   /**
-   * Play base64 WAV audio through Apollo radio bandpass filter
+   * Play pre-rendered local offline MP3 audio file with Quindar beeps & radio filter
    */
-  private async playBase64Wav(base64Data: string, onEnd?: () => void) {
+  private async playLocalAudioClip(clipId: string, onEnd: (() => void) | undefined, generation: number): Promise<boolean> {
+    try {
+      const localUrl = `/assets/audio/voiceovers/${clipId}.mp3`;
+
+      return new Promise<boolean>((resolve) => {
+        const audio = new Audio();
+        let settled = false;
+        const finish = (ok: boolean) => {
+          if (settled) return;
+          settled = true;
+          resolve(ok);
+        };
+
+        const startPlayback = async () => {
+          if (settled || generation !== this.speakGeneration) {
+            finish(false);
+            return;
+          }
+          settled = true;
+          try {
+            this.currentAudioElement = audio;
+            audio.onended = () => {
+              if (this.currentAudioElement === audio) this.currentAudioElement = null;
+              this.playQuindarTone('outro');
+              if (onEnd) onEnd();
+            };
+            await audio.play();
+            resolve(true);
+          } catch (playErr) {
+            console.warn(`Local audio play error for ${clipId}:`, playErr);
+            audio.onended = null;
+            if (this.currentAudioElement === audio) this.currentAudioElement = null;
+            resolve(false);
+          }
+        };
+
+        // Listen before assigning src so a cached clip cannot finish loading unheard.
+        audio.preload = 'auto';
+        audio.oncanplaythrough = () => {
+          void startPlayback();
+        };
+        audio.onerror = () => finish(false);
+        audio.src = localUrl;
+        if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+          void startPlayback();
+        }
+
+        window.setTimeout(() => finish(false), 5000);
+      });
+    } catch (err) {
+      console.warn(`Local audio clip ${clipId} unavailable, falling back:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Play generated WAV at full bandwidth, matching the opening MP3.
+   */
+  private async playBase64Wav(base64Data: string, onEnd: (() => void) | undefined, generation: number) {
     try {
       const ctx = this.getContext();
       const binaryString = atob(base64Data);
@@ -397,21 +500,15 @@ class ApolloAudioSystem {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+      const audioBuffer = await ctx.decodeAudioData(bytes.buffer.slice(0));
+      if (generation !== this.speakGeneration) return;
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
 
-      // Apollo radio communication bandpass filter (cuts off <300Hz and >3000Hz)
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 1650;
-      filter.Q.value = 1.1;
-
       const gain = ctx.createGain();
-      gain.gain.value = 1.1;
+      gain.gain.value = 1.0;
 
-      source.connect(filter);
-      filter.connect(gain);
+      source.connect(gain);
       gain.connect(ctx.destination);
 
       this.currentAudioSource = source;
@@ -478,6 +575,7 @@ class ApolloAudioSystem {
   }
 
   public stopSpeaking() {
+    this.speakGeneration += 1;
     if (this.currentAudioSource) {
       try {
         this.currentAudioSource.stop();
@@ -487,6 +585,17 @@ class ApolloAudioSystem {
       }
       this.currentAudioSource = null;
     }
+
+    if (this.currentAudioElement) {
+      try {
+        this.currentAudioElement.pause();
+        this.currentAudioElement.currentTime = 0;
+      } catch {
+        // already stopped
+      }
+      this.currentAudioElement = null;
+    }
+
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
