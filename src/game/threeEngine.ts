@@ -632,6 +632,13 @@ export class ApolloThreeEngine {
 
     } else if (type === 'voyager') {
       this.scene.remove(this.models.voyagerGroup);
+      newGroup.rotation.set(0, 0, 0);
+      newGroup.position.set(0, 0, 0);
+      newGroup.scale.setScalar(1);
+      newGroup.updateWorldMatrix(true, true);
+      const size = new THREE.Box3().setFromObject(newGroup).getSize(new THREE.Vector3());
+      const longest = Math.max(size.x, size.y, size.z);
+      if (longest > 0) newGroup.scale.setScalar(13 / longest);
       this.models.voyagerGroup = newGroup;
       newGroup.position.set(0, -500, 0);
       this.scene.add(newGroup);

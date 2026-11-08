@@ -93,6 +93,41 @@ app.post('/api/narrator', async (req, res) => {
   }
 });
 
+app.get('/api/mars-archive', (_req, res) => {
+  res.json({ available: Boolean(ai) });
+});
+
+app.post('/api/mars-archive', async (req, res) => {
+  if (!ai) return res.json({ available: false, answer: '' });
+  const question = String(req.body?.question || '').trim().slice(0, 280);
+  if (!question) return res.status(400).json({ error: 'A question is required' });
+
+  try {
+    const { MARS_ARCHIVE } = await import('./src/missions/mars/data.ts');
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `You answer one follow-up about the game mission Mars Sample Return. Use only the archive. If the archive does not contain the answer, say: The archive does not answer that. Do not claim life was found on Mars. Do not claim the original sample-return campaign flew. Stay under 80 words.\n\nARCHIVE:\n${MARS_ARCHIVE}\n\nQUESTION:\n${question}`
+            }
+          ]
+        }
+      ]
+    });
+    const answer =
+      response.text ||
+      response.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim() ||
+      'The archive does not answer that.';
+    return res.json({ available: true, answer: answer.slice(0, 600) });
+  } catch (error) {
+    console.error('Mars archive question failed');
+    return res.json({ available: true, answer: 'The archive cannot answer that right now.' });
+  }
+});
+
 let port = Number(process.env.PORT) || 3000;
 const portArgIndex = process.argv.indexOf('--port');
 if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {

@@ -3,10 +3,11 @@ import { RotateCcw, ArrowRight, Compass, Sparkles } from 'lucide-react';
 
 interface OutroScreenProps {
   onReplay: () => void;
+  onContinue: () => void;
   outroProgress: number; // 0 to 1
 }
 
-export const OutroScreen: React.FC<OutroScreenProps> = ({ onReplay, outroProgress }) => {
+export const OutroScreen: React.FC<OutroScreenProps> = ({ onReplay, onContinue, outroProgress }) => {
   const isVoyagerRevealed = outroProgress > 0.55;
 
   return (
@@ -47,6 +48,13 @@ export const OutroScreen: React.FC<OutroScreenProps> = ({ onReplay, outroProgres
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={onContinue}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm transition-colors"
+            >
+              <ArrowRight className="w-4 h-4" />
+              <span>CONTINUE TO MISSION 02</span>
+            </button>
             <button
               onClick={onReplay}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-100 font-bold rounded-lg text-sm transition-colors"

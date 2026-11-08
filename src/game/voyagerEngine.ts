@@ -1,0 +1,922 @@
+import * as THREE from 'three';
+import { buildApolloSceneModels } from './apolloModels';
+import { customModelManager } from './modelLoader';
+import {
+  EARTH_DIRECTION,
+  VOYAGER_BUBBLE,
+  VOYAGER_MARKERS,
+  SHELL_RADIUS,
+  VoyagerMarkerId,
+  VoyagerStep
+} from '../missions/voyager/data';
+import { VOYAGER_PARTS, VOYAGER_PART_CENTER, VoyagerPartFrame } from '../missions/voyager/parts';
+
+export interface VoyagerTelemetry {
+  thrust: number;
+  headingErrorDeg: number;
+  signal: number;
+  aligned: boolean;
+  distanceToMarker: number;
+  outsideShell: boolean;
+  yawError: number;
+  pitchError: number;
+  markerYaw: number;
+  markerPitch: number;
+  hasMarker: boolean;
+}
+
+const ALIGN_RAD = (8 * Math.PI) / 180;
+const ALIGN_HOLD = 1;
+const DEPART_SECONDS = 4;
+const HOLD_SECONDS = 0.6;
+const PAN_SECONDS = 12;
+
+export type VoyagerIntroBeat = 'depart' | 'hold' | 'pan';
+
+export interface VoyagerIntroCue {
+  beat: VoyagerIntroBeat;
+  lightSpeed: number;
+}
+
+/**
+ * Deep-space flight for Mission 02. The spacecraft is steered as a whole:
+ * its dish is fixed to the body and points along local +Z.
+ */
+export class VoyagerEngine {
+  private readonly container: HTMLDivElement;
+  private readonly renderer: THREE.WebGLRenderer;
+  private readonly scene = new THREE.Scene();
+  private readonly camera: THREE.PerspectiveCamera;
+  private readonly craft: THREE.Group;
+  private readonly earthDir = new THREE.Vector3(EARTH_DIRECTION.x, EARTH_DIRECTION.y, EARTH_DIRECTION.z).normalize();
+  private readonly earthMarker: THREE.Object3D;
+  private readonly mars: THREE.Mesh;
+  private readonly link: THREE.Line;
+  private readonly markers = new Map<VoyagerMarkerId, THREE.Group>();
+  private readonly forward = new THREE.Vector3();
+  private readonly chasePos = new THREE.Vector3();
+  private readonly chaseLook = new THREE.Vector3();
+  private readonly recordCam = new THREE.Vector3();
+  private readonly recordLook = new THREE.Vector3();
+  private readonly recordLocal = new THREE.Vector3(1.02, 0, -0.6);
+  private readonly partLocals = VOYAGER_PARTS.map(part => new THREE.Vector3(...part.anchor));
+  private readonly partCenterLocal = new THREE.Vector3(...VOYAGER_PART_CENTER);
+  private readonly partWorld = new THREE.Vector3();
+  private readonly partNdc = new THREE.Vector3();
+  private readonly partView = new THREE.Vector3();
+  private partLabelsOn = false;
+  private partLabelsRequested = false;
+  private nasaCraft = false;
+  private orbitYaw = Math.PI;
+  private orbitPitch = 0.25;
+  private orbitRadius = 16;
+  private orbitReady = false;
+  private orbitPointer = -1;
+  private orbitLastX = 0;
+  private orbitLastY = 0;
+  private orbitDragYaw = 0;
+  private orbitDragPitch = 0;
+  private readonly orbitOffset = new THREE.Vector3();
+  private readonly localEarth = new THREE.Vector3();
+  private readonly localMarker = new THREE.Vector3();
+  private frameId = 0;
+  private disposed = false;
+  private mode: 'intro' | 'flight' | 'outro' = 'intro';
+  private introStarted = performance.now();
+  private introSent = false;
+  private sceneryRevealed = false;
+  private introCueStamp = '';
+  private readonly panStart = new THREE.Vector3(24, 12, -30);
+  private readonly departEarth = new THREE.Vector3();
+  private readonly departCam = new THREE.Vector3();
+  private readonly departLook = new THREE.Vector3();
+  private readonly departDir = new THREE.Vector3();
+  private readonly departureHide: THREE.Object3D[] = [];
+  private cinematicEarth!: THREE.Group;
+  private starMat!: THREE.PointsMaterial;
+  private streaks!: THREE.LineSegments;
+  private streakPositions!: Float32Array;
+  private streakBases!: Float32Array;
+  private step: VoyagerStep = 'align';
+  private focus: VoyagerMarkerId | 'record' | null = null;
+  private yaw = Math.PI;
+  private pitch = 0;
+  private velocity = 0;
+  private thrustInput = 0;
+  private yawInput = 0;
+  private pitchInput = 0;
+  private alignHold = 0;
+  private alignSent = false;
+  private wasInside = true;
+  private crossSent = false;
+  private outro = 0;
+  private telemetryStamp = '';
+  private nearStamp: VoyagerMarkerId | null = null;
+  private powerDim = 0;
+
+  public onTelemetry?: (telemetry: VoyagerTelemetry) => void;
+  public onNearMarker?: (id: VoyagerMarkerId | null) => void;
+  public onAligned?: () => void;
+  public onCrossedShell?: () => void;
+  public onIntroSettled?: () => void;
+  public onIntroCue?: (cue: VoyagerIntroCue) => void;
+  /** True only after the NASA model has loaded. The procedural stand-in stays unlabeled. */
+  public onCraftReady?: (nasa: boolean) => void;
+  public readonly partFrame: VoyagerPartFrame = {
+    centerX: 0,
+    centerY: 0,
+    parts: VOYAGER_PARTS.map(part => ({ id: part.id, x: 0, y: 0, visible: false }))
+  };
+
+  constructor(container: HTMLDivElement) {
+    this.container = container;
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(this.renderer.domElement);
+    this.container.addEventListener('pointerdown', this.onOrbitPointerDown);
+    this.container.addEventListener('pointermove', this.onOrbitPointerMove);
+    this.container.addEventListener('pointerup', this.onOrbitPointerUp);
+    this.container.addEventListener('pointercancel', this.onOrbitPointerUp);
+
+    this.scene.background = new THREE.Color(0x000208);
+    this.camera = new THREE.PerspectiveCamera(55, container.clientWidth / Math.max(container.clientHeight, 1), 0.1, 800);
+    this.camera.position.set(18, 10, -24);
+
+    this.scene.add(new THREE.AmbientLight(0x8ea2c9, 0.55));
+    const sunLight = new THREE.DirectionalLight(0xfff4d6, 2.4);
+    sunLight.position.set(-80, 40, -30);
+    this.scene.add(sunLight);
+
+    this.addStars();
+    this.addShell();
+    this.addSun();
+    this.earthMarker = this.addEarthMarker();
+    this.mars = this.addMars();
+    this.link = this.addLink();
+    this.craft = this.addCraft();
+    this.addMarkers();
+    this.addCinematicEarth();
+
+    this.tick = this.tick.bind(this);
+    this.onResize = this.onResize.bind(this);
+    window.addEventListener('resize', this.onResize);
+    this.frameId = requestAnimationFrame(this.tick);
+  }
+
+  public setInputs(thrust: number, yaw: number, pitch: number) {
+    this.thrustInput = thrust;
+    this.yawInput = yaw;
+    this.pitchInput = pitch;
+  }
+
+  public setStep(step: VoyagerStep) {
+    this.step = step;
+    const live = step === 'plasma' || step === 'magnetic' || step === 'particles' || step === 'power' ? step : null;
+    for (const [id, group] of this.markers) group.visible = id === live;
+    if (step === 'cross' && this.craft.position.length() > SHELL_RADIUS && !this.crossSent) {
+      this.crossSent = true;
+      this.wasInside = false;
+      this.onCrossedShell?.();
+    }
+  }
+
+  public setFocus(target: VoyagerMarkerId | 'record' | null) {
+    this.focus = target;
+  }
+
+  public beginIntro() {
+    this.mode = 'intro';
+    this.introStarted = performance.now();
+    this.introSent = false;
+    this.sceneryRevealed = false;
+    this.introCueStamp = '';
+    this.cinematicEarth.visible = true;
+    this.cinematicEarth.rotation.set(0, 0, 0);
+    this.earthMarker.visible = false;
+    this.streaks.visible = false;
+    this.starMat.size = 0.35;
+    for (const item of this.departureHide) item.visible = false;
+  }
+
+  public skipIntro() {
+    if (this.introSent) return;
+    this.introSent = true;
+    this.revealFlightScenery();
+    this.earthMarker.visible = true;
+    this.mode = 'flight';
+    this.onIntroSettled?.();
+  }
+
+  /** Screen callouts. Ignored until the NASA model is the one on screen. */
+  public setPartLabels(on: boolean) {
+    this.partLabelsRequested = on;
+    this.partLabelsOn = on && this.nasaCraft;
+    if (!this.partLabelsOn) {
+      this.orbitReady = false;
+      this.orbitPointer = -1;
+      this.clearPartFrame();
+    }
+  }
+
+  public setOutroProgress(progress: number) {
+    this.mode = 'outro';
+    this.outro = Math.min(1, Math.max(0, progress));
+  }
+
+  public dispose() {
+    this.disposed = true;
+    cancelAnimationFrame(this.frameId);
+    this.container.removeEventListener('pointerdown', this.onOrbitPointerDown);
+    this.container.removeEventListener('pointermove', this.onOrbitPointerMove);
+    this.container.removeEventListener('pointerup', this.onOrbitPointerUp);
+    this.container.removeEventListener('pointercancel', this.onOrbitPointerUp);
+    window.removeEventListener('resize', this.onResize);
+    this.streaks.geometry.dispose();
+    (this.streaks.material as THREE.Material).dispose();
+    this.renderer.dispose();
+    if (this.renderer.domElement.parentNode === this.container) {
+      this.container.removeChild(this.renderer.domElement);
+    }
+  }
+
+  private addStars() {
+    const positions = new Float32Array(1800 * 3);
+    for (let i = 0; i < 1800; i++) {
+      const radius = 120 + Math.random() * 80;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = radius * Math.cos(phi);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    this.starMat = new THREE.PointsMaterial({ color: 0xf8fafc, size: 0.35, sizeAttenuation: true });
+    this.scene.add(new THREE.Points(geometry, this.starMat));
+
+    const count = 420;
+    this.streakBases = new Float32Array(count * 3);
+    this.streakPositions = new Float32Array(count * 6);
+    for (let i = 0; i < count; i++) {
+      const source = Math.floor(Math.random() * 1800) * 3;
+      this.streakBases[i * 3] = positions[source];
+      this.streakBases[i * 3 + 1] = positions[source + 1];
+      this.streakBases[i * 3 + 2] = positions[source + 2];
+    }
+    const streakGeom = new THREE.BufferGeometry();
+    streakGeom.setAttribute('position', new THREE.BufferAttribute(this.streakPositions, 3));
+    this.streaks = new THREE.LineSegments(
+      streakGeom,
+      new THREE.LineBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0, depthWrite: false })
+    );
+    this.streaks.frustumCulled = false;
+    this.streaks.visible = false;
+    this.scene.add(this.streaks);
+  }
+
+  private addShell() {
+    const shell = new THREE.Mesh(
+      new THREE.SphereGeometry(SHELL_RADIUS, 48, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0x7dd3fc,
+        transparent: true,
+        opacity: 0.04,
+        side: THREE.BackSide,
+        depthWrite: false
+      })
+    );
+    this.scene.add(shell);
+    this.departureHide.push(shell);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xbae6fd,
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const axes: Array<[number, number, number]> = [
+      [Math.PI / 2, 0, 0],
+      [0, 0, 0],
+      [0, Math.PI / 2, 0]
+    ];
+    for (const [x, y, z] of axes) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(SHELL_RADIUS, 0.035, 6, 80), ringMat);
+      ring.rotation.set(x, y, z);
+      this.scene.add(ring);
+      this.departureHide.push(ring);
+    }
+  }
+
+  private addSun() {
+    const sun = new THREE.Mesh(
+      new THREE.SphereGeometry(3.2, 24, 16),
+      new THREE.MeshBasicMaterial({ color: 0xfde68a })
+    );
+    sun.position.set(-90, 28, -50);
+    this.scene.add(sun);
+    this.departureHide.push(sun);
+  }
+
+  private addEarthMarker() {
+    const marker = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.SphereGeometry(1.1, 20, 16),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.8, roughness: 0.4 })
+    );
+    marker.add(body);
+    marker.position.copy(this.earthDir).multiplyScalar(70);
+    marker.visible = false;
+    this.scene.add(marker);
+    return marker;
+  }
+
+  private addMars() {
+    const mars = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 32, 24),
+      new THREE.MeshStandardMaterial({ color: 0xc2410c, roughness: 0.85, metalness: 0.05 })
+    );
+    mars.position.set(0, 0, -28);
+    mars.scale.setScalar(0.01);
+    mars.visible = false;
+    this.scene.add(mars);
+    return mars;
+  }
+
+  private addLink() {
+    const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+    const line = new THREE.Line(
+      geometry,
+      new THREE.LineBasicMaterial({ color: 0x86efac, transparent: true, opacity: 0 })
+    );
+    this.scene.add(line);
+    return line;
+  }
+
+  private addCraft() {
+    const craft = new THREE.Group();
+    craft.name = 'Voyager1';
+    craft.position.set(0, 0, 4);
+    this.scene.add(craft);
+    this.loadCraftModel();
+    return craft;
+  }
+
+  private async loadCraftModel() {
+    try {
+      const loaded = await customModelManager.loadFromUrl('/models/voyager.glb', 'voyager');
+      if (this.disposed) return;
+      const model = loaded.scene;
+      model.position.set(0, 0, 0);
+      model.rotation.set(0, 0, 0);
+      this.prepareCraftMaterials(model);
+      this.craft.add(model);
+      this.recordLocal.set(-0.018, -3.399, -1.682);
+      this.fitCraft(7);
+      this.nasaCraft = true;
+      this.partLabelsOn = this.partLabelsRequested;
+      this.onCraftReady?.(true);
+    } catch {
+      if (this.disposed) return;
+      this.useProceduralCraft();
+    }
+  }
+
+  private useProceduralCraft() {
+    const standIn = buildApolloSceneModels(this.renderer).voyagerGroup;
+    standIn.position.set(0, 0, 0);
+    standIn.rotation.set(0, 0, 0);
+    standIn.scale.setScalar(1);
+    this.prepareCraftMaterials(standIn);
+    this.craft.add(standIn);
+    this.recordLocal.set(1.02, 0, -0.6);
+    this.fitCraft(7);
+    this.nasaCraft = false;
+    this.partLabelsOn = false;
+    this.clearPartFrame();
+    this.onCraftReady?.(false);
+  }
+
+  private prepareCraftMaterials(root: THREE.Object3D) {
+    root.traverse(child => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      const source = mesh.material;
+      mesh.material = Array.isArray(source) ? source.map(item => item.clone()) : source.clone();
+    });
+  }
+
+  private fitCraft(targetLength: number) {
+    const saved = this.craft.rotation.clone();
+    this.craft.rotation.set(0, 0, 0);
+    this.craft.scale.setScalar(1);
+    this.craft.updateWorldMatrix(true, true);
+    const size = new THREE.Box3().setFromObject(this.craft).getSize(new THREE.Vector3());
+    const longest = Math.max(size.x, size.y, size.z);
+    if (longest > 0) this.craft.scale.setScalar(targetLength / longest);
+    this.craft.rotation.copy(saved);
+  }
+
+  private clearPartFrame() {
+    this.partFrame.centerX = 0;
+    this.partFrame.centerY = 0;
+    for (const part of this.partFrame.parts) part.visible = false;
+  }
+
+  /** Anchors in viewport pixels, using the craft scale and rotation. */
+  private projectParts() {
+    if (!this.partLabelsOn) return;
+    const bounds = this.container.getBoundingClientRect();
+    this.camera.updateMatrixWorld();
+    this.camera.getWorldDirection(this.partView);
+    const center = this.projectCraftPoint(this.partCenterLocal, bounds);
+    this.partFrame.centerX = center.x;
+    this.partFrame.centerY = center.y;
+    for (let i = 0; i < this.partLocals.length; i++) {
+      const point = this.projectCraftPoint(this.partLocals[i], bounds);
+      const slot = this.partFrame.parts[i];
+      slot.x = point.x;
+      slot.y = point.y;
+      slot.visible = point.visible;
+    }
+  }
+
+  private projectCraftPoint(local: THREE.Vector3, bounds: DOMRect) {
+    const scale = this.craft.scale.x;
+    this.partWorld.copy(local).multiplyScalar(scale);
+    this.partWorld.applyQuaternion(this.craft.quaternion).add(this.craft.position);
+    const facing =
+      (this.partWorld.x - this.camera.position.x) * this.partView.x +
+      (this.partWorld.y - this.camera.position.y) * this.partView.y +
+      (this.partWorld.z - this.camera.position.z) * this.partView.z;
+    this.partNdc.copy(this.partWorld).project(this.camera);
+    return {
+      x: bounds.left + (this.partNdc.x * 0.5 + 0.5) * bounds.width,
+      y: bounds.top + (-this.partNdc.y * 0.5 + 0.5) * bounds.height,
+      visible: facing > 0.2 && this.partNdc.z < 1
+    };
+  }
+
+  private addMarkers() {
+    for (const spec of VOYAGER_MARKERS) {
+      const group = new THREE.Group();
+      group.position.set(spec.position[0], spec.position[1], spec.position[2]);
+      const column = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.08, 3.2, 12),
+        new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.45 })
+      );
+      column.position.y = 1.6;
+      const diamond = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.28),
+        new THREE.MeshStandardMaterial({ color: 0xecfdf5, emissive: 0x34d399, emissiveIntensity: 0.9, roughness: 0.3 })
+      );
+      diamond.position.y = 3.4;
+      diamond.name = 'diamond';
+      group.add(column, diamond);
+      group.visible = false;
+      this.scene.add(group);
+      this.markers.set(spec.id, group);
+    }
+  }
+
+  private addCinematicEarth() {
+    this.layoutDeparture();
+    const earth = new THREE.Group();
+    earth.name = 'CinematicEarth';
+    const fallback = new THREE.Mesh(
+      new THREE.SphereGeometry(6, 48, 32),
+      new THREE.MeshStandardMaterial({
+        color: 0x3b82f6,
+        emissive: 0x1e3a8a,
+        emissiveIntensity: 0.35,
+        roughness: 0.55
+      })
+    );
+    fallback.name = 'earth-fallback';
+    earth.add(fallback);
+    earth.position.copy(this.departEarth);
+    this.scene.add(earth);
+    this.cinematicEarth = earth;
+    this.loadCinematicEarth();
+  }
+
+  private layoutDeparture() {
+    this.departDir.copy(this.panStart).sub(this.craft.position);
+    if (this.departDir.lengthSq() < 1e-4) this.departDir.set(0, 0.2, -1);
+    this.departDir.normalize();
+    this.departEarth.copy(this.panStart).addScaledVector(this.departDir, 48);
+    this.departCam.copy(this.departEarth).addScaledVector(this.departDir, -18);
+  }
+
+  private async loadCinematicEarth() {
+    try {
+      const loaded = await customModelManager.loadFromUrl('/models/earth.glb', 'earth');
+      if (this.disposed) return;
+      const model = loaded.scene;
+      this.prepareCraftMaterials(model);
+      model.visible = false;
+      this.cinematicEarth.add(model);
+      this.centerAndFit(model, 12);
+      model.traverse(child => {
+        const mesh = child as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const material = mesh.material as THREE.MeshStandardMaterial;
+        if (mesh.name === 'Earth') material.emissiveIntensity = 0.12;
+        if (mesh.name !== 'EarthAtmosphere') return;
+        material.transparent = true;
+        material.opacity = 0.12;
+        material.depthWrite = false;
+        material.blending = THREE.AdditiveBlending;
+        material.emissiveIntensity = 0.35;
+      });
+      model.visible = true;
+      const fallback = this.cinematicEarth.getObjectByName('earth-fallback');
+      if (fallback) {
+        this.cinematicEarth.remove(fallback);
+        const mesh = fallback as THREE.Mesh;
+        mesh.geometry.dispose();
+        const material = mesh.material;
+        if (!Array.isArray(material)) material.dispose();
+      }
+    } catch {
+      // The blue sphere stays in frame when the Earth model cannot load.
+    }
+  }
+
+  private centerAndFit(object: THREE.Object3D, target: number) {
+    object.position.set(0, 0, 0);
+    object.rotation.set(0, 0, 0);
+    object.scale.setScalar(1);
+    object.updateWorldMatrix(true, true);
+    const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+    const longest = Math.max(size.x, size.y, size.z);
+    if (longest > 0) object.scale.setScalar(target / longest);
+    object.updateWorldMatrix(true, true);
+    const center = new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3());
+    object.position.sub(object.parent!.worldToLocal(center));
+  }
+
+  private playDeparture(elapsed: number) {
+    const along = this.departureProgress(elapsed);
+    this.camera.position.lerpVectors(this.departCam, this.panStart, along);
+    const lookBlend = THREE.MathUtils.smoothstep(along, 0.18, 0.96);
+    this.departLook.lerpVectors(this.departEarth, this.craft.position, lookBlend);
+    this.camera.lookAt(this.departLook);
+    this.cinematicEarth.rotation.y = 1.6 + elapsed * 0.35;
+    this.updateStreaks(this.lightSpeedAt(elapsed));
+  }
+
+  private playHold() {
+    this.camera.position.copy(this.panStart);
+    this.camera.lookAt(this.craft.position);
+    this.updateStreaks(0);
+  }
+
+  private playPan(span: number) {
+    this.chase(this.chasePos, this.chaseLook);
+    const eased = span * span * (3 - 2 * span);
+    this.camera.position.lerpVectors(this.panStart, this.chasePos, eased);
+    this.camera.lookAt(this.craft.position);
+  }
+
+  /** Exponential climb that reaches 1 at three seconds, then stays there. */
+  private lightSpeedAt(elapsed: number) {
+    if (elapsed <= 0) return 0;
+    if (elapsed >= 3) return 1;
+    const span = elapsed / 3;
+    const curve = 4.5;
+    return (Math.exp(curve * span) - 1) / (Math.exp(curve) - 1);
+  }
+
+  /** A short drift, then an exponential rush that arrives as the fourth second ends. */
+  private departureProgress(elapsed: number) {
+    const driftEnd = 0.8;
+    const driftShare = 0.04;
+    if (elapsed <= driftEnd) return (elapsed / driftEnd) * driftShare;
+    const span = Math.min(1, (elapsed - driftEnd) / (DEPART_SECONDS - driftEnd));
+    const curve = 6;
+    const rush = (Math.exp(curve * span) - 1) / (Math.exp(curve) - 1);
+    return driftShare + (1 - driftShare) * rush;
+  }
+
+  private updateStreaks(lightSpeed: number) {
+    const material = this.streaks.material as THREE.LineBasicMaterial;
+    if (lightSpeed < 0.04) {
+      this.streaks.visible = false;
+      this.starMat.size = 0.35;
+      return;
+    }
+    this.streaks.visible = true;
+    const length = 6 + lightSpeed * 28;
+    const dir = this.departDir;
+    const positions = this.streakPositions;
+    const bases = this.streakBases;
+    const count = bases.length / 3;
+    for (let i = 0; i < count; i++) {
+      const bx = bases[i * 3];
+      const by = bases[i * 3 + 1];
+      const bz = bases[i * 3 + 2];
+      const stretch = length * (0.35 + (i % 7) / 10);
+      const offset = i * 6;
+      positions[offset] = bx;
+      positions[offset + 1] = by;
+      positions[offset + 2] = bz;
+      positions[offset + 3] = bx + dir.x * stretch;
+      positions[offset + 4] = by + dir.y * stretch;
+      positions[offset + 5] = bz + dir.z * stretch;
+    }
+    (this.streaks.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+    material.opacity = 0.15 + lightSpeed * 0.75;
+    this.starMat.size = 0.35 + lightSpeed * 1.1;
+  }
+
+  private publishIntro(beat: VoyagerIntroBeat, lightSpeed: number) {
+    const stamp = `${beat}|${lightSpeed.toFixed(2)}`;
+    if (stamp === this.introCueStamp) return;
+    this.introCueStamp = stamp;
+    this.onIntroCue?.({ beat, lightSpeed });
+  }
+
+  private revealFlightScenery() {
+    if (this.sceneryRevealed) return;
+    this.sceneryRevealed = true;
+    for (const item of this.departureHide) item.visible = true;
+    this.cinematicEarth.visible = false;
+    this.streaks.visible = false;
+    this.starMat.size = 0.35;
+  }
+
+  private boresight(out: THREE.Vector3) {
+    this.craft.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+    this.craft.updateMatrixWorld(true);
+    out.set(0, 0, 1).applyQuaternion(this.craft.quaternion);
+  }
+
+  /** Walk the camera around the still spacecraft. Yaw and pitch orbit; the craft does not fly. */
+  private orbitCraft(dt: number) {
+    if (!this.orbitReady) {
+      this.orbitOffset.copy(this.camera.position).sub(this.craft.position);
+      if (this.orbitOffset.lengthSq() < 1) this.orbitOffset.set(0, 3, -14);
+      this.orbitRadius = THREE.MathUtils.clamp(this.orbitOffset.length(), 10, 28);
+      this.orbitYaw = Math.atan2(this.orbitOffset.x, this.orbitOffset.z);
+      this.orbitPitch = Math.asin(THREE.MathUtils.clamp(this.orbitOffset.y / this.orbitOffset.length(), -1, 1));
+      this.orbitReady = true;
+    }
+    this.orbitRadius = THREE.MathUtils.damp(this.orbitRadius, 18, 2.5, dt);
+    this.orbitYaw += this.yawInput * -0.9 * dt + this.orbitDragYaw;
+    this.orbitPitch = THREE.MathUtils.clamp(
+      this.orbitPitch + this.pitchInput * 0.7 * dt + this.orbitDragPitch,
+      -1.05,
+      1.15
+    );
+    this.orbitDragYaw = 0;
+    this.orbitDragPitch = 0;
+    const cp = Math.cos(this.orbitPitch);
+    this.orbitOffset.set(Math.sin(this.orbitYaw) * cp, Math.sin(this.orbitPitch), Math.cos(this.orbitYaw) * cp);
+    this.camera.position.copy(this.craft.position).addScaledVector(this.orbitOffset, this.orbitRadius);
+    this.camera.lookAt(this.craft.position);
+  }
+
+  private onOrbitPointerDown = (event: PointerEvent) => {
+    if (!this.partLabelsOn || this.mode !== 'flight' || this.focus || event.button !== 0) return;
+    this.orbitPointer = event.pointerId;
+    this.orbitLastX = event.clientX;
+    this.orbitLastY = event.clientY;
+    this.container.setPointerCapture(event.pointerId);
+  };
+
+  private onOrbitPointerMove = (event: PointerEvent) => {
+    if (event.pointerId !== this.orbitPointer) return;
+    const dx = event.clientX - this.orbitLastX;
+    const dy = event.clientY - this.orbitLastY;
+    this.orbitLastX = event.clientX;
+    this.orbitLastY = event.clientY;
+    this.orbitDragYaw -= dx * 0.005;
+    this.orbitDragPitch -= dy * 0.004;
+  };
+
+  private onOrbitPointerUp = (event: PointerEvent) => {
+    if (event.pointerId !== this.orbitPointer) return;
+    this.orbitPointer = -1;
+    if (this.container.hasPointerCapture(event.pointerId)) this.container.releasePointerCapture(event.pointerId);
+  };
+
+  private chase(outPos: THREE.Vector3, outLook: THREE.Vector3) {
+    this.boresight(this.forward);
+    outPos.copy(this.craft.position).addScaledVector(this.forward, -9).add(new THREE.Vector3(0, 2.4, 0));
+    outLook.copy(this.craft.position).addScaledVector(this.forward, 6);
+  }
+
+  private tick = () => {
+    if (this.disposed) return;
+    const dt = 0.016;
+    const now = performance.now();
+
+    if (this.mode === 'intro') {
+      const elapsed = (now - this.introStarted) / 1000;
+      if (elapsed < DEPART_SECONDS) {
+        this.playDeparture(elapsed);
+        this.publishIntro('depart', this.lightSpeedAt(elapsed));
+      } else if (elapsed < DEPART_SECONDS + HOLD_SECONDS) {
+        this.playHold();
+        this.publishIntro('hold', 0);
+      } else {
+        const span = Math.min(1, (elapsed - DEPART_SECONDS - HOLD_SECONDS) / PAN_SECONDS);
+        this.revealFlightScenery();
+        this.playPan(span);
+        this.publishIntro('pan', 0);
+        if (span >= 1) this.skipIntro();
+      }
+    } else if (this.mode === 'flight') {
+      const looking = this.partLabelsOn && !this.focus;
+      if (looking) {
+        this.velocity = 0;
+        this.boresight(this.forward);
+      } else {
+        this.fly(dt);
+      }
+      this.updateAim(dt);
+      if (this.focus === 'record') this.frameRecord();
+      else if (this.focus && this.markers.has(this.focus)) this.frameMarker(this.focus);
+      else if (looking) this.orbitCraft(dt);
+      else {
+        this.chase(this.chasePos, this.chaseLook);
+        this.camera.position.lerp(this.chasePos, 1 - Math.pow(0.001, dt));
+        this.camera.lookAt(this.chaseLook);
+      }
+    } else {
+      this.playOutro();
+    }
+
+    this.bobMarkers(now);
+    this.projectParts();
+    this.renderer.render(this.scene, this.camera);
+    this.frameId = requestAnimationFrame(this.tick);
+  };
+
+  private fly(dt: number) {
+    this.yaw += this.yawInput * 0.9 * dt;
+    this.pitch = THREE.MathUtils.clamp(this.pitch - this.pitchInput * 0.7 * dt, -1.05, 1.05);
+    this.velocity = THREE.MathUtils.damp(this.velocity, this.thrustInput * 8, 3, dt);
+    this.boresight(this.forward);
+    this.craft.position.addScaledVector(this.forward, this.velocity * dt);
+    if (this.craft.position.length() > VOYAGER_BUBBLE) {
+      this.craft.position.setLength(VOYAGER_BUBBLE);
+      if (this.velocity > 0) this.velocity = 0;
+    }
+  }
+
+  private updateAim(dt: number) {
+    this.boresight(this.forward);
+    const dot = THREE.MathUtils.clamp(this.forward.dot(this.earthDir), -1, 1);
+    const angle = Math.acos(dot);
+    const signal = THREE.MathUtils.clamp(1 - angle / (40 * Math.PI / 180), 0, 1);
+    const aligned = angle < ALIGN_RAD;
+    if (this.step === 'align' && aligned && !this.alignSent) this.alignHold += dt;
+    else if (!this.alignSent) this.alignHold = 0;
+    if (this.step === 'align' && this.alignHold >= ALIGN_HOLD && !this.alignSent) {
+      this.alignSent = true;
+      this.onAligned?.();
+    }
+
+    const outside = this.craft.position.length() > SHELL_RADIUS;
+    if (this.step === 'cross' && this.wasInside && outside && !this.crossSent) {
+      this.crossSent = true;
+      this.onCrossedShell?.();
+    }
+    this.wasInside = !outside;
+
+    const linkPos = this.link.geometry.attributes.position as THREE.BufferAttribute;
+    linkPos.setXYZ(0, this.craft.position.x, this.craft.position.y, this.craft.position.z);
+    linkPos.setXYZ(1, this.earthMarker.position.x, this.earthMarker.position.y, this.earthMarker.position.z);
+    linkPos.needsUpdate = true;
+    (this.link.material as THREE.LineBasicMaterial).opacity = signal > 0.2 ? signal * 0.85 : 0;
+
+    this.localEarth.copy(this.earthDir).applyQuaternion(this.craft.quaternion.clone().invert());
+    const yawError = Math.atan2(this.localEarth.x, this.localEarth.z);
+    const pitchError = Math.atan2(this.localEarth.y, Math.hypot(this.localEarth.x, this.localEarth.z));
+
+    let nearest: VoyagerMarkerId | null = null;
+    let nearestDist = Infinity;
+    let markerYaw = 0;
+    let markerPitch = 0;
+    for (const [id, group] of this.markers) {
+      if (!group.visible) continue;
+      const dist = this.craft.position.distanceTo(group.position);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = id;
+        this.localMarker.copy(group.position).sub(this.craft.position).normalize().applyQuaternion(this.craft.quaternion.clone().invert());
+        markerYaw = Math.atan2(this.localMarker.x, this.localMarker.z);
+        markerPitch = Math.atan2(this.localMarker.y, Math.hypot(this.localMarker.x, this.localMarker.z));
+      }
+    }
+    const insideMarker = nearest !== null && nearestDist < 5 ? nearest : null;
+    if (insideMarker !== this.nearStamp) {
+      this.nearStamp = insideMarker;
+      this.onNearMarker?.(insideMarker);
+    }
+
+    if (this.step === 'power' || this.step === 'record' || this.step === 'archive' || this.step === 'outro') {
+      this.powerDim = Math.min(1, this.powerDim + dt * 0.45);
+      this.craft.traverse(child => {
+        const mesh = child as THREE.Mesh;
+        if (!mesh.isMesh || Array.isArray(mesh.material)) return;
+        const material = mesh.material as THREE.MeshStandardMaterial;
+        if (!material.color) return;
+        if (!mesh.userData.baseColor) mesh.userData.baseColor = material.color.clone();
+        const base = mesh.userData.baseColor as THREE.Color;
+        if (base.getHex() === 0xf59e0b) {
+          material.color.copy(base);
+          return;
+        }
+        material.color.copy(base).multiplyScalar(1 - this.powerDim * 0.62);
+        if (material.emissive) material.emissiveIntensity = (1 - this.powerDim) * 0.25;
+      });
+    }
+
+    const stamp = `${signal.toFixed(2)}|${(angle * 180 / Math.PI).toFixed(0)}|${this.craft.position.x.toFixed(1)}|${this.craft.position.z.toFixed(1)}|${insideMarker ?? ''}`;
+    if (stamp !== this.telemetryStamp) {
+      this.telemetryStamp = stamp;
+      this.onTelemetry?.({
+        thrust: this.velocity,
+        headingErrorDeg: angle * 180 / Math.PI,
+        signal,
+        aligned,
+        distanceToMarker: Number.isFinite(nearestDist) ? nearestDist : 0,
+        outsideShell: outside,
+        yawError,
+        pitchError,
+        markerYaw,
+        markerPitch,
+        hasMarker: nearest !== null
+      });
+    }
+  }
+
+  private frameMarker(id: VoyagerMarkerId) {
+    const group = this.markers.get(id);
+    if (!group) return;
+    const offset = group.position.clone().add(new THREE.Vector3(4.5, 2.2, 4.5));
+    this.camera.position.lerp(offset, 0.08);
+    this.camera.lookAt(group.position);
+  }
+
+  private frameRecord() {
+    const scale = this.craft.scale.x;
+    this.recordCam.copy(this.recordLocal);
+    if (this.recordCam.lengthSq() < 1e-6) this.recordCam.set(1, 0, 0);
+    this.recordCam.normalize();
+    this.recordLook.copy(this.recordLocal).multiplyScalar(scale);
+    this.recordCam.multiplyScalar(3.2 * scale).add(this.recordLook);
+    this.recordLook.applyQuaternion(this.craft.quaternion).add(this.craft.position);
+    this.recordCam.applyQuaternion(this.craft.quaternion).add(this.craft.position);
+    this.camera.position.lerp(this.recordCam, 0.08);
+    this.camera.lookAt(this.recordLook);
+  }
+
+  private playOutro() {
+    const p = this.outro;
+    if (p < 0.4) {
+      const pull = 10 + p / 0.4 * 34;
+      this.camera.position.copy(this.craft.position).add(new THREE.Vector3(0, pull * 0.25, -pull));
+      this.camera.lookAt(this.craft.position);
+      this.earthMarker.scale.setScalar(1);
+      this.mars.visible = false;
+    } else if (p < 0.72) {
+      const dot = 1 - (p - 0.4) / 0.32;
+      this.earthMarker.scale.setScalar(Math.max(0.08, dot));
+      this.camera.position.set(0, 4, -18);
+      this.camera.lookAt(this.earthMarker.position);
+      this.mars.visible = false;
+    } else {
+      const grow = (p - 0.72) / 0.28;
+      this.mars.visible = true;
+      this.mars.scale.setScalar(0.4 + grow * 14);
+      this.camera.position.set(0, 2, 8);
+      this.camera.lookAt(this.mars.position);
+    }
+  }
+
+  private bobMarkers(now: number) {
+    const t = now * 0.001;
+    for (const group of this.markers.values()) {
+      const diamond = group.getObjectByName('diamond');
+      if (!diamond) continue;
+      diamond.position.y = 3.4 + Math.sin(t * 2.2 + group.position.x) * 0.12;
+      diamond.rotation.y += 0.02;
+    }
+  }
+
+  private onResize = () => {
+    if (this.disposed) return;
+    const width = this.container.clientWidth;
+    const height = Math.max(this.container.clientHeight, 1);
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height);
+  };
+}

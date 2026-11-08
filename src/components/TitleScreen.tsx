@@ -4,12 +4,16 @@ import { DisplayControls } from './DisplayControls';
 
 interface TitleScreenProps {
   onStart: () => void;
+  onStartVoyager: () => void;
+  onStartMars: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStart,
+  onStartVoyager,
+  onStartMars,
   isMuted,
   onToggleMute
 }) => {
@@ -58,19 +62,39 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           Pilot an autonomous lunar explorer rover across the Sea of Tranquility. Inspect the artifacts left behind at the historic landing site, discover the scientific reasons they remained, and conduct a live laser measurement between Earth and the Moon.
         </p>
 
-        {/* Start Mission CTA */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pointer-events-auto">
+        <div className="pointer-events-auto grid gap-3 sm:grid-cols-3">
           <button
             onClick={onStart}
-            className="flex items-center gap-3 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all duration-150 transform hover:-translate-y-0.5 active:translate-y-0 text-base tracking-wide"
+            className="rounded-xl border border-amber-300 bg-slate-950/90 p-4 text-left text-slate-100 shadow-lg transition-transform hover:-translate-y-0.5"
           >
-            <Play className="w-5 h-5 fill-slate-950" />
-            START MISSION
+            <div className="text-[11px] font-mono-num font-bold text-amber-300">MISSION 01</div>
+            <div className="mt-1 flex items-center gap-2 text-sm font-bold">
+              <Play className="h-4 w-4 fill-amber-300 text-amber-300" />
+              Apollo 11
+            </div>
+            <div className="mt-1 text-xs text-slate-400">Sea of Tranquility</div>
           </button>
-          <span className="text-xs text-slate-700 font-mono-num">
-            Press [ENTER] or [SPACE] to launch
-          </span>
+          <button
+            onClick={onStartVoyager}
+            className="rounded-xl border border-sky-400/70 bg-slate-950/90 p-4 text-left text-slate-100 shadow-lg transition-transform hover:-translate-y-0.5"
+          >
+            <div className="text-[11px] font-mono-num font-bold text-sky-300">MISSION 02</div>
+            <div className="mt-1 text-sm font-bold">Voyager 1</div>
+            <div className="mt-1 text-xs text-slate-400">The endless journey</div>
+          </button>
+          <button
+            type="button"
+            onClick={onStartMars}
+            className="rounded-xl border border-orange-400/80 bg-slate-950/90 p-4 text-left text-slate-100 shadow-lg transition-transform hover:-translate-y-0.5"
+          >
+            <div className="text-[11px] font-mono-num font-bold text-orange-300">MISSION 03</div>
+            <div className="mt-1 text-sm font-bold">Mars Sample Return</div>
+            <div className="mt-1 text-xs text-slate-400">Jezero Crater</div>
+          </button>
         </div>
+        <span className="mt-3 block text-xs text-slate-700 font-mono-num">
+          Press [ENTER] or [SPACE] to launch Mission 01
+        </span>
       </div>
 
       {/* Bottom Control Hint Strip */}
