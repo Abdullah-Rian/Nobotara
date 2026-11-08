@@ -7,11 +7,14 @@ interface AxisPadProps {
   axis: 'vertical' | 'horizontal';
   knobClass: string;
   onChange: (value: number) => void;
+  onGrab?: () => void;
 }
 
-export const AxisPad: React.FC<AxisPadProps> = ({ label, positive, negative, axis, knobClass, onChange }) => {
+export const AxisPad: React.FC<AxisPadProps> = ({ label, positive, negative, axis, knobClass, onChange, onGrab }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
+  const onGrabRef = useRef(onGrab);
+  onGrabRef.current = onGrab;
   const [knob, setKnob] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const travel = 36;
@@ -37,6 +40,7 @@ export const AxisPad: React.FC<AxisPadProps> = ({ label, positive, negative, axi
   };
 
   const handlePointerDown = (event: React.PointerEvent) => {
+    onGrabRef.current?.();
     setIsDragging(true);
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
     updatePosition(event.clientX, event.clientY);

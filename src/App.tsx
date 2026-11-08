@@ -30,6 +30,7 @@ import { OutroScreen } from './components/OutroScreen';
 import { RotateOverlay } from './components/RotateOverlay';
 import { VoyagerHUD } from './components/VoyagerHUD';
 import { VoyagerParts } from './components/VoyagerParts';
+import { VoyagerSkyLabels } from './components/VoyagerSkyLabels';
 import { VoyagerRecord } from './components/VoyagerRecord';
 import { ArchivePuzzle } from './components/ArchivePuzzle';
 import { VoyagerOutro } from './components/VoyagerOutro';
@@ -94,6 +95,7 @@ export default function App() {
   const wireApolloRef = useRef<(engine: ApolloThreeEngine) => void>(() => {});
   const readPlaquePoint = useCallback(() => engineRef.current?.plaqueScreenPoint, []);
   const readVoyagerParts = useCallback(() => voyagerRef.current?.partFrame, []);
+  const readVoyagerSky = useCallback(() => voyagerRef.current?.skyFrame, []);
   const phaseRef = useRef<GamePhase>('title');
   const roverLockedRef = useRef(true);
   const introVoiceRef = useRef({ cancelled: false });
@@ -111,19 +113,27 @@ export default function App() {
   const [voyagerTelemetry, setVoyagerTelemetry] = useState<VoyagerTelemetry>(EMPTY_VOYAGER_TELEMETRY);
   const [nearVoyager, setNearVoyager] = useState<VoyagerMarkerId | null>(null);
   const [voyagerHeld, setVoyagerHeld] = useState(false);
-  const [voyagerIntroBeat, setVoyagerIntroBeat] = useState<'depart' | 'hold' | 'pan'>('depart');
-  const [voyagerLightSpeed, setVoyagerLightSpeed] = useState<number | null>(null);
   const [voyagerPartsOpen, setVoyagerPartsOpen] = useState(false);
+  /** Inspection runs from the opening pan until a stick is tapped. */
+  const [voyagerSpeechInspect, setVoyagerSpeechInspect] = useState(false);
+  /** Yaw, pitch, and thrust stay hidden until Mission Control has finished speaking. */
+  const [voyagerSticksReady, setVoyagerSticksReady] = useState(false);
   const [voyagerPartId, setVoyagerPartId] = useState<string | null>(null);
   const [voyagerPartTour, setVoyagerPartTour] = useState(false);
   const voyagerPartsOpenRef = useRef(false);
   voyagerPartsOpenRef.current = voyagerPartsOpen;
+  const voyagerSpeechInspectRef = useRef(false);
+  voyagerSpeechInspectRef.current = voyagerSpeechInspect;
+  const leaveSpeechInspectionRef = useRef<() => void>(() => {});
   const voyagerPartTourRef = useRef(false);
   voyagerPartTourRef.current = voyagerPartTour;
   const [voyagerPanel, setVoyagerPanel] = useState<VoyagerMarkerId | null>(null);
   const [recordOpen, setRecordOpen] = useState(false);
   const voyagerCueRef = useRef<string | null>(null);
   const voyagerSpeakRef = useRef(0);
+  /** Narrator-02 is still delivering the opening line. Mission Control waits for it. */
+  const voyagerIntroSpeakingRef = useRef(false);
+  const voyagerCameraReadyRef = useRef(false);
   const [marsStep, setMarsStep] = useState<MarsStep>('igneous');
   const marsStepRef = useRef<MarsStep>('igneous');
   marsStepRef.current = marsStep;
@@ -222,17 +232,21 @@ export default function App() {
     let inputFrameId = 0;
     const pollInputs = () => {
       if (missionRef.current === 'voyager' && voyagerRef.current) {
+        if (voyagerSpeechInspectRef.current && gameInputs.hasFlightKey()) {
+          leaveSpeechInspectionRef.current();
+        }
         if (roverLockedRef.current) voyagerRef.current.setInputs(0, 0, 0);
         else {
           const { thrust, yaw, pitch } = gameInputs.getFlightInputs();
           if (voyagerPartsOpenRef.current) {
-            if (Math.abs(thrust) > 0.2) {
+            if (!voyagerSpeechInspectRef.current && Math.abs(thrust) > 0.2) {
               voyagerPartsOpenRef.current = false;
               voyagerRef.current.setPartLabels(false);
               setVoyagerPartsOpen(false);
               setVoyagerPartId(null);
             }
-            voyagerRef.current.setInputs(0, yaw, pitch);
+            if (voyagerPartsOpenRef.current) voyagerRef.current.setInputs(0, yaw, pitch);
+            else voyagerRef.current.setInputs(thrust, yaw, pitch);
           } else {
             voyagerRef.current.setInputs(thrust, yaw, pitch);
           }
@@ -434,6 +448,7 @@ export default function App() {
     }
     if (missionRef.current === 'voyager') {
       introVoiceRef.current.cancelled = true;
+      voyagerIntroSpeakingRef.current = false;
       voyagerCueRef.current = null;
       voyagerSpeakRef.current += 1;
       apolloAudio.stopSpeaking();
@@ -594,6 +609,25 @@ export default function App() {
     outroTimerRef.current = null;
   };
 
+  const beginSpeechInspection = () => {
+    if (!voyagerSpeechInspectRef.current) return;
+    voyagerPartsOpenRef.current = true;
+    voyagerRef.current?.setPartLabels(true);
+    setVoyagerPartId(null);
+    setVoyagerPartsOpen(true);
+  };
+
+  const leaveSpeechInspection = () => {
+    if (!voyagerSpeechInspectRef.current) return;
+    voyagerSpeechInspectRef.current = false;
+    setVoyagerSpeechInspect(false);
+    voyagerPartsOpenRef.current = false;
+    voyagerRef.current?.setPartLabels(false);
+    setVoyagerPartsOpen(false);
+    setVoyagerPartId(null);
+  };
+  leaveSpeechInspectionRef.current = leaveSpeechInspection;
+
   const attachVoyager = (engine: VoyagerEngine) => {
     engine.onTelemetry = setVoyagerTelemetry;
     engine.onNearMarker = setNearVoyager;
@@ -613,19 +647,12 @@ export default function App() {
       voyagerCueRef.current = 'shell';
       setActiveDialogue(VOYAGER_SHELL_LINE);
     };
-    engine.onIntroCue = ({ beat, lightSpeed }) => {
-      setVoyagerIntroBeat(beat);
-      setVoyagerLightSpeed(beat === 'depart' ? lightSpeed : null);
-      if (beat === 'pan' && voyagerPartTourRef.current) {
-        voyagerPartsOpenRef.current = true;
-        engine.setPartLabels(true);
-        setVoyagerPartsOpen(true);
-      }
-    };
     engine.onCraftReady = (nasa) => {
       voyagerPartTourRef.current = nasa;
       setVoyagerPartTour(nasa);
       if (!nasa) {
+        voyagerSpeechInspectRef.current = false;
+        setVoyagerSpeechInspect(false);
         voyagerPartsOpenRef.current = false;
         engine.setPartLabels(false);
         setVoyagerPartsOpen(false);
@@ -633,17 +660,15 @@ export default function App() {
       }
     };
     engine.onIntroSettled = () => {
+      voyagerCameraReadyRef.current = true;
       roverLockedRef.current = false;
       setVoyagerHeld(false);
-      voyagerPartsOpenRef.current = false;
-      engine.setPartLabels(false);
-      setVoyagerPartsOpen(false);
-      setVoyagerPartId(null);
       setPhase('explore');
-      apolloAudio.stopSpeaking();
+      if (voyagerIntroSpeakingRef.current) return;
       voyagerSpeakRef.current += 1;
       voyagerCueRef.current = 'align-control';
       setActiveDialogue(VOYAGER_ALIGN_CONTROL);
+      beginSpeechInspection();
     };
   };
 
@@ -681,8 +706,11 @@ export default function App() {
     setActiveInspectArtifact(null);
     setInspectNarrationDone(false);
     voyagerCueRef.current = 'intro';
-    setVoyagerIntroBeat('depart');
-    setVoyagerLightSpeed(null);
+    voyagerIntroSpeakingRef.current = true;
+    voyagerCameraReadyRef.current = false;
+    voyagerSpeechInspectRef.current = true;
+    setVoyagerSpeechInspect(true);
+    setVoyagerSticksReady(false);
     voyagerPartsOpenRef.current = false;
     voyagerPartTourRef.current = false;
     setVoyagerPartsOpen(false);
@@ -696,24 +724,26 @@ export default function App() {
 
   useEffect(() => {
     if (mission !== 'voyager' || !voyagerPartTour) return;
-    if (phase === 'intro' && voyagerIntroBeat === 'pan') {
+    if (voyagerSpeechInspect && (phase === 'intro' || phase === 'explore')) {
       voyagerPartsOpenRef.current = true;
       voyagerRef.current?.setPartLabels(true);
       setVoyagerPartsOpen(true);
     }
-  }, [mission, voyagerPartTour, phase, voyagerIntroBeat]);
+  }, [mission, voyagerPartTour, phase, voyagerSpeechInspect]);
 
   useEffect(() => {
     if (!voyagerPartsOpen) return;
-    const pan = mission === 'voyager' && phase === 'intro' && voyagerIntroBeat === 'pan';
+    const pan = mission === 'voyager' && phase === 'intro';
     const flight = mission === 'voyager' && phase === 'explore';
     if (!pan && !flight) {
+      voyagerSpeechInspectRef.current = false;
+      setVoyagerSpeechInspect(false);
       voyagerPartsOpenRef.current = false;
       voyagerRef.current?.setPartLabels(false);
       setVoyagerPartsOpen(false);
       setVoyagerPartId(null);
     }
-  }, [voyagerPartsOpen, mission, phase, voyagerIntroBeat]);
+  }, [voyagerPartsOpen, mission, phase]);
 
   const requestStart = (which: 'apollo' | 'voyager' | 'mars') => {
     pendingMissionRef.current = which;
@@ -742,13 +772,23 @@ export default function App() {
     if (!cue) return;
     if (cue === 'intro') {
       voyagerCueRef.current = null;
-      speakVoyager(VOYAGER_INTRO.text, VOYAGER_INTRO.speaker, 'voyager_intro', () => setActiveDialogue(null));
+      speakVoyager(VOYAGER_INTRO.text, VOYAGER_INTRO.speaker, 'voyager_intro', () => {
+        voyagerIntroSpeakingRef.current = false;
+        if (!voyagerCameraReadyRef.current) {
+          setActiveDialogue(null);
+          return;
+        }
+        voyagerCueRef.current = 'align-control';
+        setActiveDialogue(VOYAGER_ALIGN_CONTROL);
+        beginSpeechInspection();
+      });
       return;
     }
     if (cue === 'align-control') {
       voyagerCueRef.current = null;
       speakVoyager(VOYAGER_ALIGN_CONTROL.text, VOYAGER_ALIGN_CONTROL.speaker, 'voyager_align_control', () => {
         setActiveDialogue(null);
+        setVoyagerSticksReady(true);
       });
       return;
     }
@@ -906,6 +946,9 @@ export default function App() {
     setVoyagerPanel(null);
     voyagerPartsOpenRef.current = false;
     voyagerPartTourRef.current = false;
+    voyagerSpeechInspectRef.current = false;
+    setVoyagerSpeechInspect(false);
+    setVoyagerSticksReady(false);
     setVoyagerPartsOpen(false);
     setVoyagerPartId(null);
     setVoyagerPartTour(false);
@@ -1265,9 +1308,9 @@ export default function App() {
         />
       )}
 
-      {mission === 'voyager' && phase === 'intro' && voyagerIntroBeat !== 'depart' && (
+      {mission === 'voyager' && phase === 'intro' && (
         <div className="pointer-events-none absolute inset-x-0 top-28 z-20 px-6 text-center">
-          <h1 className="text-3xl font-extrabold text-white drop-shadow md:text-5xl">
+          <h1 className="text-[0.5625rem] font-extrabold text-white drop-shadow md:text-[0.9rem]">
             Meet Voyager 1 — The Endless Journey
           </h1>
         </div>
@@ -1280,15 +1323,16 @@ export default function App() {
           dialogue={activeDialogue}
           typeDialogue
           onDialogueTyped={onVoyagerTyped}
-          showJoystick={phase === 'explore' && !voyagerHeld}
+          showJoystick={phase === 'explore' && !voyagerHeld && voyagerSticksReady}
           onPitch={(pitch) => gameInputs.setVirtualPitch(pitch)}
           onYaw={(yaw) => gameInputs.setVirtualYaw(yaw)}
           onThrust={(thrust) => gameInputs.setVirtualThrust(thrust)}
-          lightSpeed={phase === 'intro' ? voyagerLightSpeed : null}
+          onStickGrab={leaveSpeechInspection}
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
           onOpenRecord={openRecord}
-          lookingAround={phase === 'explore' && voyagerPartsOpen}
+          lookingAround={(phase === 'intro' || phase === 'explore') && voyagerPartsOpen}
+          stickLeavesInspect={voyagerSpeechInspect && voyagerSticksReady}
           onInspectCraft={
             phase === 'explore' && !voyagerPartsOpen && voyagerPartTour && voyagerStep !== 'record'
               ? () => {
@@ -1300,6 +1344,10 @@ export default function App() {
               : undefined
           }
         />
+      )}
+
+      {mission === 'voyager' && phase !== 'outro' && phase !== 'puzzle' && (
+        <VoyagerSkyLabels readFrame={readVoyagerSky} />
       )}
 
       {mission === 'voyager' && voyagerPartsOpen && (

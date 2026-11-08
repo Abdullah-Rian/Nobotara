@@ -1,0 +1,381 @@
+{
+  "metadata.json": {
+    "mtime": 1793869902.8120348,
+    "seen": 1794166975.283573,
+    "ast_hash": "bf4a114c28a637cc69a67209590efcca",
+    "semantic_hash": "bf4a114c28a637cc69a67209590efcca",
+    "ast_empty": true
+  },
+  "package.json": {
+    "mtime": 1793869902.812693,
+    "seen": 1794166975.2835772,
+    "ast_hash": "8a9ba3ebf52988ff8b7e18fc717628c9",
+    "semantic_hash": "8a9ba3ebf52988ff8b7e18fc717628c9"
+  },
+  "public/assets/audio/voiceovers/manifest.json": {
+    "mtime": 1793968699.6722157,
+    "seen": 1794166975.283605,
+    "ast_hash": "2b9aefd863a6daec04254a431810470a",
+    "semantic_hash": "2b9aefd863a6daec04254a431810470a"
+  },
+  "scripts/render-voiceovers.mjs": {
+    "mtime": 1793968538.1543975,
+    "seen": 1794166975.283627,
+    "ast_hash": "1d8fd2ac505335fc8858e985617cc1d1",
+    "semantic_hash": "1d8fd2ac505335fc8858e985617cc1d1"
+  },
+  "server.ts": {
+    "mtime": 1794083438.956206,
+    "seen": 1794166975.283641,
+    "ast_hash": "f3e8d939a30a933626ec1cb1e2ac5223",
+    "semantic_hash": "f3e8d939a30a933626ec1cb1e2ac5223"
+  },
+  "src/App.tsx": {
+    "mtime": 1794176361.6018693,
+    "seen": 1794176419.883195,
+    "ast_hash": "09e874fb97bf9c64aebdea0a8fec6d33",
+    "semantic_hash": ""
+  },
+  "src/audio/apolloAudio.ts": {
+    "mtime": 1793968106.5517745,
+    "seen": 1794166975.283664,
+    "ast_hash": "0bdca0e2b38262d13c41a49d44414fa1",
+    "semantic_hash": "0bdca0e2b38262d13c41a49d44414fa1"
+  },
+  "src/components/ArchivePuzzle.tsx": {
+    "mtime": 1794071435.1151235,
+    "seen": 1794166975.283676,
+    "ast_hash": "ad7eb74ba8563d693969bc8e1eafc27c",
+    "semantic_hash": "ad7eb74ba8563d693969bc8e1eafc27c"
+  },
+  "src/components/AxisPad.tsx": {
+    "mtime": 1794173927.9700925,
+    "seen": 1794173992.629054,
+    "ast_hash": "65baae37cd8275af28b4ad2ee7d58212",
+    "semantic_hash": ""
+  },
+  "src/components/CuriousCard.tsx": {
+    "mtime": 1794083123.1475604,
+    "seen": 1794166975.283701,
+    "ast_hash": "f0bd688d1e49fcec2814070b55ee6558",
+    "semantic_hash": "f0bd688d1e49fcec2814070b55ee6558"
+  },
+  "src/components/DisplayControls.tsx": {
+    "mtime": 1794054094.835915,
+    "seen": 1794166975.283713,
+    "ast_hash": "599599cfcba6d637445e9fd19308ee90",
+    "semantic_hash": "599599cfcba6d637445e9fd19308ee90"
+  },
+  "src/components/EvidenceBoard.tsx": {
+    "mtime": 1794083183.1937644,
+    "seen": 1794166975.283725,
+    "ast_hash": "541b7881da785969d6e689fd90ab42ca",
+    "semantic_hash": "541b7881da785969d6e689fd90ab42ca"
+  },
+  "src/components/HUD.tsx": {
+    "mtime": 1794054062.4280636,
+    "seen": 1794166975.2837372,
+    "ast_hash": "e35b357982f40ba07e2523a9329a4db1",
+    "semantic_hash": "e35b357982f40ba07e2523a9329a4db1"
+  },
+  "src/components/InspectionModal.tsx": {
+    "mtime": 1793974896.108588,
+    "seen": 1794166975.2837481,
+    "ast_hash": "9ded2b4197d29f9bbc918291156d0906",
+    "semantic_hash": "9ded2b4197d29f9bbc918291156d0906"
+  },
+  "src/components/LegacyChoice.tsx": {
+    "mtime": 1794083115.055417,
+    "seen": 1794166975.28376,
+    "ast_hash": "735250b59df3758147f8945d1873e052",
+    "semantic_hash": "735250b59df3758147f8945d1873e052"
+  },
+  "src/components/MarsHUD.tsx": {
+    "mtime": 1794083141.0676205,
+    "seen": 1794166975.283772,
+    "ast_hash": "1541b03004cc418d538a22e6d7689c85",
+    "semantic_hash": "1541b03004cc418d538a22e6d7689c85"
+  },
+  "src/components/MarsInspect.tsx": {
+    "mtime": 1794083126.3182132,
+    "seen": 1794166975.283783,
+    "ast_hash": "9f3cfa54851014fc09f42deff7ca7220",
+    "semantic_hash": "9f3cfa54851014fc09f42deff7ca7220"
+  },
+  "src/components/MatchingPuzzle.tsx": {
+    "mtime": 1793869902.8232334,
+    "seen": 1794166975.283794,
+    "ast_hash": "61353f3c68ab74f67452796866cba24a",
+    "semantic_hash": "61353f3c68ab74f67452796866cba24a"
+  },
+  "src/components/NavMap.tsx": {
+    "mtime": 1794053083.4402018,
+    "seen": 1794166975.2838058,
+    "ast_hash": "c4fcfa93a0b86a9e62bf1ee454295678",
+    "semantic_hash": "c4fcfa93a0b86a9e62bf1ee454295678"
+  },
+  "src/components/OutroScreen.tsx": {
+    "mtime": 1794071550.0340462,
+    "seen": 1794166975.283818,
+    "ast_hash": "aa9e23ca349c44ee4a971b7fd32485f2",
+    "semantic_hash": "aa9e23ca349c44ee4a971b7fd32485f2"
+  },
+  "src/components/RangingOverlay.tsx": {
+    "mtime": 1793942280.4617543,
+    "seen": 1794166975.283829,
+    "ast_hash": "eab730d201cfc979ee97345720734ba1",
+    "semantic_hash": "eab730d201cfc979ee97345720734ba1"
+  },
+  "src/components/RotateOverlay.tsx": {
+    "mtime": 1794054050.2416048,
+    "seen": 1794166975.2838411,
+    "ast_hash": "1a217574934bae5a945263acf2076716",
+    "semantic_hash": "1a217574934bae5a945263acf2076716"
+  },
+  "src/components/SequencePuzzle.tsx": {
+    "mtime": 1794083098.0195081,
+    "seen": 1794166975.283852,
+    "ast_hash": "4245ed47480cdc9904b8684cac4fdef2",
+    "semantic_hash": "4245ed47480cdc9904b8684cac4fdef2"
+  },
+  "src/components/TitleScreen.tsx": {
+    "mtime": 1794083322.1041284,
+    "seen": 1794166975.283864,
+    "ast_hash": "8b4627ba298feb3a32dfca9d1786df34",
+    "semantic_hash": "8b4627ba298feb3a32dfca9d1786df34"
+  },
+  "src/components/VirtualJoystick.tsx": {
+    "mtime": 1793869902.8114185,
+    "seen": 1794166975.283875,
+    "ast_hash": "49d5aa2d14ee23bb0d31e3229ec06bc5",
+    "semantic_hash": "49d5aa2d14ee23bb0d31e3229ec06bc5"
+  },
+  "src/components/VoyagerHUD.tsx": {
+    "mtime": 1794176222.1780913,
+    "seen": 1794176419.883208,
+    "ast_hash": "7091b132e9ca10d8f40df2f4297744c9",
+    "semantic_hash": ""
+  },
+  "src/components/VoyagerOutro.tsx": {
+    "mtime": 1794083324.6419067,
+    "seen": 1794166975.283898,
+    "ast_hash": "5c05bc507227529b5a033f34a82929e2",
+    "semantic_hash": "5c05bc507227529b5a033f34a82929e2"
+  },
+  "src/components/VoyagerParts.tsx": {
+    "mtime": 1794164222.2805755,
+    "seen": 1794166975.2839098,
+    "ast_hash": "6a4c1d00616d82c5659cce29e6b66ff2",
+    "semantic_hash": "6a4c1d00616d82c5659cce29e6b66ff2"
+  },
+  "src/components/VoyagerRecord.tsx": {
+    "mtime": 1794071443.3267252,
+    "seen": 1794166975.283921,
+    "ast_hash": "47fb00e2bd031032f908b40f7091a039",
+    "semantic_hash": "47fb00e2bd031032f908b40f7091a039"
+  },
+  "src/data/artifactsData.ts": {
+    "mtime": 1793942212.6861773,
+    "seen": 1794166975.283932,
+    "ast_hash": "8dda383960e55f111668d39c5dc860dd",
+    "semantic_hash": "8dda383960e55f111668d39c5dc860dd"
+  },
+  "src/game/apolloModels.ts": {
+    "mtime": 1793970084.9826748,
+    "seen": 1794166975.283944,
+    "ast_hash": "c8eb592d2f5145dabec1c5c5fd32f673",
+    "semantic_hash": "c8eb592d2f5145dabec1c5c5fd32f673"
+  },
+  "src/game/controls.ts": {
+    "mtime": 1794176216.366659,
+    "seen": 1794176419.883213,
+    "ast_hash": "6e68651f9cd0cdea5134d280942470df",
+    "semantic_hash": ""
+  },
+  "src/game/marsEngine.ts": {
+    "mtime": 1794084990.2893488,
+    "seen": 1794166975.283967,
+    "ast_hash": "8fac79542e4094428d52d323e071d52e",
+    "semantic_hash": "8fac79542e4094428d52d323e071d52e"
+  },
+  "src/game/modelLoader.ts": {
+    "mtime": 1794051118.5295935,
+    "seen": 1794166975.283981,
+    "ast_hash": "e04662f0ccfa976f600e659053298519",
+    "semantic_hash": "e04662f0ccfa976f600e659053298519"
+  },
+  "src/game/proceduralTextures.ts": {
+    "mtime": 1793869902.8256366,
+    "seen": 1794166975.283993,
+    "ast_hash": "3c8541464e7865c24badfb74aa3a4bb8",
+    "semantic_hash": "3c8541464e7865c24badfb74aa3a4bb8"
+  },
+  "src/game/threeEngine.ts": {
+    "mtime": 1794079792.6792219,
+    "seen": 1794166975.2840042,
+    "ast_hash": "75b3926ca3121f79abdeeeba0d3953df",
+    "semantic_hash": "75b3926ca3121f79abdeeeba0d3953df"
+  },
+  "src/game/voyagerEngine.ts": {
+    "mtime": 1794172286.0395408,
+    "seen": 1794172287.19586,
+    "ast_hash": "ccb33a7b16f110f0ce1c928ec404ebcb",
+    "semantic_hash": ""
+  },
+  "src/main.tsx": {
+    "mtime": 1793869902.8112674,
+    "seen": 1794166975.2840261,
+    "ast_hash": "c54bc4338b4552045d4ff81e948ad087",
+    "semantic_hash": "c54bc4338b4552045d4ff81e948ad087"
+  },
+  "src/missions/mars/data.ts": {
+    "mtime": 1794083571.7208862,
+    "seen": 1794166975.284037,
+    "ast_hash": "4d36b50f20aa967b0c337f1d98d7eaae",
+    "semantic_hash": "4d36b50f20aa967b0c337f1d98d7eaae"
+  },
+  "src/missions/voyager/data.ts": {
+    "mtime": 1794071886.0697095,
+    "seen": 1794166975.284051,
+    "ast_hash": "67d6fee514cc1b8bb4fdf79ee6769ede",
+    "semantic_hash": "67d6fee514cc1b8bb4fdf79ee6769ede"
+  },
+  "src/missions/voyager/parts.ts": {
+    "mtime": 1794163401.6147463,
+    "seen": 1794166975.284064,
+    "ast_hash": "de93529075b42e91d67c697cd1cb3a55",
+    "semantic_hash": "de93529075b42e91d67c697cd1cb3a55"
+  },
+  "src/types/game.ts": {
+    "mtime": 1794082981.911431,
+    "seen": 1794166975.2840772,
+    "ast_hash": "cc1d03bae25f48f92042d976f16c7f60",
+    "semantic_hash": "cc1d03bae25f48f92042d976f16c7f60"
+  },
+  "src/utils/displayMode.ts": {
+    "mtime": 1794054094.2757201,
+    "seen": 1794166975.284089,
+    "ast_hash": "b997ce13e92b7c3eecbcf3e632495dae",
+    "semantic_hash": "b997ce13e92b7c3eecbcf3e632495dae"
+  },
+  "tsconfig.json": {
+    "mtime": 1793869902.8213656,
+    "seen": 1794166975.2841,
+    "ast_hash": "c9ce11f97b614219001b418db5fe4190",
+    "semantic_hash": "c9ce11f97b614219001b418db5fe4190"
+  },
+  "vite.config.ts": {
+    "mtime": 1793869902.8147027,
+    "seen": 1794166975.28411,
+    "ast_hash": "73f4702488a6cab080ba164c521eb19c",
+    "semantic_hash": "73f4702488a6cab080ba164c521eb19c"
+  },
+  "public/assets/audio/voiceovers/descent_stage_neil.mp3": {
+    "mtime": 1793968508.2761595,
+    "seen": 1794166975.2841191,
+    "ast_hash": "574d2f17b2af49f7f7077696118e6d24",
+    "semantic_hash": "574d2f17b2af49f7f7077696118e6d24"
+  },
+  "public/assets/audio/voiceovers/descent_stage_scientific.mp3": {
+    "mtime": 1793968512.228128,
+    "seen": 1794166975.284132,
+    "ast_hash": "909e0c1bced920d9b346cec83b124ff7",
+    "semantic_hash": "909e0c1bced920d9b346cec83b124ff7"
+  },
+  "public/assets/audio/voiceovers/intro_neil.mp3": {
+    "mtime": 1793905642.7093186,
+    "seen": 1794166975.284148,
+    "ast_hash": "cd7092b4fbc0227322b4b39b8227c4f4",
+    "semantic_hash": "cd7092b4fbc0227322b4b39b8227c4f4"
+  },
+  "public/assets/audio/voiceovers/outro_voyager.mp3": {
+    "mtime": 1793968667.6767695,
+    "seen": 1794166975.284161,
+    "ast_hash": "c325147e03e4f1908949390ceaa4e19f",
+    "semantic_hash": "c325147e03e4f1908949390ceaa4e19f"
+  },
+  "public/assets/audio/voiceovers/plaque_neil.mp3": {
+    "mtime": 1793968592.448229,
+    "seen": 1794166975.284174,
+    "ast_hash": "72ef1d5c35be1867e22dbc94231745a7",
+    "semantic_hash": "72ef1d5c35be1867e22dbc94231745a7"
+  },
+  "public/assets/audio/voiceovers/plaque_scientific.mp3": {
+    "mtime": 1793968617.287913,
+    "seen": 1794166975.2841868,
+    "ast_hash": "ab7cae04d044173685e3626529312080",
+    "semantic_hash": "ab7cae04d044173685e3626529312080"
+  },
+  "public/assets/audio/voiceovers/puzzle_complete_neil.mp3": {
+    "mtime": 1793968641.795388,
+    "seen": 1794166975.284199,
+    "ast_hash": "7a89398c0334cb820f7039ff7c6aea9e",
+    "semantic_hash": "7a89398c0334cb820f7039ff7c6aea9e"
+  },
+  "public/assets/audio/voiceovers/retroreflector_neil.mp3": {
+    "mtime": 1793968516.9983854,
+    "seen": 1794166975.284215,
+    "ast_hash": "bb99e8956b09e990317e7815fc69333e",
+    "semantic_hash": "bb99e8956b09e990317e7815fc69333e"
+  },
+  "public/assets/audio/voiceovers/retroreflector_scientific.mp3": {
+    "mtime": 1793968521.435814,
+    "seen": 1794166975.2842271,
+    "ast_hash": "7a89203b02a522f1d3edc9868983a761",
+    "semantic_hash": "7a89203b02a522f1d3edc9868983a761"
+  },
+  ".cursor/mcp.json": {
+    "mtime": 1794167080.019274,
+    "seen": 1794168206.141272,
+    "ast_hash": "b86585c657d3975c6ead1a45da3e4a09",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1793905642.701462,
+    "seen": 1794168206.141303,
+    "ast_hash": "2130ce33ed2b057f8415639906138a27",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1794054062.9662704,
+    "seen": 1794168206.141303,
+    "ast_hash": "1431c925aa53129888d6da5d51dbf2e1",
+    "semantic_hash": ""
+  },
+  "public/assets/aistudio/mission_1_apollo_11_outline_2c306a37.md": {
+    "mtime": 1793869902.8282058,
+    "seen": 1794168206.141304,
+    "ast_hash": "2a8eda9af8be96d5b122bdb753cae940",
+    "semantic_hash": ""
+  },
+  "public/models/README.md": {
+    "mtime": 1793970032.3843424,
+    "seen": 1794168206.141304,
+    "ast_hash": "09571ece1f61d162798bb14a375d340e",
+    "semantic_hash": ""
+  },
+  "public/assets/images/apollo11-plaque.jpg": {
+    "mtime": 1793966370.3224218,
+    "seen": 1794168206.141305,
+    "ast_hash": "0953495ecf882207fce8823b6aab89d0",
+    "semantic_hash": ""
+  },
+  "public/models/regolith_tile.png": {
+    "mtime": 1794050666.1608853,
+    "seen": 1794168206.141305,
+    "ast_hash": "40def169279b19c6ab7e6aaa26412c86",
+    "semantic_hash": ""
+  },
+  "src/components/VoyagerSkyLabels.tsx": {
+    "mtime": 1794170079.703548,
+    "seen": 1794170097.600965,
+    "ast_hash": "c74bcf6e3b2edfe3981028f2ee93b7aa",
+    "semantic_hash": ""
+  },
+  "package-lock.json": {
+    "mtime": 1793905011.8145041,
+    "seen": 1794168206.141311,
+    "ast_hash": "8e1a3eb2ebb9a34e847b5d85a3b7571c",
+    "semantic_hash": ""
+  }
+}

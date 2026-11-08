@@ -116,6 +116,18 @@ export class GameInputManager {
       pitch: Math.max(-1, Math.min(1, pitch))
     };
   }
+
+  /** W, S, or an arrow. Virtual sticks are separate, so a stick does not count. */
+  public hasFlightKey(): boolean {
+    return Boolean(
+      this.keysHeld['KeyW'] ||
+      this.keysHeld['KeyS'] ||
+      this.keysHeld['ArrowLeft'] ||
+      this.keysHeld['ArrowRight'] ||
+      this.keysHeld['ArrowUp'] ||
+      this.keysHeld['ArrowDown']
+    );
+  }
 }
 
 export const gameInputs = new GameInputManager();

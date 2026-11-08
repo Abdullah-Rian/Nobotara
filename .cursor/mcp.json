@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "graphify": {
+      "command": "/Users/ferdouse/.local/bin/graphify-mcp",
+      "args": [
+        "/Volumes/KINGSTON/Nobotara/NobotaraGame/graphify-out/graph.json"
+      ]
+    }
+  }
+}
