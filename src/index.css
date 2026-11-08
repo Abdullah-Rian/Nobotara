@@ -712,19 +712,19 @@ html, body, #root {
 /* Soft, breathing ambient aurora halo behind the box (filter: blur(16px to 24px)) */
 .gemini-chatbox-halo {
   position: absolute;
-  inset: -3px;
-  border-radius: 26px;
+  inset: -4px;
+  border-radius: 28px;
   pointer-events: none;
-  background: conic-gradient(
-    from var(--gemini-angle),
-    #38bdf8,
-    #6366f1,
-    #a855f7,
-    #ec4899,
-    #06b6d4,
-    #38bdf8
+  background: linear-gradient(
+    108deg,
+    rgba(244, 63, 94, 0.5) 0%,
+    rgba(236, 72, 153, 0.35) 24%,
+    rgba(99, 102, 241, 0.25) 55%,
+    rgba(14, 165, 233, 0.38) 80%,
+    rgba(6, 182, 212, 0.52) 100%
   );
-  animation: geminiRotate 6s linear infinite, geminiHaloBreathe 4s ease-in-out infinite;
+  filter: blur(20px);
+  animation: geminiHaloBreathe 4.5s ease-in-out infinite;
   z-index: 0;
 }
 
@@ -735,17 +735,15 @@ html, body, #root {
   border-radius: 24px;
   border: 1.5px solid transparent;
   background:
-    linear-gradient(#070b15, #070b15) padding-box,
-    conic-gradient(
-      from var(--gemini-angle),
-      #38bdf8,
-      #6366f1,
-      #a855f7,
-      #ec4899,
-      #06b6d4,
-      #38bdf8
+    linear-gradient(#070a13, #070a13) padding-box,
+    linear-gradient(
+      108deg,
+      #f43f5e 0%,
+      #ec4899 26%,
+      #6366f1 56%,
+      #38bdf8 85%,
+      #06b6d4 100%
     ) border-box;
-  animation: geminiRotate 6s linear infinite;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
   transition: box-shadow 0.25s ease;
 }

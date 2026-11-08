@@ -1,6 +1,10 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 interface CassiniSaturnHeroProps {
   reducedMotion?: boolean;
@@ -15,7 +19,7 @@ export const CassiniSaturnHero: React.FC<CassiniSaturnHeroProps> = ({
     const container = mountRef.current;
     if (!container) return;
 
-    // Detect software WebGL per Three.js skill guidelines
+    // Detect software WebGL
     const isSoftwareGl = (() => {
       try {
         const gl = document.createElement('canvas').getContext('webgl2');
@@ -30,441 +34,215 @@ export const CassiniSaturnHero: React.FC<CassiniSaturnHeroProps> = ({
       }
     })();
 
-    const width = 540;
-    const height = 215;
+    const width = 440;
+    const height = 165;
 
-    // 1. Scene & Calibrated Camera (Closer distance so Saturn is larger while rings never clip)
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(23, width / height, 0.1, 50);
-    camera.position.set(0, 0.05, 9.6);
-    camera.lookAt(0, 0, 0);
+    const camera = new THREE.PerspectiveCamera(23, width / height, 0.1, 100);
+    camera.position.set(0, 0.45, 11.0);
+    camera.lookAt(0, -0.05, 0);
 
-    // 2. Renderer with shadow support & ACES Filmic tone mapping
-    const renderer = new THREE.WebGLRenderer({
-      antialias: !isSoftwareGl,
-      alpha: true,
-      powerPreference: 'high-performance',
-    });
-    renderer.setSize(width, height, false);
-    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const renderer = new THREE.WebGLRenderer({ antialias: !isSoftwareGl, alpha: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.18;
+    renderer.toneMappingExposure = 1.0;
     renderer.shadowMap.enabled = !isSoftwareGl;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // Studio environment reflection for subtle icy ring specularity
-    const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environment = envTexture;
-    pmremGenerator.dispose();
-
     const canvas = renderer.domElement;
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
+    canvas.style.width = '440px';
+    canvas.style.height = '165px';
+    canvas.style.maxWidth = '100%';
     canvas.style.display = 'block';
     canvas.style.pointerEvents = 'none';
+    canvas.style.userSelect = 'none';
+    canvas.style.outline = 'none';
+    container.innerHTML = '';
     container.appendChild(canvas);
 
-    // 3. Lighting Rig: Oblique Sun Key light for shadow casting + planetary fill + cyan rim
-    const sunLight = new THREE.DirectionalLight(0xfff4de, 3.1);
-    sunLight.position.set(5.8, 3.8, 5.4);
-    sunLight.castShadow = !isSoftwareGl;
-    if (!isSoftwareGl) {
-      sunLight.shadow.mapSize.width = 1024;
-      sunLight.shadow.mapSize.height = 1024;
-      sunLight.shadow.camera.near = 1.0;
-      sunLight.shadow.camera.far = 25.0;
-      const d = 4.2;
-      sunLight.shadow.camera.left = -d;
-      sunLight.shadow.camera.right = d;
-      sunLight.shadow.camera.top = d;
-      sunLight.shadow.camera.bottom = -d;
-      sunLight.shadow.bias = -0.0003;
-      sunLight.shadow.normalBias = 0.015;
-    }
-    scene.add(sunLight);
+    // 1. Procedural High-Fidelity Globe Texture
+    function createGlobeTexture() {
+      const c = document.createElement('canvas');
+      c.width = 1024;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+      if (!ctx) return new THREE.Texture();
 
-    const hemiLight = new THREE.HemisphereLight(0xfef6e8, 0x091124, 0.55);
-    scene.add(hemiLight);
-
-    const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.55);
-    rimLight.position.set(-5.5, -2.2, -5.5);
-    scene.add(rimLight);
-
-    // 4. Procedural Saturn Atmospheric Texture with Longitudinal Cloud Waves & Storm Ovals
-    // (Longitudinal features ensure planetary rotation is clearly visible!)
-    const texCanvas = document.createElement('canvas');
-    texCanvas.width = 1024;
-    texCanvas.height = 512;
-    const ctx = texCanvas.getContext('2d');
-    if (ctx) {
       const grad = ctx.createLinearGradient(0, 0, 0, 512);
-      // North polar hexagon region
-      grad.addColorStop(0.0, '#6c7d87');
-      grad.addColorStop(0.08, '#85969f');
-      grad.addColorStop(0.14, '#b8ab92');
-      // North temperate bands
-      grad.addColorStop(0.22, '#d6b47c');
-      grad.addColorStop(0.30, '#f4e4c1');
-      grad.addColorStop(0.36, '#c79c60');
-      grad.addColorStop(0.42, '#f8edd4');
-      // Equatorial bright zone
-      grad.addColorStop(0.48, '#fbe2ad');
-      grad.addColorStop(0.52, '#fff1d9');
-      grad.addColorStop(0.56, '#edd29f');
-      // South temperate & tropical bands
-      grad.addColorStop(0.64, '#ce9f64');
-      grad.addColorStop(0.72, '#f1e0bf');
-      grad.addColorStop(0.80, '#bba076');
-      grad.addColorStop(0.90, '#96856d');
-      grad.addColorStop(1.0, '#665c4d');
+      grad.addColorStop(0.00, '#607480');
+      grad.addColorStop(0.08, '#78898f');
+      grad.addColorStop(0.15, '#beaa86');
+      grad.addColorStop(0.24, '#d0bc97');
+      grad.addColorStop(0.35, '#decba8');
+      grad.addColorStop(0.48, '#efe0c3');
+      grad.addColorStop(0.53, '#e5d3b3');
+      grad.addColorStop(0.61, '#caa97e');
+      grad.addColorStop(0.73, '#b89972');
+      grad.addColorStop(0.86, '#937b5d');
+      grad.addColorStop(1.00, '#564939');
 
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 1024, 512);
 
-      // Wavy longitudinal jet streams & atmospheric turbulence so rotation is unmistakably visible
-      for (let y = 24; y < 488; y += 3) {
-        const waveAmp = 2.5 + 3.5 * Math.sin(y * 0.07);
-        const freq = (y % 4 === 0) ? 4 : (y % 3 === 0) ? 6 : 3;
-        const phase = y * 0.23;
-        const isLight = Math.sin(y * 0.16) > 0;
-
-        ctx.beginPath();
-        for (let x = 0; x <= 1024; x += 8) {
-          const theta = (x / 1024) * Math.PI * 2;
-          const wy =
-            y +
-            Math.sin(theta * freq + phase) * waveAmp +
-            Math.cos(theta * (freq * 2) - phase) * (waveAmp * 0.45);
-          if (x === 0) ctx.moveTo(x, wy);
-          else ctx.lineTo(x, wy);
-        }
-        ctx.strokeStyle = isLight
-          ? 'rgba(255, 250, 235, 0.16)'
-          : 'rgba(115, 75, 35, 0.14)';
-        ctx.lineWidth = 2.4;
-        ctx.stroke();
+      for (let y = 0; y < 512; y += 2) {
+        const alpha = Math.sin(y * 0.28) * 0.035 + 0.025;
+        ctx.fillStyle = `rgba(255, 248, 230, ${alpha})`;
+        ctx.fillRect(0, y, 1024, 1);
       }
 
-      // Cassini atmospheric storm ovals & Great White Spot eddies distributed across longitudes
-      const storms = [
-        { x: 140, y: 185, rx: 46, ry: 14, color: 'rgba(255, 248, 230, 0.42)' },
-        { x: 340, y: 235, rx: 64, ry: 18, color: 'rgba(255, 252, 240, 0.48)' },
-        { x: 560, y: 165, rx: 38, ry: 12, color: 'rgba(165, 118, 68, 0.38)' },
-        { x: 740, y: 260, rx: 58, ry: 16, color: 'rgba(255, 245, 222, 0.44)' },
-        { x: 910, y: 205, rx: 44, ry: 14, color: 'rgba(140, 96, 52, 0.36)' },
-        { x: 230, y: 315, rx: 50, ry: 15, color: 'rgba(250, 236, 205, 0.38)' },
-        { x: 640, y: 335, rx: 42, ry: 13, color: 'rgba(155, 110, 62, 0.35)' },
-      ];
-
-      for (const s of storms) {
-        const sGrad = ctx.createRadialGradient(s.x, s.y, 2, s.x, s.y, s.rx);
-        sGrad.addColorStop(0, s.color);
-        sGrad.addColorStop(0.6, s.color.replace(/[\d.]+\)$/, '0.18)'));
-        sGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.save();
-        ctx.translate(s.x, s.y);
-        ctx.scale(1, s.ry / s.rx);
-        ctx.beginPath();
-        ctx.arc(0, 0, s.rx, 0, Math.PI * 2);
-        ctx.fillStyle = sGrad;
-        ctx.fill();
-        ctx.restore();
-      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      return tex;
     }
 
-    const saturnTexture = new THREE.CanvasTexture(texCanvas);
-    saturnTexture.wrapS = THREE.RepeatWrapping;
-    saturnTexture.colorSpace = THREE.SRGBColorSpace;
-    saturnTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    // 2. Procedural High-Fidelity Cassini Ring Texture
+    function createRingTexture() {
+      const c = document.createElement('canvas');
+      c.width = 1024;
+      c.height = 256;
+      const ctx = c.getContext('2d');
+      if (!ctx) return new THREE.Texture();
 
-    // 5. Procedural Cassini Rings Texture with Radial Spokes & Azimuthal Variations
-    // (Azimuthal spokes & density variations make the ring rotation unmistakably visible!)
-    const ringCanvas = document.createElement('canvas');
-    ringCanvas.width = 1024;
-    ringCanvas.height = 1024;
-    const rCtx = ringCanvas.getContext('2d');
-    if (rCtx) {
-      const cx = 512;
-      const cy = 512;
-      const maxR = 492;
-      const minR = 248;
+      const grad = ctx.createLinearGradient(0, 0, 1024, 0);
+      grad.addColorStop(0.00, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.05, 'rgba(80, 72, 60, 0.16)');
+      grad.addColorStop(0.25, 'rgba(120, 108, 90, 0.45)');
+      grad.addColorStop(0.27, 'rgba(215, 196, 165, 0.92)');
+      grad.addColorStop(0.48, 'rgba(242, 226, 198, 0.98)');
+      grad.addColorStop(0.66, 'rgba(220, 200, 168, 0.94)');
+      grad.addColorStop(0.70, 'rgba(195, 175, 145, 0.88)');
+      grad.addColorStop(0.71, 'rgba(0, 0, 0, 0.0)');
+      grad.addColorStop(0.76, 'rgba(0, 0, 0, 0.0)');
+      grad.addColorStop(0.77, 'rgba(188, 168, 138, 0.88)');
+      grad.addColorStop(0.87, 'rgba(175, 155, 125, 0.82)');
+      grad.addColorStop(0.90, 'rgba(0, 0, 0, 0.08)');
+      grad.addColorStop(0.92, 'rgba(170, 150, 122, 0.78)');
+      grad.addColorStop(0.97, 'rgba(120, 104, 82, 0.22)');
+      grad.addColorStop(1.00, 'rgba(0, 0, 0, 0)');
 
-      rCtx.clearRect(0, 0, 1024, 1024);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1024, 256);
 
-      for (let r = minR; r <= maxR; r++) {
-        const normR = (r - minR) / (maxR - minR);
-        let alpha = 0;
-        let color = '235, 218, 185';
+      for (let x = 30; x < 990; x += 2) {
+        if (x > 720 && x < 780) continue;
+        const strokeAlpha = Math.sin(x * 1.6) * 0.08 + 0.05;
+        ctx.fillStyle = `rgba(30, 24, 16, ${strokeAlpha})`;
+        ctx.fillRect(x, 0, 1, 256);
+      }
 
-        if (normR < 0.22) {
-          // C Ring (Crepe Ring)
-          alpha = 0.34 + 0.14 * Math.sin(r * 0.65);
-          color = '188, 175, 152';
-        } else if (normR < 0.64) {
-          // B Ring: dense, bright creamy gold with fine ringlets
-          const subRing = Math.sin(r * 0.52) * 0.09 + Math.cos(r * 0.85) * 0.06;
-          alpha = Math.min(0.97, 0.88 + subRing);
-          color = '248, 233, 204';
-        } else if (normR < 0.70) {
-          // Cassini Division: prominent dark gap
-          alpha = 0.02;
-          color = '35, 28, 18';
+      for (let y = 0; y < 256; y++) {
+        const spoke =
+          Math.sin((y / 256) * Math.PI * 8) * 0.14 +
+          Math.sin((y / 256) * Math.PI * 2) * 0.08;
+        if (spoke > 0) {
+          ctx.fillStyle = `rgba(255, 242, 220, ${spoke})`;
         } else {
-          // A Ring with Encke Gap
-          const isEncke = normR >= 0.86 && normR <= 0.885;
-          if (isEncke) {
-            alpha = 0.035;
-            color = '45, 36, 22';
-          } else {
-            const aStripes = Math.sin(r * 0.55) * 0.09;
-            alpha = 0.75 + aStripes;
-            color = '232, 216, 186';
-          }
+          ctx.fillStyle = `rgba(15, 10, 5, ${Math.abs(spoke) * 1.2})`;
         }
-
-        rCtx.beginPath();
-        rCtx.arc(cx, cy, r, 0, Math.PI * 2);
-        rCtx.strokeStyle = `rgba(${color}, ${alpha.toFixed(3)})`;
-        rCtx.lineWidth = 1.4;
-        rCtx.stroke();
+        ctx.fillRect(160, y, 760, 1);
       }
 
-      // Add authentic Cassini azimuthal ring spokes & Keplerian density clumps
-      // so rotating the ring plane creates a clear, dynamic orbital motion
-      rCtx.save();
-      rCtx.translate(cx, cy);
-      const spokeCount = 36;
-      for (let i = 0; i < spokeCount; i++) {
-        const angle = (i / spokeCount) * Math.PI * 2 + Math.sin(i * 1.7) * 0.08;
-        const spokeWidth = 0.04 + (i % 3) * 0.025;
-        const isBrightSpoke = i % 2 === 0;
-
-        rCtx.beginPath();
-        rCtx.arc(0, 0, 365, angle, angle + spokeWidth);
-        rCtx.strokeStyle = isBrightSpoke
-          ? 'rgba(255, 250, 240, 0.22)'
-          : 'rgba(90, 70, 45, 0.18)';
-        rCtx.lineWidth = 115;
-        rCtx.stroke();
-      }
-
-      // Outer A-ring azimuthal shimmer arcs
-      for (let i = 0; i < 18; i++) {
-        const angle = (i / 18) * Math.PI * 2;
-        rCtx.beginPath();
-        rCtx.arc(0, 0, 455, angle, angle + 0.09);
-        rCtx.strokeStyle =
-          i % 2 === 0 ? 'rgba(255, 248, 232, 0.24)' : 'rgba(70, 55, 35, 0.16)';
-        rCtx.lineWidth = 42;
-        rCtx.stroke();
-      }
-      rCtx.restore();
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
     }
 
-    const ringTexture = new THREE.CanvasTexture(ringCanvas);
-    ringTexture.colorSpace = THREE.SRGBColorSpace;
-    ringTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-    // 6. Assemble Larger, Dynamic Saturn System
+    // 3. System assembly
     const saturnSystem = new THREE.Group();
-    // Scale up the system so Saturn has commanding hero presence without clipping
-    saturnSystem.scale.setScalar(1.18);
+    saturnSystem.rotation.z = -0.44;
+    saturnSystem.rotation.x = 0.28;
+    scene.add(saturnSystem);
 
-    // Planet Sphere (Oblate spheroid like real Saturn)
-    const planetRadius = 1.0;
-    const planetGeo = new THREE.SphereGeometry(planetRadius, 64, 48);
+    const planetGeo = new THREE.SphereGeometry(1.22, 64, 64);
+    planetGeo.scale(1.0, 0.89, 1.0);
     const planetMat = new THREE.MeshStandardMaterial({
-      map: saturnTexture,
-      roughness: 0.82,
-      metalness: 0.05,
+      map: createGlobeTexture(),
+      roughness: 0.90,
+      metalness: 0.02,
     });
-    const planetMesh = new THREE.Mesh(planetGeo, planetMat);
-    planetMesh.scale.set(1.04, 0.94, 1.04); // Authentic Saturn polar flattening
-    planetMesh.castShadow = true;
-    planetMesh.receiveShadow = true;
-    saturnSystem.add(planetMesh);
+    const planet = new THREE.Mesh(planetGeo, planetMat);
+    planet.castShadow = true;
+    planet.receiveShadow = true;
+    saturnSystem.add(planet);
 
-    // Rings Mesh: inner radius = 1.26, outer radius = 2.45
-    const ringInner = 1.26;
-    const ringOuter = 2.45;
-    const ringGeo = new THREE.RingGeometry(ringInner, ringOuter, 128, 64);
+    const innerR = 1.45;
+    const outerR = 3.10;
+    const ringGeo = new THREE.RingGeometry(innerR, outerR, 192);
 
     const pos = ringGeo.attributes.position;
     const uvs = ringGeo.attributes.uv;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const y = pos.getY(i);
-      const u = (x / ringOuter) * 0.5 + 0.5;
-      const v = (y / ringOuter) * 0.5 + 0.5;
+      const r = Math.sqrt(x * x + y * y);
+      const theta = Math.atan2(y, x);
+      const u = (r - innerR) / (outerR - innerR);
+      const v = theta / (Math.PI * 2) + 0.5;
       uvs.setXY(i, u, v);
     }
     uvs.needsUpdate = true;
 
     const ringMat = new THREE.MeshStandardMaterial({
-      map: ringTexture,
-      transparent: true,
+      map: createRingTexture(),
       side: THREE.DoubleSide,
-      roughness: 0.68,
-      metalness: 0.12,
-      alphaTest: 0.015,
-      depthWrite: false,
+      transparent: true,
+      roughness: 0.82,
+      metalness: 0.04,
     });
+
     const ringMesh = new THREE.Mesh(ringGeo, ringMat);
     ringMesh.rotation.x = Math.PI / 2;
     ringMesh.castShadow = true;
     ringMesh.receiveShadow = true;
+    saturnSystem.add(ringMesh);
 
-    // 7. Orbiting Ice Ringlet Particles & Shepherd Moonlets for Unmistakable Orbital Motion
-    const particleCount = 180;
-    const particlePositions = new Float32Array(particleCount * 3);
-    const particleColors = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-      const angle = (i / particleCount) * Math.PI * 2 + (i * 0.618);
-      // Distribute across B and A rings (avoiding Cassini division)
-      const band = i % 3 === 0 ? 1.48 + (i % 17) * 0.026 : 2.08 + (i % 13) * 0.025;
-      particlePositions[i * 3] = Math.cos(angle) * band;
-      particlePositions[i * 3 + 1] = (Math.sin(i * 3.1) * 0.012);
-      particlePositions[i * 3 + 2] = Math.sin(angle) * band;
-
-      // Warm golden-ice and cyan-ice glints
-      if (i % 5 === 0) {
-        particleColors[i * 3] = 0.75;
-        particleColors[i * 3 + 1] = 0.92;
-        particleColors[i * 3 + 2] = 1.0;
-      } else {
-        particleColors[i * 3] = 1.0;
-        particleColors[i * 3 + 1] = 0.93;
-        particleColors[i * 3 + 2] = 0.80;
-      }
-    }
-    const particleGeo = new THREE.BufferGeometry();
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-    particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
-    const particleMat = new THREE.PointsMaterial({
-      size: 0.038,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.72,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const ringParticles = new THREE.Points(particleGeo, particleMat);
-
-    const ringRotatingGroup = new THREE.Group();
-    ringRotatingGroup.add(ringMesh);
-    ringRotatingGroup.add(ringParticles);
-    saturnSystem.add(ringRotatingGroup);
-
-    // Base Cassini inclination and axial tilt (~26.7 deg)
-    const baseRotX = 0.44;
-    const baseRotZ = -0.16;
-    saturnSystem.rotation.x = baseRotX;
-    saturnSystem.rotation.z = baseRotZ;
-
-    scene.add(saturnSystem);
-
+    // 4. Photometric Directional Sunlight + Ambient Fill
+    const sunLight = new THREE.DirectionalLight(0xfff2d4, 2.1);
+    sunLight.position.set(7, 4.5, 4.5);
+    sunLight.castShadow = !isSoftwareGl;
     if (!isSoftwareGl) {
-      renderer.compile(scene, camera);
+      sunLight.shadow.mapSize.width = 1024;
+      sunLight.shadow.mapSize.height = 1024;
+      sunLight.shadow.camera.near = 1;
+      sunLight.shadow.camera.far = 22;
+      sunLight.shadow.bias = -0.001;
     }
+    scene.add(sunLight);
 
-    // 8. Paced Render Loop with Planetary Rotation, Ring Orbit & Gentle Orbital Precession
-    let frameId = 0;
-    const startTime = performance.now();
-    let lastTime = startTime;
+    const ambientLight = new THREE.AmbientLight(0x18130d, 0.7);
+    scene.add(ambientLight);
 
-    function afterDraw(cb: () => void) {
-      const gl = renderer.getContext() as WebGL2RenderingContext;
-      if (!gl || !gl.fenceSync) {
-        frameId = window.setTimeout(cb, 80);
-        return;
-      }
-      const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-      gl.flush();
-      const poll = () => {
-        const state = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
-        if (state === gl.UNSIGNALED) {
-          frameId = window.setTimeout(poll, 5);
-        } else {
-          if (sync) gl.deleteSync(sync);
-          frameId = window.setTimeout(cb, 80);
-        }
-      };
-      frameId = window.setTimeout(poll, 5);
-    }
-
-    const tick = () => {
-      const now = performance.now();
-      const delta = Math.min((now - lastTime) / 1000, 0.1);
-      const elapsed = (now - startTime) / 1000;
-      lastTime = now;
-
+    // 5. Animation loop
+    let reqId = 0;
+    function animate() {
+      reqId = requestAnimationFrame(animate);
       if (!reducedMotion) {
-        // 1. Rotate Saturn's atmospheric bands & storms around its polar axis
-        planetMesh.rotation.y += delta * 0.42;
-
-        // 2. Smoothly rotate the textured ring plane & ice particles around the polar axis
-        ringMesh.rotation.z -= delta * 0.34;
-        ringParticles.rotation.y += delta * 0.48;
-
-        // 3. Gentle zero-gravity spacecraft flyby precession & floating motion
-        saturnSystem.rotation.x = baseRotX + Math.sin(elapsed * 0.75) * 0.045;
-        saturnSystem.rotation.z = baseRotZ + Math.cos(elapsed * 0.6) * 0.055;
-        saturnSystem.position.y = Math.sin(elapsed * 1.1) * 0.065;
+        ringMesh.rotation.z += 0.0085;
       }
-
       renderer.render(scene, camera);
+    }
+    animate();
 
-      if (isSoftwareGl) {
-        afterDraw(tick);
-      } else {
-        frameId = requestAnimationFrame(tick);
-      }
-    };
-
-    tick();
-
-    // 9. Cleanup & Resource Disposal
     return () => {
-      cancelAnimationFrame(frameId);
-      clearTimeout(frameId);
-      if (container.contains(canvas)) {
-        container.removeChild(canvas);
-      }
+      cancelAnimationFrame(reqId);
+      renderer.dispose();
       planetGeo.dispose();
       planetMat.dispose();
       ringGeo.dispose();
       ringMat.dispose();
-      particleGeo.dispose();
-      particleMat.dispose();
-      saturnTexture.dispose();
-      ringTexture.dispose();
-      envTexture.dispose();
-      renderer.dispose();
+      if (container.contains(canvas)) {
+        container.removeChild(canvas);
+      }
     };
   }, [reducedMotion]);
 
   return (
     <div
-      className="relative flex items-center justify-center select-none pointer-events-none"
-      style={{ width: '540px', height: '215px', maxWidth: '100%' }}
-      aria-label="Cassini 3D Saturn Model"
-    >
-      {/* Soft celestial backdrop glow */}
-      <div
-        className="pointer-events-none absolute w-[420px] h-[160px] rounded-full blur-3xl opacity-45"
-        style={{
-          background:
-            'radial-gradient(ellipse at center, rgba(56, 189, 248, 0.24) 0%, rgba(99, 102, 241, 0.14) 48%, transparent 72%)',
-        }}
-        aria-hidden="true"
-      />
-
-      <div
-        ref={mountRef}
-        className="relative w-full h-full flex items-center justify-center pointer-events-none"
-      />
-    </div>
+      ref={mountRef}
+      className="relative w-[440px] h-[165px] flex items-center justify-center select-none pointer-events-none"
+      aria-label="3D Cassini Saturn Model"
+    />
   );
 };

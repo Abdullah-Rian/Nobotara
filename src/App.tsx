@@ -7,13 +7,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import SpaceAIChat from './SpaceAIChat';
+import { PolicyModal } from './components/PolicyModal';
+import { TeamModal } from './components/TeamModal';
+import { FaqModal } from './components/FaqModal';
 
 type MissionKey = 'apollo11' | 'voyager1' | 'msr';
-type ModalView = null | 'dossier' | 'purpose' | 'policy' | 'team';
+type ModalView = null | 'dossier' | 'purpose' | 'policy' | 'team' | 'faq';
 type SfxType = 'switch' | 'cta' | 'menu';
 
 const VALID_MISSIONS: MissionKey[] = ['apollo11', 'voyager1', 'msr'];
-const VALID_MODALS: Exclude<ModalView, null>[] = ['dossier', 'purpose', 'policy', 'team'];
+const VALID_MODALS: Exclude<ModalView, null>[] = ['dossier', 'purpose', 'policy', 'team', 'faq'];
 
 function parseUrlState(): {
   mission: MissionKey;
@@ -21,7 +24,7 @@ function parseUrlState(): {
   view: 'home' | 'chat';
 } {
   if (typeof window === 'undefined') {
-    return { mission: 'apollo11', modal: null, view: 'home' };
+    return { mission: 'apollo11', modal: null, view: 'chat' };
   }
   const params = new URLSearchParams(window.location.search);
   const rawParam = params.get('mission');
@@ -32,7 +35,7 @@ function parseUrlState(): {
   return {
     mission: rawMission && VALID_MISSIONS.includes(rawMission) ? rawMission : 'apollo11',
     modal: rawModal && VALID_MODALS.includes(rawModal) ? rawModal : null,
-    view: rawView === 'spaceai' ? 'chat' : 'home',
+    view: rawView === 'missions' ? 'home' : 'chat',
   };
 }
 
@@ -130,6 +133,7 @@ interface TeamMember {
   name: string;
   role: string;
   tag: string;
+  avatarUrl?: string;
   isLead?: boolean;
 }
 
@@ -138,17 +142,20 @@ const TEAM_MEMBERS: TeamMember[] = [
     name: 'Samin Yeasar Sarra',
     role: 'Team Lead & Project Director',
     tag: 'Director',
+    avatarUrl: '/team/samin_yeasar_sarra.jpg',
     isLead: true,
   },
   {
     name: 'Arijit Talukder',
     role: 'Web Developer & UI Designer',
     tag: 'Web Dev',
+    avatarUrl: '/team/arijit_talukder.jpg',
   },
   {
     name: 'Abdullah Al Mustasim',
     role: 'AI & Deployment Engineer',
     tag: 'Web Dev',
+    avatarUrl: '/team/abdullah_al_mustasim.jpg',
   },
   {
     name: 'Md Ferdouse Oahid',
@@ -461,8 +468,8 @@ export default function App() {
     if (activeModal) {
       params.set('modal', activeModal);
     }
-    if (view === 'chat') {
-      params.set('view', 'spaceai');
+    if (view === 'home') {
+      params.set('view', 'missions');
     }
     const search = params.toString();
     const nextUrl = `${window.location.pathname}${search ? `?${search}` : ''}`;
@@ -701,14 +708,14 @@ export default function App() {
                 </button>
                 <button
                   type="button"
-                  className={`nav-item-btn ${activeModal === 'purpose' ? 'is-current' : ''}`}
+                  className={`nav-item-btn ${activeModal === 'faq' || activeModal === 'purpose' ? 'is-current' : ''}`}
                   onClick={() => {
                     playSfx('menu');
-                    setActiveModal('purpose');
+                    setActiveModal('faq');
                     setNavOpen(false);
                   }}
                 >
-                  <span>Purpose</span>
+                  <span>FAQ</span>
                 </button>
                 <button
                   type="button"
@@ -845,8 +852,26 @@ export default function App() {
         </div>
 
         {/* 3. Interactive Mission Dossier & Navigation Modals with Focus Trap & Exit Animation */}
+        <PolicyModal
+          isOpen={activeModal === 'policy'}
+          onClose={() => setActiveModal(null)}
+          onPlaySfx={() => playSfx('menu')}
+        />
+
+        <TeamModal
+          isOpen={activeModal === 'team'}
+          onClose={() => setActiveModal(null)}
+          onPlaySfx={() => playSfx('menu')}
+        />
+
+        <FaqModal
+          isOpen={activeModal === 'faq' || activeModal === 'purpose'}
+          onClose={() => setActiveModal(null)}
+          onPlaySfx={() => playSfx('menu')}
+        />
+
         <AnimatePresence>
-          {activeModal && (
+          {activeModal && activeModal !== 'policy' && activeModal !== 'team' && activeModal !== 'faq' && activeModal !== 'purpose' && (
             <motion.div
               className="modal-backdrop"
               initial={{ opacity: 0 }}
@@ -872,19 +897,13 @@ export default function App() {
                 <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
                   <div>
                     <div className="text-[11px] font-bold tracking-widest uppercase text-[#00E5FF]">
-                      {activeModal === 'dossier'
-                        ? mission.eyebrow
-                        : activeModal.toUpperCase()}
+                      {mission.eyebrow}
                     </div>
                     <h2
                       id="modal-sheet-title"
                       className="text-xl font-extrabold tracking-tight text-white mt-0.5"
                     >
-                      {activeModal === 'dossier' &&
-                        `${mission.titleLines[0]} ${mission.titleLines[1]}`}
-                      {activeModal === 'purpose' && 'Educational Mission & Architecture'}
-                      {activeModal === 'policy' && 'NASA Open Data & Archival Policy'}
-                      {activeModal === 'team' && 'Nobotara71 Flight Operations Division'}
+                      {`${mission.titleLines[0]} ${mission.titleLines[1]}`}
                     </h2>
                   </div>
                   <button
@@ -955,133 +974,6 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                )}
-
-                {activeModal === 'purpose' && (
-                  <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
-                    <p>
-                      <strong className="text-white">Nobotara71</strong> unifies historical NASA mission telemetry, orbital mechanics, and high-definition planetary reconstructions into an interactive mission control observatory.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="text-[10px] font-mono uppercase tracking-wider text-[#00E5FF]">
-                          01 · LUNAR ARCHIVE
-                        </div>
-                        <div className="text-xs font-bold text-white mt-1">
-                          Apollo 11 Descent & EVA
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-1 leading-normal">
-                          Sea of Tranquility landing coordinates, LM Eagle burn telemetry, and lunar regolith sample return metrics.
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="text-[10px] font-mono uppercase tracking-wider text-[#00E5FF]">
-                          02 · INTERSTELLAR
-                        </div>
-                        <div className="text-xs font-bold text-white mt-1">
-                          Voyager 1 Heliopause
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-1 leading-normal">
-                          Deep Space Network (DSN) radio propagation past 165 AU and the 12-inch Golden Record cultural archive.
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="text-[10px] font-mono uppercase tracking-wider text-[#00E5FF]">
-                          03 · MARTIAN SAMPLE
-                        </div>
-                        <div className="text-xs font-bold text-white mt-1">
-                          Mars Sample Return (MSR)
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-1 leading-normal">
-                          Jezero Crater titanium core caching, Mars Ascent Vehicle orbital launch, and interplanetary return telemetry.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#00E5FF]/10 border border-[#00E5FF]/25 flex items-center justify-between gap-3">
-                      <div className="text-xs text-slate-200">
-                        Need deep-space calculations or live mission ephemeris? Launch the <strong className="text-white">SpaceAI</strong> telemetry copilot.
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveModal(null);
-                          handleOpenSpaceAi();
-                        }}
-                        className="shrink-0 px-3.5 py-1.5 rounded-full bg-[#00E5FF] text-[#030914] text-xs font-extrabold uppercase cursor-pointer"
-                      >
-                        Open SpaceAI
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {activeModal === 'policy' && (
-                  <div className="space-y-3.5 text-sm text-slate-300 leading-relaxed">
-                    <p>
-                      All planetary imagery, spacecraft ephemeris records, and mission logs adhere to <strong className="text-white">NASA Open Data (SPD-41a)</strong> and public-domain scientific archival standards.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="text-[10px] font-mono uppercase tracking-wider text-[#00E5FF]">
-                          DATA PROVENANCE
-                        </div>
-                        <div className="text-xs font-bold text-white mt-1">
-                          JPL Horizons & NASA PDS
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          Orbital velocities, heliocentric distances (AU), and lunar landing coordinates are referenced against JPL SPICE kernels and the Planetary Data System.
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <div className="text-[10px] font-mono uppercase tracking-wider text-[#00E5FF]">
-                          BANDWIDTH & ACCESSIBILITY
-                        </div>
-                        <div className="text-xs font-bold text-white mt-1">
-                          On-Demand Stream & Reduced Motion
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          Secondary 4K/HD mission video loops warm metadata only on dock interaction and automatically pause when <code className="text-slate-200">prefers-reduced-motion</code> is enabled.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-[11px] font-mono text-slate-400 pt-1 flex flex-wrap items-center justify-between gap-2 border-t border-white/10">
-                      <span>EPOCH REFERENCE: J2000.0 (ICRF)</span>
-                      <span>TELEMETRY LICENSE: PUBLIC DOMAIN / CC0</span>
-                    </div>
-                  </div>
-                )}
-
-                {activeModal === 'team' && (
-                  <ul className="team-member-list">
-                    {TEAM_MEMBERS.map((member) => (
-                      <li key={member.name} className="team-member-row">
-                        <span
-                          className={`team-member-avatar ${member.isLead ? 'is-lead' : ''}`}
-                          aria-hidden="true"
-                        >
-                          <svg
-                            width="22"
-                            height="22"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.9"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <circle cx="12" cy="8.5" r="3.5" />
-                            <path d="M5.5 19.5c1.5-3.2 3.8-4.8 6.5-4.8s5 1.6 6.5 4.8" />
-                          </svg>
-                        </span>
-                        <div className="team-member-info">
-                          <div className="team-member-name">{member.name}</div>
-                          <div className="team-member-role">{member.role}</div>
-                        </div>
-                        <span className="team-member-tag font-mono">{member.tag}</span>
-                      </li>
-                    ))}
-                  </ul>
                 )}
               </motion.div>
             </motion.div>

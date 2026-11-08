@@ -10,6 +10,8 @@ import { ResponseView } from './components/ResponseView';
 import { ConversationHistoryItem } from './types/chat';
 import { generateAIResponse } from './services/aiAdvisor';
 import { ConstellationBackground } from './components/ConstellationBackground';
+import { NasaLiveUpdatesModal } from './components/NasaLiveUpdatesModal';
+import { PolicyModal } from './components/PolicyModal';
 
 interface SpaceAIChatProps {
   onBack: () => void;
@@ -19,15 +21,61 @@ interface SpaceAIChatProps {
 
 const PRESET_PILLS = [
   'Why is NASA targeting the lunar South Pole for Artemis water ice extraction?',
-  'Try: Cassini Grand Finale orbital entry',
+  'Cassini Grand Finale orbital entry',
   'Enceladus subsurface ocean plumes',
 ];
 
 export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [activeConversation, setActiveConversation] = useState<ConversationHistoryItem | null>(null);
+  const [activeConversation, setActiveConversation] = useState<ConversationHistoryItem | null>(() => {
+    if (typeof window !== 'undefined') {
+      const v = new URLSearchParams(window.location.search).get('view');
+      if (v === 'response' || v === 'analysis') {
+        return {
+          id: 'demo-artemis-response',
+          question: 'Why is NASA targeting the lunar South Pole for Artemis water ice extraction?',
+          time: 'Just now',
+          fullAnswer: "NASA's Artemis program targets the Lunar South Pole because it hosts geological conditions found nowhere else on the Moon: deep, permanently shadowed impact craters that act as cosmic cold traps, maintaining constant temperatures as low as 40 K (−233°C) for over two billion years.",
+        };
+      }
+    }
+    return null;
+  });
   const [isLoading, setIsLoading] = useState(false);
-  const [promptText, setPromptText] = useState('');
+  const [promptText, setPromptText] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('text') || new URLSearchParams(window.location.search).get('q');
+      if (p) return p;
+    }
+    return '';
+  });
+  const [showLiveUpdates, setShowLiveUpdates] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('live') === 'true';
+    }
+    return false;
+  });
+  const [showPolicy, setShowPolicy] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('modal') || new URLSearchParams(window.location.search).get('policy');
+      return p === 'policy' || p === 'true';
+    }
+    return false;
+  });
+
+  // Support ?ask=... query param to directly open response view
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const ask = new URLSearchParams(window.location.search).get('ask');
+      if (ask) {
+        const query = ask === 'artemis'
+          ? 'Why is NASA targeting the lunar South Pole for Artemis water ice extraction?'
+          : ask;
+        setPromptText(query);
+        handleSendMessage(query, []);
+      }
+    }
+  }, []);
 
   // Check prefers-reduced-motion media query
   useEffect(() => {
@@ -67,15 +115,33 @@ export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto overflow-x-hidden select-text bg-[#030712] text-[#F8FAFC] flex flex-col justify-between selection:bg-[#38bdf8]/30 selection:text-white">
+    <div className="fixed inset-0 z-[100] overflow-y-auto overflow-x-hidden select-text bg-black text-[#F8FAFC] flex flex-col justify-between selection:bg-[#38bdf8]/30 selection:text-white">
       {/* Deep Space Background Atmosphere */}
-      <ConstellationBackground reducedMotion={reducedMotion} />
+      {/* Pure black deep space canvas */}
+
+      {/* NASA Live Telemetry Hub Modal */}
+      <NasaLiveUpdatesModal
+        isOpen={showLiveUpdates}
+        onClose={() => setShowLiveUpdates(false)}
+        onAskSpaceAI={(query) => {
+          setPromptText(query);
+          handleSendMessage(query, []);
+        }}
+      />
+
+      {/* Nobotara71 Policy Modal */}
+      <PolicyModal
+        isOpen={showPolicy}
+        onClose={() => setShowPolicy(false)}
+        onPlaySfx={onPlaySfx}
+      />
 
       {activeConversation ? (
         <ResponseView
           conversation={activeConversation}
           onBack={() => setActiveConversation(null)}
           onFollowUp={(query) => handleSendMessage(query, [])}
+          onOpenLiveUpdates={() => setShowLiveUpdates(true)}
         />
       ) : (
         <>
@@ -110,12 +176,17 @@ export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
                 </svg>
               </div>
 
-              {/* Top-Right: Minimal "Live" indicator badge with amber dot, and quiet "Home" link */}
+              {/* Top-Right: Interactive "Live" indicator button with amber dot, and quiet "Home" link */}
               <div className="flex items-center gap-3 select-none">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]" />
+                <button
+                  type="button"
+                  onClick={() => setShowLiveUpdates(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-400 text-xs font-mono font-medium transition cursor-pointer shadow-[0_0_10px_rgba(245,158,11,0.2)] active:scale-95"
+                  title="View NASA Live Telemetry Updates"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b] animate-pulse" />
                   Live
-                </div>
+                </button>
                 <button
                   type="button"
                   onClick={handleBack}
@@ -169,10 +240,22 @@ export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
             </div>
           </main>
 
-          {/* 7. Quiet Footer: NOBOTARA71 • SpaceAi • Gemini 3.8 Flash */}
+          {/* 7. Quiet Footer: NOBOTARA71 • SpaceAi • Policy • Gemini 3.8 Flash */}
           <footer className="w-full py-4 text-center select-none relative z-20">
-            <p className="text-xs text-slate-500 font-mono tracking-wider">
-              NOBOTARA71 • SpaceAi • Gemini 3.8 Flash
+            <p className="text-xs text-slate-500 font-mono tracking-wider flex items-center justify-center gap-2">
+              <span>NOBOTARA71</span>
+              <span>•</span>
+              <span>SpaceAi</span>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => setShowPolicy(true)}
+                className="hover:text-slate-300 underline underline-offset-4 decoration-white/20 hover:decoration-cyan-400 transition-colors cursor-pointer"
+              >
+                Policy
+              </button>
+              <span>•</span>
+              <span>Gemini 3.8 Flash</span>
             </p>
           </footer>
         </>

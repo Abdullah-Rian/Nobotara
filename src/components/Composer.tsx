@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Paperclip, 
+  Mic,
   ArrowUp, 
   FileText, 
   Camera, 
@@ -34,8 +35,15 @@ export const Composer: React.FC<ComposerProps> = ({
   onChange,
 }) => {
   const [internalInput, setInternalInput] = useState('');
-  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const m = new URLSearchParams(window.location.search).get('menu');
+      if (m === 'open' || m === 'true') return true;
+    }
+    return false;
+  });
   const [attachments, setAttachments] = useState<AttachedFile[]>([]);
+  const [isMicActive, setIsMicActive] = useState(false);
 
   const input = value !== undefined ? value : internalInput;
   const setInput = (val: string) => {
@@ -215,64 +223,80 @@ export const Composer: React.FC<ComposerProps> = ({
             />
           </div>
 
-          {/* Bottom Action Bar: Paperclip button on left, Rounded cyan gradient submit button on right */}
+          {/* Bottom Action Bar: Paperclip + Mic on left, Rounded cyan gradient submit button on right */}
           <div className="relative z-10 flex items-center justify-between pt-3 select-none">
-            {/* Paperclip attachment button on bottom-left */}
-            <div className="relative flex items-center" ref={attachMenuRef}>
+            {/* Paperclip attachment button & Mic on bottom-left */}
+            <div className="flex items-center gap-1 -ml-1">
+              <div className="relative flex items-center" ref={attachMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowAttachmentMenu((prev) => !prev)}
+                  title="Add attachment"
+                  className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.14] flex items-center justify-center text-slate-300 transition-all duration-150 active:scale-95 cursor-pointer"
+                >
+                  <Paperclip className="w-4 h-4 -rotate-45" />
+                </button>
+
+                {/* Minimal floating obsidian glass menu positioned downward directly below the button */}
+                {showAttachmentMenu && (
+                  <div
+                    className="absolute left-0 top-full mt-2 z-50 min-w-[170px] rounded-2xl bg-[#0c101c]/98 backdrop-blur-2xl border border-white/[0.08] shadow-[0_16px_36px_rgba(0,0,0,0.85)] p-1.5 flex flex-col gap-0.5"
+                  >
+                    {/* Row 1: Files */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachmentMenu(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[13px] font-medium text-slate-200 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>Files</span>
+                    </button>
+
+                    {/* Row 2: Camera */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachmentMenu(false);
+                        cameraInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[13px] font-medium text-slate-200 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>Camera</span>
+                    </button>
+
+                    {/* Row 3: Gallery */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachmentMenu(false);
+                        galleryInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[13px] font-medium text-slate-200 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
+                    >
+                      <GalleryIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>Gallery</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Microphone Voice Button right next to Paperclip */}
               <button
                 type="button"
-                onClick={() => setShowAttachmentMenu((prev) => !prev)}
-                title="Add attachment"
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-150 active:scale-95 cursor-pointer"
+                onClick={() => {
+                  setIsMicActive((prev) => !prev);
+                }}
+                title={isMicActive ? "Stop listening" : "Voice inquiry"}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150 active:scale-95 cursor-pointer ${
+                  isMicActive ? 'text-[#38bdf8] bg-sky-500/20 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-white/10'
+                }`}
               >
-                <Paperclip className="w-4 h-4 -rotate-45" />
+                <Mic className="w-4 h-4" />
               </button>
-
-              {/* Minimal floating obsidian glass menu positioned downward directly below the button */}
-              {showAttachmentMenu && (
-                <div
-                  className="absolute left-0 top-full mt-2 z-50 min-w-[160px] rounded-2xl bg-[#131722]/98 backdrop-blur-2xl border border-white/[0.08] shadow-2xl p-1.5 flex flex-col gap-0.5"
-                >
-                  {/* Row 1: Files */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAttachmentMenu(false);
-                      fileInputRef.current?.click();
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-[13px] font-medium text-slate-200 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
-                  >
-                    <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>Files</span>
-                  </button>
-
-                  {/* Row 2: Camera */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAttachmentMenu(false);
-                      cameraInputRef.current?.click();
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-[13px] font-medium text-slate-200 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
-                  >
-                    <Camera className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>Camera</span>
-                  </button>
-
-                  {/* Row 3: Gallery */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAttachmentMenu(false);
-                      galleryInputRef.current?.click();
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-[13px] font-medium text-slate-200 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
-                  >
-                    <GalleryIcon className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>Gallery</span>
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Bottom-right: Rounded cyan gradient submit button with an upward arrow */}
@@ -280,12 +304,12 @@ export const Composer: React.FC<ComposerProps> = ({
               type="submit"
               disabled={isLoading || (!input.trim() && attachments.length === 0)}
               title="Send"
-              className="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-r from-[#06b6d4] to-[#38bdf8] text-slate-950 hover:brightness-110 active:scale-95 shadow-[0_0_16px_rgba(6,182,212,0.45)] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+              className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#22d3ee] hover:bg-[#38bdf8] text-slate-950 font-bold active:scale-95 shadow-[0_0_18px_rgba(34,211,238,0.55)] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
             >
               {isLoading ? (
                 <div className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
               ) : (
-                <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+                <ArrowUp className="w-4 h-4 stroke-[2.8]" />
               )}
             </button>
           </div>
