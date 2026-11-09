@@ -85,6 +85,7 @@ export const HUD: React.FC<HUDProps> = ({
             {canOpenChallenge && (
               <button
                 onClick={onOpenChallenge}
+                data-coach="apollo-challenge"
                 className="ml-2 px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded text-[11px] transition-colors"
               >
                 SOLVE CHALLENGE
@@ -106,7 +107,7 @@ export const HUD: React.FC<HUDProps> = ({
       </div>
 
       {/* Target Navigational Compass Beacon (Points towards unvisited artifacts) */}
-      <div className="mx-auto bg-slate-950/85 border border-slate-800/80 rounded-full px-4 py-1.5 flex items-center gap-4 text-xs font-mono-num text-slate-300 pointer-events-auto">
+      <div data-coach="apollo-compass" className="mx-auto bg-slate-950/85 border border-slate-800/80 rounded-full px-4 py-1.5 flex items-center gap-4 text-xs font-mono-num text-slate-300 pointer-events-auto">
         <div className="flex items-center gap-1.5">
           <Navigation className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
           <span className="text-slate-400">ZONE:</span>
@@ -162,7 +163,7 @@ export const HUD: React.FC<HUDProps> = ({
             </div>
           )}
           {showJoystick && (
-            <div className="ml-10 mb-8 bg-slate-950/80 border border-slate-800/80 rounded-2xl p-2.5">
+            <div data-coach="apollo-stick" className="ml-10 mb-8 bg-slate-950/80 border border-slate-800/80 rounded-2xl p-2.5">
               <VirtualJoystick onMove={onJoystickMove} />
             </div>
           )}
@@ -211,11 +212,13 @@ const TYPE_INTERVAL_MS = 12;
 export function DialoguePanel({
   message,
   typewriter,
-  onTyped
+  onTyped,
+  className = ''
 }: {
   message: DialogueMessage;
   typewriter: boolean;
   onTyped?: () => void;
+  className?: string;
 }) {
   const [count, setCount] = useState(typewriter ? 0 : message.text.length);
   const onTypedRef = useRef(onTyped);
@@ -252,7 +255,7 @@ export function DialoguePanel({
   const shown = message.text.slice(0, count);
 
   return (
-    <div className="w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 shadow-xl">
+    <div className={`w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 shadow-xl ${className}`}>
       <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <Radio className="w-4 h-4 text-amber-400 animate-pulse" />

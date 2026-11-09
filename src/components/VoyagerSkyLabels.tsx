@@ -3,29 +3,36 @@ import { SkyFrame } from '../game/voyagerEngine';
 
 interface VoyagerSkyLabelsProps {
   readFrame: () => SkyFrame | undefined;
+  /** Draw only these names. Mission 1 uses the Sun label alone. */
+  keys?: Array<(typeof LABELS)[number]['key']>;
 }
 
 const LABELS = [
   { key: 'sun' as const, name: 'SUN', dx: -78, dy: -52, tone: 'border-amber-200/80 text-amber-50' },
-  { key: 'earth' as const, name: 'EARTH', dx: 78, dy: -40, tone: 'border-sky-200/80 text-sky-50' }
+  { key: 'earth' as const, name: 'EARTH', dx: -130, dy: 24, tone: 'border-sky-200/80 text-sky-50' },
+  { key: 'mars' as const, name: 'MARS', dx: 0, dy: 62, tone: 'border-orange-400/80 text-orange-100' }
 ];
 
 /**
- * SUN and EARTH names with leader lines. Positions are written on the elements
+ * SUN, EARTH, and MARS names with leader lines. Positions are written on the elements
  * so the overlay does not re-render every frame.
  */
-export const VoyagerSkyLabels: React.FC<VoyagerSkyLabelsProps> = ({ readFrame }) => {
+export const VoyagerSkyLabels: React.FC<VoyagerSkyLabelsProps> = ({ readFrame, keys }) => {
   const chipRefs = useRef<Array<HTMLDivElement | null>>([]);
   const lineRefs = useRef<Array<SVGLineElement | null>>([]);
   const dotRefs = useRef<Array<SVGCircleElement | null>>([]);
+  const keyList = keys?.join(',') ?? '';
 
   useEffect(() => {
+    const labels = keyList
+      ? LABELS.filter(label => keyList.split(',').includes(label.key))
+      : LABELS;
     let frame = 0;
     const tick = () => {
       const data = readFrame();
       const width = window.innerWidth;
       const height = window.innerHeight;
-      LABELS.forEach((label, index) => {
+      labels.forEach((label, index) => {
         const chip = chipRefs.current[index];
         const line = lineRefs.current[index];
         const dot = dotRefs.current[index];
@@ -59,12 +66,16 @@ export const VoyagerSkyLabels: React.FC<VoyagerSkyLabelsProps> = ({ readFrame })
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [readFrame]);
+  }, [readFrame, keyList]);
+
+  const labels = keyList
+    ? LABELS.filter(label => keyList.split(',').includes(label.key))
+    : LABELS;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-20">
       <svg className="h-full w-full" aria-hidden="true">
-        {LABELS.map((label, index) => (
+        {labels.map((label, index) => (
           <g key={label.key}>
             <line
               ref={element => { lineRefs.current[index] = element; }}
@@ -82,7 +93,7 @@ export const VoyagerSkyLabels: React.FC<VoyagerSkyLabelsProps> = ({ readFrame })
           </g>
         ))}
       </svg>
-      {LABELS.map((label, index) => (
+      {labels.map((label, index) => (
         <div
           key={label.key}
           ref={element => { chipRefs.current[index] = element; }}

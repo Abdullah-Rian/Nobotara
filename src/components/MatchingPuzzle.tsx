@@ -65,7 +65,7 @@ export const MatchingPuzzle: React.FC<MatchingPuzzleProps> = ({ onComplete }) =>
 
   return (
     <div className="absolute inset-0 bg-slate-950/85 flex items-center justify-center p-4 md:p-8 z-30 pointer-events-auto">
-      <div className="bg-slate-900 border border-slate-700 max-w-2xl w-full rounded-xl p-6 md:p-8 shadow-2xl space-y-6">
+      <div data-coach="apollo-match" className="bg-slate-900 border border-slate-700 max-w-2xl w-full rounded-xl p-6 md:p-8 shadow-2xl space-y-6">
         {/* Header */}
         <div className="text-center space-y-2 border-b border-slate-800 pb-5">
           <div className="text-xs font-mono-num font-bold text-amber-400 tracking-wider">

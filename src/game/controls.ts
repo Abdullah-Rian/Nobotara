@@ -90,38 +90,31 @@ export class GameInputManager {
   }
 
   /**
-   * Voyager keeps one job on each control. W/S thrust along the dish.
-   * Arrow up/down and the vertical pad pitch. Arrow left/right and the
-   * horizontal pad yaw. Positive pitch noses the dish up.
+   * Voyager only turns. Arrow left/right yaw. Arrow up/down pitch.
+   * Positive pitch noses the dish up. There is no thrust.
    */
   public getFlightInputs(): { thrust: number; yaw: number; pitch: number } {
-    let thrust = 0;
     let yaw = 0;
     let pitch = 0;
 
-    if (this.keysHeld['KeyW']) thrust += 1;
-    if (this.keysHeld['KeyS']) thrust -= 1;
     if (this.keysHeld['ArrowLeft']) yaw -= 1;
     if (this.keysHeld['ArrowRight']) yaw += 1;
     if (this.keysHeld['ArrowUp']) pitch += 1;
     if (this.keysHeld['ArrowDown']) pitch -= 1;
 
-    if (thrust === 0) thrust = this.virtualThrust;
     if (yaw === 0) yaw = this.virtualYaw;
     if (pitch === 0) pitch = this.virtualPitch;
 
     return {
-      thrust: Math.max(-1, Math.min(1, thrust)),
+      thrust: 0,
       yaw: Math.max(-1, Math.min(1, yaw)),
       pitch: Math.max(-1, Math.min(1, pitch))
     };
   }
 
-  /** W, S, or an arrow. Virtual sticks are separate, so a stick does not count. */
+  /** Arrow keys turn Voyager. On-screen buttons are separate, so a button does not count. */
   public hasFlightKey(): boolean {
     return Boolean(
-      this.keysHeld['KeyW'] ||
-      this.keysHeld['KeyS'] ||
       this.keysHeld['ArrowLeft'] ||
       this.keysHeld['ArrowRight'] ||
       this.keysHeld['ArrowUp'] ||

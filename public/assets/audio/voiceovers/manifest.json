@@ -2,14 +2,14 @@
   "name": "Nobotara Apollo 11 Offline Voiceovers",
   "version": "1.0.0",
   "targetPath": "/Volumes/KINGSTON/Nobotara/NobotaraGame/public/assets/audio/voiceovers",
-  "description": "Pre-rendered offline audio voiceover clips for Apollo 11 lunar educational simulation",
+  "description": "Pre-rendered offline audio voiceover clips for Apollo 11 and Voyager 1",
   "clips": [
     {
       "id": "intro_neil",
       "speaker": "Neil Armstrong",
       "filename": "intro_neil.mp3",
       "size": 404210,
-      "text": "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn\u2019t just chase a rock in the sky; we went to learn what people can do when they dare.",
+      "text": "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn’t just chase a rock in the sky; we went to learn what people can do when they dare.",
       "engine": "Gemini TTS (Fenrir)"
     },
     {
@@ -17,7 +17,7 @@
       "speaker": "Neil Armstrong",
       "filename": "descent_stage_neil.mp3",
       "size": 185198,
-      "text": "This is the Eagle\u2019s descent stage. It helped the Lunar Module land on the Moon. The ascent stage carried me and Aldrin back into lunar orbit, while the descent stage remained behind.",
+      "text": "This is the Eagle’s descent stage. It helped the Lunar Module land on the Moon. The ascent stage carried me and Aldrin back into lunar orbit, while the descent stage remained behind.",
       "engine": "Gemini TTS (Fenrir)"
     },
     {
@@ -49,7 +49,7 @@
       "speaker": "Neil Armstrong",
       "filename": "plaque_neil.mp3",
       "size": 159285,
-      "text": "This plaque commemorates humanity\u2019s first crewed lunar landing. It carries a message of peace from Earth. A message left behind for history to remember.",
+      "text": "This plaque commemorates humanity’s first crewed lunar landing. It carries a message of peace from Earth. A message left behind for history to remember.",
       "engine": "Gemini TTS (Fenrir)"
     },
     {
@@ -57,7 +57,7 @@
       "speaker": "Scientific Voice",
       "filename": "plaque_scientific.mp3",
       "size": 276732,
-      "text": "Engraved on stainless steel to withstand cosmic radiation and 300\u00b0C temperature swings: 'HERE MEN FROM THE PLANET EARTH FIRST SET FOOT UPON THE MOON JULY 1969 A.D. WE CAME IN PEACE FOR ALL MANKIND.'",
+      "text": "Engraved on stainless steel to withstand cosmic radiation and 300°C temperature swings: 'HERE MEN FROM THE PLANET EARTH FIRST SET FOOT UPON THE MOON JULY 1969 A.D. WE CAME IN PEACE FOR ALL MANKIND.'",
       "engine": "Gemini TTS (Fenrir)"
     },
     {
@@ -73,8 +73,152 @@
       "speaker": "Neil Armstrong",
       "filename": "outro_voyager.mp3",
       "size": 204007,
-      "text": "The footprints at Tranquility Base proved that humanity could leave Earth. But our journey didn't stop at the Moon. We aimed further\u2014beyond the planets, into interstellar space.",
+      "text": "The footprints at Tranquility Base proved that humanity could leave Earth. But our journey didn't stop at the Moon. We aimed further—beyond the planets, into interstellar space.",
       "engine": "Gemini TTS (Fenrir)"
+    },
+    {
+      "id": "voyager_intro",
+      "speaker": "Narrator-02",
+      "filename": "voyager_intro.mp3",
+      "size": 557182,
+      "text": "Humanity once stood on the Moon, leaving behind the marks of its first steps. But exploration was never meant to end there. Beyond the Moon, beyond Mars, beyond the familiar boundaries of our Solar System, another journey continued. A machine built on Earth, launched in 1977, sent to explore the outer planets. It travelled farther than any human-made spacecraft before it. In August 2012, Voyager 1 entered interstellar space. It had crossed a boundary humanity had never crossed before.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
+    },
+    {
+      "id": "voyager_align_control",
+      "speaker": "Mission Control",
+      "filename": "voyager_align_control.mp3",
+      "size": 193558,
+      "text": "Voyager 1, your signal is faint, but we are listening. You have travelled farther than we ever imagined. Turn the spacecraft until the high-gain antenna points at Earth.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_align_science",
+      "speaker": "Scientific Voice",
+      "filename": "voyager_align_science.mp3",
+      "size": 296794,
+      "text": "Voyager uses a high-gain antenna fixed to the body of the spacecraft. The whole craft has to turn so that dish faces Earth. That link is how its instruments send scientific data home. At this distance a radio message takes many hours to arrive.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_shell",
+      "speaker": "Narrator-02",
+      "filename": "voyager_shell.mp3",
+      "size": 301391,
+      "text": "The Sun's influence reaches far beyond the planets. But there is a frontier where its protective bubble gives way to the interstellar environment. Voyager 1 crossed that frontier in August 2012. Now it is exploring a region no human-made spacecraft had entered before.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_plasma_narrator",
+      "speaker": "Narrator-02",
+      "filename": "voyager_plasma_narrator.mp3",
+      "size": 137551,
+      "text": "The first reading is a plasma wave. Out here the instrument listens to the thin electrical tremble of the gas around the spacecraft.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_plasma_science",
+      "speaker": "Scientific Voice",
+      "filename": "voyager_plasma_science.mp3",
+      "size": 203171,
+      "text": "Plasma-wave measurements can reveal properties of the surrounding environment. What you see is an educational reading of an instrument Voyager really carries. The game is not performing a new scan.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_magnetic_narrator",
+      "speaker": "Narrator-02",
+      "filename": "voyager_magnetic_narrator.mp3",
+      "size": 125430,
+      "text": "The next reading is the magnetic field. Scientists compare its strength and direction with what the heliosphere would produce.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_magnetic_science",
+      "speaker": "Scientific Voice",
+      "filename": "voyager_magnetic_science.mp3",
+      "size": 199409,
+      "text": "Magnetic-field measurements help scientists tell the solar bubble from the interstellar medium beyond it. This panel is an interpretation of that investigation, not a fresh measurement made for the game.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_particles_narrator",
+      "speaker": "Narrator-02",
+      "filename": "voyager_particles_narrator.mp3",
+      "size": 123758,
+      "text": "The third reading counts charged particles. Their numbers change as the spacecraft leaves the Sun's wind behind.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_particles_science",
+      "speaker": "Scientific Voice",
+      "filename": "voyager_particles_science.mp3",
+      "size": 190632,
+      "text": "Particle measurements help scientists investigate the space beyond the heliosphere. The display explains that capability. It does not claim Voyager is taking a new sample right now.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_power_narrator",
+      "speaker": "Narrator-02",
+      "filename": "voyager_power_narrator.mp3",
+      "size": 287598,
+      "text": "Every mission has limits. Voyager was never designed to operate forever. Its power supply slowly weakens, and engineers must decide which systems can continue and which must be switched off. Sometimes, keeping a mission alive means learning to do less.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_power_science",
+      "speaker": "Scientific Voice",
+      "filename": "voyager_power_science.mp3",
+      "size": 170152,
+      "text": "NASA has made real decisions to switch off Voyager instruments to conserve power. This is a long-term engineering trade-off, not a sudden failure of the spacecraft.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "voyager_record_sounds",
+      "speaker": "Narrator-02",
+      "filename": "voyager_record_sounds.mp3",
+      "size": 167644,
+      "text": "Voyager carries something more than instruments. The Golden Record holds sounds from our world: wind, surf, animals, and tools.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "voyager_record_sounds_science",
+      "speaker": "Scientific Voice",
+      "filename": "voyager_record_sounds_science.mp3",
+      "size": 163047,
+      "text": "The Golden Record is real. Its sound essay was chosen to represent Earth. The record is not a device that transmits those sounds back to Earth.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "voyager_record_greetings",
+      "speaker": "Narrator-02",
+      "filename": "voyager_record_greetings.mp3",
+      "size": 159285,
+      "text": "It also carries greetings in human languages. A civilisation wanted to say, across every barrier of speech: we were here.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "voyager_record_greetings_science",
+      "speaker": "Scientific Voice",
+      "filename": "voyager_record_greetings_science.mp3",
+      "size": 160957,
+      "text": "The greetings were recorded in dozens of languages. They are a message to whoever might one day find the spacecraft. They are not a live broadcast.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "voyager_record_images",
+      "speaker": "Narrator-02",
+      "filename": "voyager_record_images.mp3",
+      "size": 180183,
+      "text": "The record also stores images: people, animals, the planet, and how we build. Scientists and collaborators chose them to represent life on Earth.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "voyager_record_images_science",
+      "speaker": "Scientific Voice",
+      "filename": "voyager_record_images_science.mp3",
+      "size": 148418,
+      "text": "The images were encoded on the disc with music and the sounds. The record rides with Voyager. It does not send its contents home.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     }
   ]
 }

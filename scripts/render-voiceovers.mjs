@@ -20,7 +20,7 @@ const voiceDir = path.join(root, 'public', 'assets', 'audio', 'voiceovers');
 const manifestPath = path.join(voiceDir, 'manifest.json');
 const workDir = path.join(root, '.tmp-vo');
 const KEEP_ID = 'intro_neil';
-const MODEL = 'gemini-3.8-flash-lite-tts';
+const MODEL = process.env.TTS_MODEL || 'gemini-3.8-flash-lite-tts';
 const VOICE = 'Fenrir';
 const STYLE =
   'Calm, clear, natural male voice with a warm full tone and a steady pace. Studio recording, the same voice as the opening narration. No radio filter, no static, no distortion.';
@@ -112,7 +112,11 @@ async function renderClip(clip) {
         contents: [
           {
             role: 'user',
-            parts: [{ text: clip.text, speechMetadata: { style: STYLE } }]
+            parts: [
+              MODEL.includes('3.8')
+                ? { text: clip.text, speechMetadata: { style: STYLE } }
+                : { text: clip.text }
+            ]
           }
         ],
         config: {
@@ -155,8 +159,9 @@ for (const clip of clips) {
   const mp3Path = path.join(voiceDir, `${clip.id}.mp3`);
   fs.writeFileSync(wavPath, audioToWav(inline.data, inline.mimeType));
   encodeMp3(ffmpeg, wavPath, mp3Path);
-  clip.engine = `Gemini TTS (${VOICE})`;
+  clip.engine = `Gemini TTS (${VOICE}, ${MODEL})`;
   clip.size = fs.statSync(mp3Path).size;
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
   process.stdout.write(`  wrote ${clip.filename} (${clip.size} bytes, ${inline.mimeType || 'audio'})\n`);
 }
 

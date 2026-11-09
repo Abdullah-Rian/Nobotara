@@ -4,7 +4,6 @@ import { DialogueMessage } from '../types/game';
 import { VoyagerTelemetry } from '../game/voyagerEngine';
 import { VoyagerStep } from '../missions/voyager/data';
 import { DisplayControls } from './DisplayControls';
-import { AxisPad } from './AxisPad';
 import { DialoguePanel } from './HUD';
 
 interface VoyagerHUDProps {
@@ -13,24 +12,26 @@ interface VoyagerHUDProps {
   dialogue: DialogueMessage | null;
   typeDialogue: boolean;
   onDialogueTyped?: () => void;
-  showJoystick: boolean;
+  showAim: boolean;
   onPitch: (pitch: number) => void;
   onYaw: (yaw: number) => void;
-  onThrust: (thrust: number) => void;
-  onStickGrab?: () => void;
+  onAimGrab?: () => void;
+  fuelNote?: string | null;
+  showInitiate?: boolean;
+  onInitiate?: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
-  onOpenRecord: () => void;
+  showInspectCraft?: boolean;
   onInspectCraft?: () => void;
-  /** Part tour is open in flight, so yaw and pitch orbit the camera. */
+  inspectCraftDisabled?: boolean;
+  /** Part tour is open, so the camera walks around the craft. */
   lookingAround?: boolean;
-  /** Mission Control's tour. Touching yaw, pitch, or thrust leaves it. */
-  stickLeavesInspect?: boolean;
+  /** The archive has been beamed and is waiting on the light-time panel. */
+  linkSent?: boolean;
 }
 
 const OBJECTIVES: { id: VoyagerStep; label: string }[] = [
   { id: 'align', label: 'Point the dish at Earth' },
-  { id: 'cross', label: 'Cross the heliosphere' },
   { id: 'plasma', label: 'Read the plasma waves' },
   { id: 'magnetic', label: 'Read the magnetic field' },
   { id: 'particles', label: 'Count the charged particles' },
@@ -54,17 +55,20 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
   dialogue,
   typeDialogue,
   onDialogueTyped,
-  showJoystick,
+  showAim,
   onPitch,
   onYaw,
-  onThrust,
-  onStickGrab,
+  onAimGrab,
+  fuelNote = null,
+  showInitiate = false,
+  onInitiate,
   isMuted,
   onToggleMute,
-  onOpenRecord,
+  showInspectCraft = false,
   onInspectCraft,
+  inspectCraftDisabled = false,
   lookingAround = false,
-  stickLeavesInspect = false
+  linkSent = false
 }) => {
   const earth = blip(telemetry.yawError, telemetry.pitchError, 52);
   const marker = blip(telemetry.markerYaw, telemetry.markerPitch, 52);
@@ -73,9 +77,7 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
   const objectiveNote =
     step === 'align' && telemetry.aligned
       ? 'Dish on Earth'
-      : step === 'cross' && telemetry.outsideShell
-        ? 'Boundary crossed'
-        : telemetry.hasMarker
+      : telemetry.hasMarker
           ? `${telemetry.distanceToMarker.toFixed(0)} away`
           : null;
 
@@ -92,22 +94,14 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
             24 BILLION KM · CROSSED AUG 2012 · RADIO DELAY MEASURED IN HOURS
           </div>
           <div className="mt-1 text-[10px] font-mono-num text-slate-500">
-            {lookingAround
-              ? !showJoystick
-                ? 'PANNING'
-                : stickLeavesInspect
-                  ? 'PANNING · STICK OR KEYS TO FLY'
-                  : 'PANNING · ←→ YAW · ↑↓ PITCH STEER'
-              : '←→ YAW · ↑↓ PITCH · W/S THRUST'}
+            {linkSent ? 'TELEMETRY SENT' : lookingAround ? 'PANNING' : '← → YAW · ↑ ↓ PITCH'}
           </div>
           <div className="mt-1 max-w-56 text-[10px] leading-relaxed text-slate-500">
-            {lookingAround
-              ? !showJoystick
+            {linkSent
+              ? 'The radio signal is crossing the distance to Earth.'
+              : lookingAround
                 ? 'The camera pans around Voyager.'
-                : stickLeavesInspect
-                  ? 'The camera pans around Voyager. A stick or the flight keys returns you to flight.'
-                  : 'The camera pans around Voyager. Yaw, pitch, and dragging steer that view. Thrust returns to flight.'
-              : 'Thrust flies along the dish. Pitch and yaw turn the craft to point it.'}
+                : 'Turn the craft until the dish points at Earth. Turning spends propellant.'}
           </div>
           <div className="mt-2 h-1.5 w-36 overflow-hidden rounded-full bg-slate-800">
             <div className="h-full bg-emerald-400" style={{ width: `${Math.round(telemetry.signal * 100)}%` }} />
@@ -191,40 +185,42 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
               <DialoguePanel message={dialogue} typewriter={typeDialogue} onTyped={onDialogueTyped} />
             </div>
           )}
-          {(showJoystick || onInspectCraft) && (
-            <div className="pointer-events-auto mb-6 ml-6 flex items-start gap-3">
-              {showJoystick && (
-                <>
-                  <AxisPad label="YAW" positive="▶" negative="◀" axis="horizontal" knobClass="border-amber-300 bg-amber-400/90" onChange={onYaw} onGrab={onStickGrab} />
-                  <AxisPad label="PITCH" positive="▲" negative="▼" axis="vertical" knobClass="border-sky-300 bg-sky-400/90" onChange={onPitch} onGrab={onStickGrab} />
-                  <AxisPad label="THRUST" positive="W" negative="S" axis="vertical" knobClass="border-emerald-300 bg-emerald-400/90" onChange={onThrust} onGrab={onStickGrab} />
-                </>
+          {(showAim || showInspectCraft || showInitiate) && (
+            <div className="pointer-events-auto mb-6 ml-6 flex items-end gap-3">
+              {showAim && (
+                <AimPad
+                  fuel={telemetry.fuel}
+                  note={fuelNote}
+                  onYaw={onYaw}
+                  onPitch={onPitch}
+                  onGrab={onAimGrab}
+                />
               )}
-              {onInspectCraft && (
-                <div className="flex h-28 items-center">
-                  <button
-                    type="button"
-                    onClick={onInspectCraft}
-                    className="rounded-lg border border-slate-500 bg-slate-950/90 px-4 py-2.5 text-sm font-bold text-white"
-                  >
-                    Inspect Voyager 1
-                  </button>
-                </div>
+              {showInspectCraft && onInspectCraft && (
+                <button
+                  type="button"
+                  onClick={onInspectCraft}
+                  disabled={inspectCraftDisabled}
+                  className="rounded-lg border border-slate-500 bg-slate-950/90 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-950/50 disabled:text-slate-500"
+                >
+                  Inspect Voyager 1
+                </button>
+              )}
+              {showInitiate && onInitiate && (
+                <button
+                  type="button"
+                  data-coach="voyager-initiate"
+                  onClick={onInitiate}
+                  className="max-w-[22rem] rounded-lg bg-amber-500 px-4 py-2.5 text-left text-sm font-bold leading-snug text-slate-950"
+                >
+                  {`INITIATE OBJECTIVE ${currentIndex + 1}: ${OBJECTIVES[currentIndex]?.label ?? ''}`}
+                </button>
               )}
             </div>
           )}
         </div>
 
         <div className="pointer-events-auto mb-4 flex flex-col items-end gap-3">
-          {step === 'record' && (
-            <button
-              type="button"
-              onClick={onOpenRecord}
-              className="rounded-lg bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950"
-            >
-              OPEN THE GOLDEN RECORD
-            </button>
-          )}
           <div className="relative h-36 w-36 rounded-full border border-slate-700 bg-slate-950/80">
             <div className="absolute left-1/2 top-2 -translate-x-1/2 text-[9px] font-mono-num text-slate-500">DISH</div>
             <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rotate-0">
@@ -247,3 +243,69 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
     </div>
   );
 };
+
+function AimPad({
+  fuel,
+  note,
+  onYaw,
+  onPitch,
+  onGrab
+}: {
+  fuel: number;
+  note: string | null;
+  onYaw: (yaw: number) => void;
+  onPitch: (pitch: number) => void;
+  onGrab?: () => void;
+}) {
+  const press = (axis: 'yaw' | 'pitch', value: number) => {
+    onGrab?.();
+    if (axis === 'yaw') onYaw(value);
+    else onPitch(value);
+  };
+  const release = () => {
+    onYaw(0);
+    onPitch(0);
+  };
+  const key = (label: string, glyph: string, axis: 'yaw' | 'pitch', value: number) => (
+    <button
+      type="button"
+      aria-label={label}
+      onPointerDown={event => {
+        event.preventDefault();
+        press(axis, value);
+      }}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onPointerLeave={release}
+      className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-600 bg-slate-950/90 text-lg font-bold text-slate-100 active:bg-slate-700"
+    >
+      {glyph}
+    </button>
+  );
+  const tank = Math.max(0, Math.min(1, fuel));
+  return (
+    <div data-coach="voyager-aim" className="flex flex-col items-center gap-2">
+      <div className="w-[11rem]">
+        <div className="mb-1 flex items-center justify-between text-[10px] font-bold tracking-wider text-slate-400">
+          <span>PROPELLANT</span>
+          <span className="font-mono-num">{Math.round(tank * 100)}%</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-slate-800" role="meter" aria-valuenow={Math.round(tank * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Propellant">
+          <div className={`h-full ${tank < 0.2 ? 'bg-rose-400' : 'bg-amber-400'}`} style={{ width: `${tank * 100}%` }} />
+        </div>
+        {note && <p className="mt-1 max-w-[11rem] text-[10px] font-semibold leading-snug text-rose-200">{note}</p>}
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        <span />
+        {key('Up', '▲', 'pitch', 1)}
+        <span />
+        {key('Left', '◀', 'yaw', -1)}
+        <span />
+        {key('Right', '▶', 'yaw', 1)}
+        <span />
+        {key('Down', '▼', 'pitch', -1)}
+        <span />
+      </div>
+    </div>
+  );
+}

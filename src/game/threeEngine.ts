@@ -21,6 +21,9 @@ export const isSoftwareGl = (() => {
 const _vec3A = new THREE.Vector3();
 const _vec3B = new THREE.Vector3();
 const _vec3Target = new THREE.Vector3();
+const _sunWorld = new THREE.Vector3();
+const _sunNdc = new THREE.Vector3();
+const _sunView = new THREE.Vector3();
 
 export interface CameraStateConfig {
   mode: 'title' | 'intro' | 'explore' | 'inspect' | 'ranging' | 'outro' | 'warp';
@@ -112,6 +115,10 @@ export class ApolloThreeEngine {
   private earthLaserPos: THREE.Vector3 = new THREE.Vector3(-19890.44, 2091.26, 0);
   private reflectorLaserPos: THREE.Vector3 = new THREE.Vector3(-2.12, 0.5, 21.53);
   private sunLight!: THREE.DirectionalLight;
+  private sunAnchor = new THREE.Vector3();
+  private hasSun = false;
+  /** Screen position of the Sun model, for the same leader label Mission 2 uses. */
+  public readonly sunScreen = { x: 0, y: 0, visible: false };
 
   // Rover Kinematics
   private roverVelocity: number = 0;
@@ -679,6 +686,9 @@ export class ApolloThreeEngine {
       this.setShadowFlags(newGroup, false, false);
       this.setFogEnabled(newGroup, false);
       this.scene.add(newGroup);
+      newGroup.updateWorldMatrix(true, true);
+      new THREE.Box3().setFromObject(newGroup).getCenter(this.sunAnchor);
+      this.hasSun = true;
       this.customActiveModels.sun = true;
 
     } else if (type === 'footprints') {
@@ -1001,6 +1011,8 @@ export class ApolloThreeEngine {
     // 5. Slowly rotate the distant Earth in place
     const earthNode = this.models.earthMesh.getObjectByName('Earth') ?? this.models.earthMesh;
     earthNode.rotation.y += 0.0003;
+
+    this.projectSunLabel();
 
     // 6. Render Scene
     this.renderer.render(this.scene, this.camera);
@@ -1456,6 +1468,33 @@ export class ApolloThreeEngine {
       this.isLaserFiring = false;
       this.laserPulseGroup.visible = false;
     }
+  }
+
+  /** Point the SUN label at the Sun model while it is inside the view. */
+  private projectSunLabel() {
+    const slot = this.sunScreen;
+    const mode = this.cameraConfig.mode;
+    if (!this.hasSun || mode === 'title' || mode === 'outro' || mode === 'warp') {
+      slot.visible = false;
+      return;
+    }
+    _sunWorld.copy(this.sunAnchor);
+    this.camera.updateMatrixWorld();
+    this.camera.getWorldDirection(_sunView);
+    const facing =
+      (_sunWorld.x - this.camera.position.x) * _sunView.x +
+      (_sunWorld.y - this.camera.position.y) * _sunView.y +
+      (_sunWorld.z - this.camera.position.z) * _sunView.z;
+    _sunNdc.copy(_sunWorld).project(this.camera);
+    const bounds = this.renderer.domElement.getBoundingClientRect();
+    slot.x = bounds.left + (_sunNdc.x * 0.5 + 0.5) * bounds.width;
+    slot.y = bounds.top + (-_sunNdc.y * 0.5 + 0.5) * bounds.height;
+    slot.visible =
+      facing > 0.2 &&
+      _sunNdc.z > 0 &&
+      _sunNdc.z < 1 &&
+      Math.abs(_sunNdc.x) < 0.92 &&
+      Math.abs(_sunNdc.y) < 0.92;
   }
 
   private updateCamera(dt: number) {

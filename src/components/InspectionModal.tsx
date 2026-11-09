@@ -122,6 +122,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
       {narrationDone && (
         <button
           onClick={onClose}
+          data-coach="apollo-resume"
           className="pointer-events-auto flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm"
         >
           <span>RESUME EXPLORATION</span>

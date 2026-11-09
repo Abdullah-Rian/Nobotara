@@ -5,12 +5,14 @@ interface RangingOverlayProps {
   isLaserFiring: boolean;
   onFire: () => void;
   onContinue: () => void;
+  onResult?: () => void;
 }
 
 export const RangingOverlay: React.FC<RangingOverlayProps> = ({
   isLaserFiring,
   onFire,
-  onContinue
+  onContinue,
+  onResult
 }) => {
   const [fired, setFired] = useState(false);
   const [showResult, setShowResult] = useState(false);
@@ -18,6 +20,10 @@ export const RangingOverlay: React.FC<RangingOverlayProps> = ({
   useEffect(() => {
     if (fired && !isLaserFiring) setShowResult(true);
   }, [fired, isLaserFiring]);
+
+  useEffect(() => {
+    if (showResult) onResult?.();
+  }, [showResult, onResult]);
 
   const handleFire = () => {
     if (fired) return;
@@ -62,6 +68,7 @@ export const RangingOverlay: React.FC<RangingOverlayProps> = ({
         {showResult ? (
           <button
             onClick={onContinue}
+            data-coach="apollo-laser-continue"
             className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm"
           >
             <span>CONTINUE</span>
@@ -70,6 +77,7 @@ export const RangingOverlay: React.FC<RangingOverlayProps> = ({
         ) : (
           <button
             onClick={handleFire}
+            data-coach="apollo-fire"
             disabled={fired}
             className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold rounded-lg text-sm"
           >

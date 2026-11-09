@@ -3,11 +3,11 @@ import { buildApolloSceneModels } from './apolloModels';
 import { customModelManager } from './modelLoader';
 import {
   EARTH_DIRECTION,
-  VOYAGER_BUBBLE,
   VOYAGER_MARKERS,
   SHELL_RADIUS,
   VoyagerMarkerId,
-  VoyagerStep
+  VoyagerStep,
+  voyagerSunEarthPositions
 } from '../missions/voyager/data';
 import { VOYAGER_PARTS, VOYAGER_PART_CENTER, VoyagerPartFrame } from '../missions/voyager/parts';
 
@@ -20,6 +20,7 @@ export interface SkyPoint {
 export interface SkyFrame {
   sun: SkyPoint;
   earth: SkyPoint;
+  mars: SkyPoint;
 }
 
 export interface VoyagerTelemetry {
@@ -34,13 +35,24 @@ export interface VoyagerTelemetry {
   markerYaw: number;
   markerPitch: number;
   hasMarker: boolean;
+  /** 1 is a full tank. Turning during the aim spends it. */
+  fuel: number;
 }
 
 const ALIGN_RAD = (8 * Math.PI) / 180;
 const ALIGN_HOLD = 1;
+/** Seconds of full-rate turning the aim tank holds. */
+const AIM_FUEL_SECONDS = 8;
+const START_YAW = Math.PI;
 const PAN_SECONDS = 12;
 /** Radians per second the inspection camera walks around the still craft. */
 const INSPECT_ORBIT_RATE = 0.32;
+/**
+ * Height of that camera above the craft. Low enough that the Sun and Earth,
+ * side by side ahead of the dish, pass through the frame during the pan.
+ */
+const INSPECT_PITCH = 0.16;
+const CRAFT_HOME = new THREE.Vector3(0, 0, 4);
 
 /**
  * Deep-space flight for Mission 02. The spacecraft is steered as a whole:
@@ -53,10 +65,15 @@ export class VoyagerEngine {
   private readonly camera: THREE.PerspectiveCamera;
   private readonly craft: THREE.Group;
   private readonly earthDir = new THREE.Vector3(EARTH_DIRECTION.x, EARTH_DIRECTION.y, EARTH_DIRECTION.z).normalize();
+  private readonly sunPosition = new THREE.Vector3();
+  private readonly earthPosition = new THREE.Vector3();
+  private readonly marsSkyPosition = new THREE.Vector3();
   private readonly earthMarker: THREE.Object3D;
   private readonly sunBody: THREE.Object3D;
+  private readonly marsSky: THREE.Object3D;
   private sunGlowMap?: THREE.Texture;
   private earthGlowMap?: THREE.Texture;
+  private marsGlowMap?: THREE.Texture;
   private readonly mars: THREE.Mesh;
   private readonly link: THREE.Line;
   private readonly markers = new Map<VoyagerMarkerId, THREE.Group>();
@@ -75,7 +92,7 @@ export class VoyagerEngine {
   private partLabelsRequested = false;
   private nasaCraft = false;
   private orbitYaw = Math.PI;
-  private orbitPitch = 0.25;
+  private orbitPitch = INSPECT_PITCH;
   private orbitRadius = 16;
   private orbitReady = false;
   private orbitPointer = -1;
@@ -94,7 +111,7 @@ export class VoyagerEngine {
   private readonly panStart = new THREE.Vector3(24, 12, -30);
   private step: VoyagerStep = 'align';
   private focus: VoyagerMarkerId | 'record' | null = null;
-  private yaw = Math.PI;
+  private yaw = START_YAW;
   private pitch = 0;
   private velocity = 0;
   private thrustInput = 0;
@@ -102,6 +119,19 @@ export class VoyagerEngine {
   private pitchInput = 0;
   private alignHold = 0;
   private alignSent = false;
+  private fuel = 1;
+  private fuelSpentSent = false;
+  /** After a refill, ignore a key or button that is still held. */
+  private awaitRelease = false;
+  private aimYawError = 0;
+  private aimPitchError = 0;
+  private slewing = false;
+  private beaming = false;
+  private sendTimer = 0;
+  private uplinkSent = false;
+  private blinkId: string | null = null;
+  private blinkMesh!: THREE.Mesh;
+  private blinkLight!: THREE.PointLight;
   private wasInside = true;
   private crossSent = false;
   private outro = 0;
@@ -112,6 +142,8 @@ export class VoyagerEngine {
   public onTelemetry?: (telemetry: VoyagerTelemetry) => void;
   public onNearMarker?: (id: VoyagerMarkerId | null) => void;
   public onAligned?: () => void;
+  public onFuelSpent?: () => void;
+  public onUplinkDone?: () => void;
   public onCrossedShell?: () => void;
   public onIntroSettled?: () => void;
   /** True only after the NASA model has loaded. The procedural stand-in stays unlabeled. */
@@ -123,7 +155,8 @@ export class VoyagerEngine {
   };
   public readonly skyFrame: SkyFrame = {
     sun: { x: 0, y: 0, visible: false },
-    earth: { x: 0, y: 0, visible: false }
+    earth: { x: 0, y: 0, visible: false },
+    mars: { x: 0, y: 0, visible: false }
   };
 
   constructor(container: HTMLDivElement) {
@@ -144,18 +177,24 @@ export class VoyagerEngine {
     this.camera = new THREE.PerspectiveCamera(55, container.clientWidth / Math.max(container.clientHeight, 1), 0.1, 800);
     this.camera.position.set(18, 10, -24);
 
+    const bodies = voyagerSunEarthPositions(CRAFT_HOME);
+    this.sunPosition.set(bodies.sun.x, bodies.sun.y, bodies.sun.z);
+    this.earthPosition.set(bodies.earth.x, bodies.earth.y, bodies.earth.z);
+    this.marsSkyPosition.set(bodies.mars.x, bodies.mars.y, bodies.mars.z);
+
     this.scene.add(new THREE.AmbientLight(0x8ea2c9, 0.55));
     const sunLight = new THREE.DirectionalLight(0xfff4d6, 2.4);
-    sunLight.position.set(-80, 40, -30);
+    sunLight.position.copy(this.sunPosition);
     this.scene.add(sunLight);
 
     this.addStars();
-    this.addShell();
     this.sunBody = this.addSun();
     this.earthMarker = this.addEarthMarker();
+    this.marsSky = this.addMarsSky();
     this.mars = this.addMars();
     this.link = this.addLink();
     this.craft = this.addCraft();
+    this.addBlink();
     this.addMarkers();
 
     this.tick = this.tick.bind(this);
@@ -172,13 +211,43 @@ export class VoyagerEngine {
 
   public setStep(step: VoyagerStep) {
     this.step = step;
-    const live = step === 'plasma' || step === 'magnetic' || step === 'particles' || step === 'power' ? step : null;
-    for (const [id, group] of this.markers) group.visible = id === live;
+    for (const [, group] of this.markers) group.visible = false;
     if (step === 'cross' && this.craft.position.length() > SHELL_RADIUS && !this.crossSent) {
       this.crossSent = true;
       this.wasInside = false;
       this.onCrossedShell?.();
     }
+  }
+
+  /** Put the aim back at the start, with a full tank. */
+  public resetAim() {
+    this.yaw = START_YAW;
+    this.pitch = 0;
+    this.velocity = 0;
+    this.fuel = 1;
+    this.alignHold = 0;
+    this.alignSent = false;
+    this.fuelSpentSent = false;
+    this.awaitRelease = true;
+    this.telemetryStamp = '';
+    this.boresight(this.forward);
+  }
+
+  /** Pulse a point on one labeled part. `null` turns it off. */
+  public setBlink(partId: string | null) {
+    this.blinkId = partId;
+    const on = Boolean(partId);
+    this.blinkMesh.visible = on;
+    this.blinkLight.visible = on;
+  }
+
+  /** Turn the dish toward Earth, then hold a bright uplink. */
+  public beginUplink() {
+    this.slewing = true;
+    this.beaming = false;
+    this.sendTimer = 0;
+    this.uplinkSent = false;
+    this.telemetryStamp = '';
   }
 
   public setFocus(target: VoyagerMarkerId | 'record' | null) {
@@ -199,6 +268,13 @@ export class VoyagerEngine {
     this.earthMarker.visible = true;
     this.mode = 'flight';
     this.onIntroSettled?.();
+  }
+
+  /** Enter flight without the intro callback. Used by the temporary objective skip. */
+  public beginFlight() {
+    this.introSent = true;
+    this.earthMarker.visible = true;
+    if (this.mode !== 'outro') this.mode = 'flight';
   }
 
   /** Screen callouts. Ignored until the NASA model is the one on screen. */
@@ -227,6 +303,7 @@ export class VoyagerEngine {
     window.removeEventListener('resize', this.onResize);
     this.sunGlowMap?.dispose();
     this.earthGlowMap?.dispose();
+    this.marsGlowMap?.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {
       this.container.removeChild(this.renderer.domElement);
@@ -282,9 +359,10 @@ export class VoyagerEngine {
 
   private addSun() {
     const group = new THREE.Group();
-    group.position.set(-90, 28, -50);
+    group.position.copy(this.sunPosition);
     this.sunGlowMap = this.makePointTexture(true);
-    group.add(this.makePoint(this.sunGlowMap, 0xfff4c2, 2.4, 0.08, 0xfffef6));
+    const sunScale = this.sunPosition.distanceTo(CRAFT_HOME) / 100;
+    group.add(this.makePoint(this.sunGlowMap, 0xfff4c2, 2.4 * sunScale, 0.08 * sunScale, 0xfffef6));
     this.scene.add(group);
     return group;
   }
@@ -292,8 +370,19 @@ export class VoyagerEngine {
   private addEarthMarker() {
     const marker = new THREE.Group();
     this.earthGlowMap = this.makePointTexture(false);
-    marker.add(this.makePoint(this.earthGlowMap, 0xdbeafe, 1.05, 0.045, 0xf8fbff));
-    marker.position.copy(this.earthDir).multiplyScalar(70);
+    const earthScale = this.earthPosition.distanceTo(CRAFT_HOME) / 167;
+    marker.add(this.makePoint(this.earthGlowMap, 0xdbeafe, 2.66 * earthScale, 0.114 * earthScale, 0xf8fbff));
+    marker.position.copy(this.earthPosition);
+    this.scene.add(marker);
+    return marker;
+  }
+
+  private addMarsSky() {
+    const marker = new THREE.Group();
+    this.marsGlowMap = this.makePointTexture(false, 'rgba(255, 150, 110, 0.5)');
+    const marsScale = this.marsSkyPosition.distanceTo(CRAFT_HOME) / 167;
+    marker.add(this.makePoint(this.marsGlowMap, 0xff6a3d, 2.66 * marsScale, 0.114 * marsScale, 0xffd2c4));
+    marker.position.copy(this.marsSkyPosition);
     this.scene.add(marker);
     return marker;
   }
@@ -322,7 +411,7 @@ export class VoyagerEngine {
     return group;
   }
 
-  private makePointTexture(rays: boolean) {
+  private makePointTexture(rays: boolean, halo = 'rgba(191,219,254,0.4)') {
     const canvas = document.createElement('canvas');
     canvas.width = 128;
     canvas.height = 128;
@@ -349,7 +438,7 @@ export class VoyagerEngine {
     const glow = context.createRadialGradient(center, center, 0, center, center, 64);
     glow.addColorStop(0, 'rgba(255,255,255,1)');
     glow.addColorStop(0.07, 'rgba(255,255,255,0.95)');
-    glow.addColorStop(rays ? 0.2 : 0.16, rays ? 'rgba(255,236,180,0.45)' : 'rgba(191,219,254,0.4)');
+    glow.addColorStop(rays ? 0.2 : 0.16, rays ? 'rgba(255,236,180,0.45)' : halo);
     glow.addColorStop(0.5, 'rgba(255,255,255,0.05)');
     glow.addColorStop(1, 'rgba(255,255,255,0)');
     context.fillStyle = glow;
@@ -383,7 +472,7 @@ export class VoyagerEngine {
   private addCraft() {
     const craft = new THREE.Group();
     craft.name = 'Voyager1';
-    craft.position.set(0, 0, 4);
+    craft.position.copy(CRAFT_HOME);
     this.scene.add(craft);
     this.loadCraftModel();
     return craft;
@@ -472,13 +561,17 @@ export class VoyagerEngine {
     if (this.mode === 'outro') {
       this.skyFrame.sun.visible = false;
       this.skyFrame.earth.visible = false;
+      this.skyFrame.mars.visible = false;
+      this.marsSky.visible = false;
       return;
     }
+    this.marsSky.visible = true;
     const bounds = this.container.getBoundingClientRect();
     this.camera.updateMatrixWorld();
     this.camera.getWorldDirection(this.partView);
     this.writeSkyPoint(this.sunBody, this.skyFrame.sun, bounds);
     this.writeSkyPoint(this.earthMarker, this.skyFrame.earth, bounds);
+    this.writeSkyPoint(this.marsSky, this.skyFrame.mars, bounds);
   }
 
   private writeSkyPoint(body: THREE.Object3D, slot: SkyPoint, bounds: DOMRect) {
@@ -514,6 +607,32 @@ export class VoyagerEngine {
     };
   }
 
+  private addBlink() {
+    this.blinkMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 12, 10),
+      new THREE.MeshBasicMaterial({ color: 0x86efac, toneMapped: false })
+    );
+    this.blinkMesh.visible = false;
+    this.blinkMesh.renderOrder = 5;
+    this.blinkLight = new THREE.PointLight(0x86efac, 6, 8, 2);
+    this.blinkLight.visible = false;
+    this.scene.add(this.blinkMesh, this.blinkLight);
+  }
+
+  private updateBlink(now: number) {
+    if (!this.blinkId) return;
+    const part = VOYAGER_PARTS.find(item => item.id === this.blinkId);
+    if (!part) return;
+    const scale = this.craft.scale.x || 1;
+    this.partWorld.set(part.anchor[0], part.anchor[1], part.anchor[2]).multiplyScalar(scale);
+    this.partWorld.applyQuaternion(this.craft.quaternion).add(this.craft.position);
+    const pulse = 0.35 + 0.65 * Math.abs(Math.sin(now / 160));
+    this.blinkMesh.position.copy(this.partWorld);
+    this.blinkMesh.scale.setScalar(0.7 + pulse);
+    this.blinkLight.position.copy(this.partWorld);
+    this.blinkLight.intensity = 2 + pulse * 8;
+  }
+
   private addMarkers() {
     for (const spec of VOYAGER_MARKERS) {
       const group = new THREE.Group();
@@ -543,7 +662,7 @@ export class VoyagerEngine {
     const startPitch = Math.asin(THREE.MathUtils.clamp(offset.y / distance, -1, 1));
     this.placeOrbit(
       startYaw + span * INSPECT_ORBIT_RATE * PAN_SECONDS,
-      THREE.MathUtils.lerp(startPitch, 0.38, span),
+      THREE.MathUtils.lerp(startPitch, INSPECT_PITCH, span),
       THREE.MathUtils.lerp(distance, 18, span)
     );
   }
@@ -562,6 +681,7 @@ export class VoyagerEngine {
       this.orbitRadius = THREE.MathUtils.clamp(this.orbitOffset.length(), 10, 28);
       this.orbitYaw = Math.atan2(this.orbitOffset.x, this.orbitOffset.z);
       this.orbitPitch = Math.asin(THREE.MathUtils.clamp(this.orbitOffset.y / this.orbitOffset.length(), -1, 1));
+      this.orbitPitch = THREE.MathUtils.lerp(this.orbitPitch, INSPECT_PITCH, 0.85);
       this.orbitReady = true;
     }
     this.orbitRadius = THREE.MathUtils.damp(this.orbitRadius, 18, 2.5, dt);
@@ -627,7 +747,7 @@ export class VoyagerEngine {
       this.playPan(span);
       if (span >= 1) this.skipIntro();
     } else if (this.mode === 'flight') {
-      const looking = this.partLabelsOn && !this.focus;
+      const looking = this.partLabelsOn && !this.focus && !this.slewing;
       if (looking) {
         this.velocity = 0;
         this.boresight(this.forward);
@@ -648,6 +768,7 @@ export class VoyagerEngine {
     }
 
     this.bobMarkers(now);
+    this.updateBlink(now);
     this.projectParts();
     this.projectSky();
     this.renderer.render(this.scene, this.camera);
@@ -655,16 +776,23 @@ export class VoyagerEngine {
   };
 
   private fly(dt: number) {
-    // Left on the stick is a negative yaw. Subtract so the craft turns left.
-    this.yaw -= this.yawInput * 0.9 * dt;
-    this.pitch = THREE.MathUtils.clamp(this.pitch - this.pitchInput * 0.7 * dt, -1.05, 1.05);
-    this.velocity = THREE.MathUtils.damp(this.velocity, this.thrustInput * 8, 3, dt);
-    this.boresight(this.forward);
-    this.craft.position.addScaledVector(this.forward, this.velocity * dt);
-    if (this.craft.position.length() > VOYAGER_BUBBLE) {
-      this.craft.position.setLength(VOYAGER_BUBBLE);
-      if (this.velocity > 0) this.velocity = 0;
+    if (this.slewing) {
+      // Yaw error is measured in the craft frame, opposite the stored Euler yaw.
+      this.yaw += this.aimYawError * 1.6 * dt;
+      this.pitch = THREE.MathUtils.clamp(this.pitch - this.aimPitchError * 1.6 * dt, -1.05, 1.05);
+    } else if (this.awaitRelease) {
+      const held = Math.abs(this.yawInput) > 0.05 || Math.abs(this.pitchInput) > 0.05;
+      if (!held) this.awaitRelease = false;
+    } else if (this.step === 'align' && !this.alignSent && this.fuel > 0) {
+      const effort = Math.max(Math.abs(this.yawInput), Math.abs(this.pitchInput));
+      this.fuel = Math.max(0, this.fuel - (effort * dt) / AIM_FUEL_SECONDS);
+      if (this.fuel > 0) {
+        this.yaw -= this.yawInput * 0.9 * dt;
+        this.pitch = THREE.MathUtils.clamp(this.pitch - this.pitchInput * 0.7 * dt, -1.05, 1.05);
+      }
     }
+    this.velocity = 0;
+    this.boresight(this.forward);
   }
 
   private updateAim(dt: number) {
@@ -679,6 +807,10 @@ export class VoyagerEngine {
       this.alignSent = true;
       this.onAligned?.();
     }
+    if (this.step === 'align' && !this.alignSent && this.fuel <= 0 && !aligned && !this.fuelSpentSent) {
+      this.fuelSpentSent = true;
+      this.onFuelSpent?.();
+    }
 
     const outside = this.craft.position.length() > SHELL_RADIUS;
     if (this.step === 'cross' && this.wasInside && outside && !this.crossSent) {
@@ -687,15 +819,36 @@ export class VoyagerEngine {
     }
     this.wasInside = !outside;
 
+    const linkMat = this.link.material as THREE.LineBasicMaterial;
     const linkPos = this.link.geometry.attributes.position as THREE.BufferAttribute;
     linkPos.setXYZ(0, this.craft.position.x, this.craft.position.y, this.craft.position.z);
     linkPos.setXYZ(1, this.earthMarker.position.x, this.earthMarker.position.y, this.earthMarker.position.z);
     linkPos.needsUpdate = true;
-    (this.link.material as THREE.LineBasicMaterial).opacity = signal > 0.2 ? signal * 0.85 : 0;
+    if (this.beaming) {
+      linkMat.color.set(0xfef3c7);
+      linkMat.opacity = 1;
+    } else {
+      linkMat.color.set(0x86efac);
+      linkMat.opacity = signal > 0.2 ? signal * 0.85 : 0;
+    }
 
     this.localEarth.copy(this.earthDir).applyQuaternion(this.craft.quaternion.clone().invert());
     const yawError = Math.atan2(this.localEarth.x, this.localEarth.z);
     const pitchError = Math.atan2(this.localEarth.y, Math.hypot(this.localEarth.x, this.localEarth.z));
+    this.aimYawError = yawError;
+    this.aimPitchError = pitchError;
+    if (this.slewing && angle < ALIGN_RAD) {
+      this.beaming = true;
+      this.sendTimer += dt;
+      if (this.sendTimer > 1.6 && !this.uplinkSent) {
+        this.uplinkSent = true;
+        this.slewing = false;
+        this.onUplinkDone?.();
+      }
+    } else if (this.slewing) {
+      this.beaming = false;
+      this.sendTimer = 0;
+    }
 
     let nearest: VoyagerMarkerId | null = null;
     let nearestDist = Infinity;
@@ -736,7 +889,7 @@ export class VoyagerEngine {
       });
     }
 
-    const stamp = `${signal.toFixed(2)}|${(angle * 180 / Math.PI).toFixed(0)}|${this.craft.position.x.toFixed(1)}|${this.craft.position.z.toFixed(1)}|${insideMarker ?? ''}`;
+    const stamp = `${signal.toFixed(2)}|${(angle * 180 / Math.PI).toFixed(0)}|${this.fuel.toFixed(3)}|${insideMarker ?? ''}`;
     if (stamp !== this.telemetryStamp) {
       this.telemetryStamp = stamp;
       this.onTelemetry?.({
@@ -750,7 +903,8 @@ export class VoyagerEngine {
         pitchError,
         markerYaw,
         markerPitch,
-        hasMarker: nearest !== null
+        hasMarker: nearest !== null,
+        fuel: this.fuel
       });
     }
   }
@@ -778,6 +932,13 @@ export class VoyagerEngine {
 
   private playOutro() {
     const p = this.outro;
+    const approachingMars = p >= 0.72;
+    this.craft.visible = !approachingMars;
+    this.link.visible = !approachingMars;
+    if (approachingMars) {
+      this.blinkMesh.visible = false;
+      this.blinkLight.visible = false;
+    }
     if (p < 0.4) {
       const pull = 10 + p / 0.4 * 34;
       this.camera.position.copy(this.craft.position).add(new THREE.Vector3(0, pull * 0.25, -pull));
