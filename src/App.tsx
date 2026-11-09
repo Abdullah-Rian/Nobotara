@@ -24,7 +24,7 @@ function parseUrlState(): {
   view: 'home' | 'chat';
 } {
   if (typeof window === 'undefined') {
-    return { mission: 'apollo11', modal: null, view: 'chat' };
+    return { mission: 'apollo11', modal: null, view: 'home' };
   }
   const params = new URLSearchParams(window.location.search);
   const rawParam = params.get('mission');
@@ -35,7 +35,7 @@ function parseUrlState(): {
   return {
     mission: rawMission && VALID_MISSIONS.includes(rawMission) ? rawMission : 'apollo11',
     modal: rawModal && VALID_MODALS.includes(rawModal) ? rawModal : null,
-    view: rawView === 'missions' ? 'home' : 'chat',
+    view: rawView === 'chat' ? 'chat' : 'home',
   };
 }
 
@@ -468,8 +468,8 @@ export default function App() {
     if (activeModal) {
       params.set('modal', activeModal);
     }
-    if (view === 'home') {
-      params.set('view', 'missions');
+    if (view === 'chat') {
+      params.set('view', 'chat');
     }
     const search = params.toString();
     const nextUrl = `${window.location.pathname}${search ? `?${search}` : ''}`;

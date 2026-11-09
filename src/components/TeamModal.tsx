@@ -66,14 +66,14 @@ export const TeamModal: React.FC<TeamModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-xl flex items-center justify-center p-3 sm:p-7 select-text animate-in fade-in duration-200"
+      className="fixed inset-0 z-[120] bg-black/55 backdrop-blur-xl flex items-center justify-center p-3 sm:p-7 select-text animate-in fade-in duration-200 "
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
     >
       {/* Outer Panel matching exact specifications (zero white glow) */}
       <div
-        className="relative w-full max-w-[680px] max-h-[min(690px,calc(100vh-56px))] p-6 sm:p-8 flex flex-col overflow-hidden rounded-[26px] border border-white/[0.17] select-none text-[#f5f5f5]"
+        className="relative w-full max-w-[680px] max-h-[min(690px,calc(100vh-56px))] p-6 sm:p-8 flex flex-col overflow-hidden rounded-[26px] border border-white/[0.17] select-none text-[#f5f5f5] "
         style={{
           background: 'linear-gradient(145deg, rgba(25,26,29,0.98), rgba(14,15,17,0.99) 62%)',
           boxShadow: '0 32px 100px rgba(0,0,0,0.62), inset 0 1px 0 rgba(255,255,255,0.055)',
