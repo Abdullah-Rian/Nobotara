@@ -3,6 +3,8 @@ import { PersonalizationConfig } from '../components/PersonalizeDrawer';
 import { ConversationHistoryItem } from '../types/chat';
 import { fetchNasaMediaForTopic } from './nasaMediaService';
 
+const RAG_URL = 'https://nobotara-worker.nobotara71.workers.dev';
+
 /**
  * Generates an AI response via the server-side Gemini API proxy (/api/generate).
  * Kept secure with server-side API keys and graceful fallback.
@@ -16,32 +18,26 @@ export async function generateAIResponse(
   const mediaPromise = fetchNasaMediaForTopic(query);
 
   try {
-    const response = await fetch('/api/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({
-        query,
-        mode,
-        attachments,
-        personalization,
-      }),
-    });
+  const response = await fetch(`${RAG_URL}/generate`, {
+    method: 'POST',
+    credentials: 'omit',
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(20000),
+    body: JSON.stringify({ query, attachments }),
+  });
 
     if (response.ok) {
       const data = await response.json();
       if (data && data.text) {
         const media = await mediaPromise;
-        const isLive = !!data.isLiveGemini;
+        //const isLive = !!data.isLiveGemini;
         return {
           id: `conv-${Date.now()}`,
           question: query || (attachments.length > 0 ? `Analysis of ${attachments[0].name}` : 'Cosmic Inquiry'),
           time: 'Just now',
           fullAnswer: data.text,
           metrics: [
-            { label: 'Intelligence Core', value: isLive ? 'Gemini 3.8 Flash' : 'SpaceAI Core', delta: isLive ? 'Live API' : 'Verified' },
+            { label: 'Intelligence Core', value: data.model ?? 'Gemini', delta: 'Live API' },
             { label: 'Astrophysics Mode', value: mode },
             { label: 'Data Verification', value: 'NASA Telemetry' },
           ],
@@ -122,8 +118,9 @@ export async function* streamAIResponse(
   attachments: AttachedFile[],
   personalization: PersonalizationConfig
 ): AsyncGenerator<string, void, unknown> {
-  const response = await fetch('/api/generate/stream', {
+  const response = await fetch(`${RAG_URL}/stream`, {
     method: 'POST',
+    credentials: 'omit',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, mode, attachments, personalization }),
   });
