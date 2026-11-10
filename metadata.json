@@ -1,5 +1,5 @@
 {
-  "name": "Nobotara71 — NASA Legendary Missions",
+  "name": "Nobotara71 - NASA Legendary Missions",
   "description": "Nobotara71 interactive space mission showcase featuring Apollo 11, Voyager 1, and Mars Sample Return (MSR) with interactive 3D, mission telemetry, and SpaceAI assistant.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
