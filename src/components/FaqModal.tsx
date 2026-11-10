@@ -67,7 +67,7 @@ export const FaqModal: React.FC<FaqModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-xl flex items-center justify-center p-3 sm:p-7 select-text animate-in fade-in duration-200"
+      className="fixed inset-0 z-[120] bg-black/55 backdrop-blur-xl flex items-center justify-center p-3 sm:p-7 select-text animate-in fade-in duration-200"
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
