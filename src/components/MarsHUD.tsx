@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigation, Volume2, VolumeX } from 'lucide-react';
+import { Check, Navigation, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { DialogueMessage } from '../types/game';
 import { DialoguePanel } from './HUD';
 import { DisplayControls } from './DisplayControls';
@@ -17,7 +17,12 @@ interface MarsHUDProps {
   telemetry: MarsTelemetry;
   objective: string;
   objectiveShort: string;
-  target: MarsTarget | null;
+  targets: MarsTarget[];
+  /** Sites of the current act, ticked as they are finished. Empty outside an act. */
+  log: { label: string; done: boolean }[];
+  part: { index: number; total: number } | null;
+  /** Present while a spoken line can be cut short. */
+  onSkipLine?: () => void;
   pulseCache: boolean;
   near: boolean;
   interactLabel: string;
@@ -44,7 +49,10 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
   telemetry,
   objective,
   objectiveShort,
-  target,
+  targets,
+  log,
+  part,
+  onSkipLine,
   pulseCache,
   near,
   interactLabel,
@@ -73,6 +81,11 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
               <span className="font-mono-num text-xs font-bold uppercase tracking-wider text-slate-200">
                 MISSION 03: MARS SAMPLE RETURN
               </span>
+              {part && (
+                <span className="ml-1 rounded bg-slate-800 px-1.5 py-0.5 font-mono-num text-[10px] text-amber-300">
+                  PART {part.index}/{part.total}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 font-mono-num text-xs text-slate-400">
               <span>JEZERO CRATER</span>
@@ -102,6 +115,28 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
             </div>
           </div>
           )}
+
+          {log.length > 0 && (
+            <div
+              data-coach="mars-log"
+              className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-800/80 bg-slate-950/80 px-2 py-1.5 font-mono-num text-[11px] short:px-1.5 short:py-1"
+            >
+              <span className="px-1 text-slate-400">
+                {log.filter(item => item.done).length}/{log.length}
+              </span>
+              {log.map(item => (
+                <span
+                  key={item.label}
+                  className={`flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                    item.done ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800/80 text-slate-300'
+                  }`}
+                >
+                  {item.done ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">
@@ -127,12 +162,22 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
       <div className="pointer-events-auto flex items-end justify-between gap-4">
         <div className="flex flex-col items-start gap-3">
           {dialogue && (
-            <div className="mb-12 short:mb-1">
+            <div className="mb-12 flex flex-col items-end gap-1.5 short:mb-1">
+              {onSkipLine && (
+                <button
+                  type="button"
+                  onClick={onSkipLine}
+                  className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-950/85 px-2.5 py-1 font-mono-num text-[11px] text-slate-300 hover:border-slate-500"
+                >
+                  <SkipForward className="h-3 w-3" />
+                  SKIP LINE
+                </button>
+              )}
               <DialoguePanel message={dialogue} typewriter={typeDialogue} onTyped={onDialogueTyped} />
             </div>
           )}
           {showJoystick && (
-            <div className="mb-8 ml-10 rounded-2xl border border-slate-800/80 bg-slate-950/80 p-2.5 short:mb-0 short:ml-0 short:p-1.5">
+            <div data-coach="mars-stick" className="mb-8 ml-10 rounded-2xl border border-slate-800/80 bg-slate-950/80 p-2.5 short:mb-0 short:ml-0 short:p-1.5">
               <VirtualJoystick onMove={onJoystickMove} />
             </div>
           )}
@@ -156,6 +201,7 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
               </div>
               <button
                 type="button"
+                data-coach="mars-interact"
                 onClick={onInteract}
                 className="flex cursor-pointer items-center gap-3 rounded-lg bg-emerald-500 px-6 py-3.5 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 transition-all hover:-translate-y-0.5 hover:bg-emerald-400 active:translate-y-0 active:bg-emerald-600 md:text-base"
               >
@@ -172,7 +218,7 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
           {showMap && (
             <MarsMap
               telemetry={telemetry}
-              target={target}
+              targets={targets}
               pulseCache={pulseCache}
               size={short ? 104 : DEFAULT_SIZE}
             />
@@ -185,12 +231,12 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
 
 function MarsMap({
   telemetry,
-  target,
+  targets,
   pulseCache,
   size
 }: {
   telemetry: MarsTelemetry;
-  target: MarsTarget | null;
+  targets: MarsTarget[];
   pulseCache: boolean;
   size: number;
 }) {
@@ -200,7 +246,7 @@ function MarsMap({
   let maxX = Math.max(rover.x, cache.x);
   let minZ = Math.min(rover.z, cache.z);
   let maxZ = Math.max(rover.z, cache.z);
-  if (target) {
+  for (const target of targets) {
     minX = Math.min(minX, target.x);
     maxX = Math.max(maxX, target.x);
     minZ = Math.min(minZ, target.z);
@@ -230,8 +276,8 @@ function MarsMap({
           strokeWidth="1"
           strokeDasharray="3 3"
         />
-        {target && (
-          <g>
+        {targets.map(target => (
+          <g key={target.label}>
             <circle cx={toX(target.x)} cy={toY(target.z)} r="4.5" fill="#e2e8f0" stroke="#34d399" strokeWidth="1.5" />
             <text
               x={toX(target.x)}
@@ -244,7 +290,7 @@ function MarsMap({
               {target.label}
             </text>
           </g>
-        )}
+        ))}
         <g className={pulseCache ? 'animate-pulse' : undefined}>
           <rect
             x={cacheX - 4}

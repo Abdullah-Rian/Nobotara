@@ -8,6 +8,7 @@
 class ApolloAudioSystem {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
+  private themeGain: GainNode | null = null;
   private roverOsc: OscillatorNode | null = null;
   private roverGain: GainNode | null = null;
   private ambientNoiseNode: AudioNode | null = null;
@@ -64,6 +65,7 @@ class ApolloAudioSystem {
     }
     if (muted) {
       this.stopSpeaking();
+      this.stopClosingTheme();
     }
   }
 
@@ -282,6 +284,71 @@ class ApolloAudioSystem {
       this.ambientNoiseNode = noise;
     } catch {
       // Audio setup failure fallback
+    }
+  }
+
+  /**
+   * A slow, quiet pad for the last shot: four held chords, built from sine and
+   * triangle tones. No recording is used.
+   */
+  public playClosingTheme() {
+    if (this.isMuted) return;
+    this.stopClosingTheme();
+    try {
+      const ctx = this.getContext();
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0.0001, ctx.currentTime);
+      master.gain.exponentialRampToValueAtTime(0.5, ctx.currentTime + 3);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 1400;
+      master.connect(filter);
+      filter.connect(ctx.destination);
+      this.themeGain = master;
+      // A minor 9, F major 7, C major, G sus: rising and unresolved until the last chord.
+      const chords = [
+        [110, 164.81, 220, 261.63, 329.63, 493.88],
+        [87.31, 174.61, 220, 261.63, 329.63, 440],
+        [130.81, 196, 261.63, 329.63, 392, 523.25],
+        [98, 196, 293.66, 392, 440, 587.33]
+      ];
+      const hold = 9;
+      chords.forEach((chord, index) => {
+        const start = ctx.currentTime + index * hold;
+        chord.forEach((freq, voice) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = voice < 2 ? 'triangle' : 'sine';
+          osc.frequency.value = freq;
+          osc.detune.value = (voice % 2 === 0 ? 1 : -1) * 4;
+          const level = voice < 2 ? 0.05 : 0.032;
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(level, start + 2.6);
+          gain.gain.setValueAtTime(level, start + hold - 1);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + hold + 3.5);
+          osc.connect(gain);
+          gain.connect(master);
+          osc.start(start);
+          osc.stop(start + hold + 3.6);
+        });
+      });
+    } catch {
+      // Audio failure fallback
+    }
+  }
+
+  public stopClosingTheme() {
+    const gain = this.themeGain;
+    this.themeGain = null;
+    if (!gain || !this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+      window.setTimeout(() => gain.disconnect(), 1500);
+    } catch {
+      // Audio failure fallback
     }
   }
 

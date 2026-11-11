@@ -1,14 +1,90 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ScanLine } from 'lucide-react';
 import { MarsReading } from '../missions/mars/data';
 
 interface MarsInspectProps {
   reading: MarsReading;
   narrationDone: boolean;
+  scanDone: boolean;
+  continueLabel: string;
+  onScanProgress: (progress: number) => void;
+  onScanDone: () => void;
   onClose: () => void;
   read: () => { x: number; y: number; visible: boolean } | undefined;
 }
 
-export const MarsInspect: React.FC<MarsInspectProps> = ({ reading, narrationDone, onClose, read }) => {
+/** Seconds of holding needed to finish a scan. */
+const SCAN_SECONDS = 3.2;
+
+export const MarsInspect: React.FC<MarsInspectProps> = ({
+  reading,
+  narrationDone,
+  scanDone,
+  continueLabel,
+  onScanProgress,
+  onScanDone,
+  onClose,
+  read
+}) => {
+  const scanning = Boolean(reading.scan) && !scanDone;
+  const [progress, setProgress] = useState(reading.scan ? 0 : 1);
+  const [holding, setHolding] = useState(false);
+  const progressRef = useRef(progress);
+  const holdRef = useRef(false);
+  const callbacks = useRef({ onScanProgress, onScanDone });
+  callbacks.current = { onScanProgress, onScanDone };
+
+  const setHold = (value: boolean) => {
+    holdRef.current = value;
+    setHolding(value);
+  };
+
+  // The scan advances only while the button, E, or Space is held.
+  useEffect(() => {
+    if (!scanning) return;
+    let frame = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 0.1);
+      last = now;
+      if (holdRef.current && progressRef.current < 1) {
+        const next = Math.min(1, progressRef.current + dt / SCAN_SECONDS);
+        progressRef.current = next;
+        setProgress(next);
+        callbacks.current.onScanProgress(next);
+        if (next >= 1) {
+          holdRef.current = false;
+          setHolding(false);
+          callbacks.current.onScanDone();
+          return;
+        }
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    const down = (event: KeyboardEvent) => {
+      if (event.code === 'KeyE' || event.code === 'Space') setHold(true);
+    };
+    const up = (event: KeyboardEvent) => {
+      if (event.code === 'KeyE' || event.code === 'Space') setHold(false);
+    };
+    const release = () => setHold(false);
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+    window.addEventListener('blur', release);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+      window.removeEventListener('blur', release);
+    };
+  }, [scanning]);
+
+  const shown = reading.scan ? Math.floor(progress * reading.facts.length + 0.0001) : reading.facts.length;
   const panelRef = useRef<HTMLElement>(null);
   const lineRef = useRef<SVGLineElement>(null);
   const dotRef = useRef<SVGCircleElement>(null);
@@ -68,10 +144,14 @@ export const MarsInspect: React.FC<MarsInspectProps> = ({ reading, narrationDone
       <div className="text-[11px] font-mono-num font-bold text-amber-300">{reading.kicker}</div>
       <h2 className="mt-1 text-lg font-bold">{reading.title}</h2>
       <dl className="mt-3 space-y-2">
-        {reading.facts.map(fact => (
+        {reading.facts.map((fact, index) => (
           <div key={fact.label}>
             <dt className="text-[10px] font-mono-num uppercase tracking-wider text-slate-400">{fact.label}</dt>
-            <dd className="text-sm leading-relaxed text-slate-200">{fact.text}</dd>
+            {index < shown ? (
+              <dd className="text-sm leading-relaxed text-slate-200">{fact.text}</dd>
+            ) : (
+              <dd className="mt-1 h-4 w-3/4 rounded bg-slate-800/80" aria-label="Not scanned yet" />
+            )}
           </div>
         ))}
       </dl>
@@ -79,13 +159,35 @@ export const MarsInspect: React.FC<MarsInspectProps> = ({ reading, narrationDone
       </div>
       {/* The footer keeps its height, so the panel does not jump when the button arrives. */}
       <div className="shrink-0 border-t border-slate-800 px-4 py-3 short:px-3 short:py-2">
-        {narrationDone ? (
+        {scanning ? (
+          <button
+            type="button"
+            data-coach="mars-scan"
+            onPointerDown={event => {
+              event.preventDefault();
+              setHold(true);
+            }}
+            onContextMenu={event => event.preventDefault()}
+            className={`relative w-full touch-none select-none overflow-hidden rounded-lg border px-4 py-2.5 text-sm font-bold ${
+              holding ? 'border-cyan-200 text-white' : 'border-cyan-400/70 text-cyan-100'
+            }`}
+          >
+            <span
+              className="absolute inset-y-0 left-0 bg-cyan-600"
+              style={{ width: `${Math.round(progress * 100)}%`, opacity: holding ? 0.9 : 0.4 }}
+            />
+            <span className="relative flex items-center justify-center gap-2">
+              <ScanLine className="h-4 w-4" />
+              {holding ? `SCANNING ${Math.round(progress * 100)}%` : progress > 0 ? 'KEEP HOLDING TO SCAN' : 'HOLD TO SCAN'}
+            </span>
+          </button>
+        ) : reading.scan || narrationDone ? (
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950"
           >
-            {reading.continueLabel}
+            {continueLabel}
           </button>
         ) : (
           <div className="flex h-9 items-center gap-2 font-mono-num text-[11px] text-slate-400">

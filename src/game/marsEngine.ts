@@ -16,12 +16,16 @@ export type MarsShot =
   | 'intro'
   | 'drive'
   | 'focus'
+  | 'plan'
   | 'reveal'
   | 'question'
   | 'preserve'
   | 'questions'
   | 'inspire'
   | 'closing';
+
+/** When each of the five return steps begins inside the `plan` shot, as a share of the shot. */
+export const PLAN_STAGE_STARTS = [0, 0.18, 0.47, 0.62, 0.88];
 
 export interface MarsTelemetry {
   speed: number;
@@ -57,6 +61,12 @@ const ROVER_BODY = 0.95;
 const GLOBE_EULER = new THREE.Euler(0.08234375, -3.500546875, 0, 'YXZ');
 
 const smooth = THREE.MathUtils.smoothstep;
+/** Where the sun sets, as seen from the delta top looking across the crater. */
+const SUNSET_DIR = new THREE.Vector3(0.95, 0.05, -0.3).normalize();
+/** Earth, low over the horizon beyond the tubes. */
+const EARTH_SPOT = new THREE.Vector3(-70, 20, -150);
+/** Where the last shot's Moon, Voyager and Mars hang, far above the crater. */
+const TRIO_SPOT = new THREE.Vector3(0, 620, 0);
 const DELTA_HEIGHT = 6.5;
 const DELTA_STEPS = 4;
 const DELTA_RAMP = 8;
@@ -117,15 +127,50 @@ export class MarsEngine {
   private readonly camera: THREE.PerspectiveCamera;
   private readonly rover: THREE.Group;
   private readonly wheels: THREE.Mesh[];
-  private readonly beacon: THREE.Group;
-  private readonly diamond: THREE.Object3D;
+  private readonly beacons: { group: THREE.Group; diamond: THREE.Mesh; beam: THREE.MeshBasicMaterial }[] = [];
+  private readonly scanRing: THREE.Mesh;
+  private scan: number | null = null;
   private readonly holoRing: THREE.Object3D;
   private readonly holoMat: THREE.MeshBasicMaterial;
   private readonly planGroup: THREE.Group;
   private readonly planMaterials: THREE.MeshBasicMaterial[] = [];
-  private readonly questionGroup: THREE.Group;
-  private readonly questionExtras: THREE.Group;
-  private readonly questionFade: THREE.Material[] = [];
+  private readonly holoLander = new THREE.Group();
+  private readonly holoMav = new THREE.Group();
+  private readonly holoOrbiter = new THREE.Group();
+  private readonly holoEarth = new THREE.Group();
+  private readonly holoCapsule = new THREE.Group();
+  private readonly holoContainer = new THREE.Group();
+  private readonly earth = new THREE.Group();
+  private readonly routeLine: THREE.Line;
+  private readonly routeCount = 160;
+  private readonly tags: THREE.Mesh[] = [];
+  private readonly tubeSpots: THREE.Vector3[] = [];
+  private readonly orbs: THREE.Mesh[] = [];
+  private readonly signalBeam: THREE.Mesh;
+  private readonly trioLines: THREE.Line;
+  private readonly trioBodies: { name: string; object: THREE.Object3D; top: number }[] = [];
+  private readonly ambient = new THREE.AmbientLight(0x5c3c32, 0.5);
+  private readonly hemi = new THREE.HemisphereLight(0xffd0ad, 0x4a2c24, 0.9);
+  private dayDome: THREE.MeshBasicMaterial | null = null;
+  private duskDome: THREE.MeshBasicMaterial | null = null;
+  private skyStars: THREE.PointsMaterial | null = null;
+  private readonly dayOnly: THREE.MeshBasicMaterial[] = [];
+  private readonly duskOnly: THREE.MeshBasicMaterial[] = [];
+  private dusk = 0;
+  private planShown = false;
+  private night = 0;
+  private readonly fogDay = new THREE.Color(0xc39672);
+  private readonly fogDusk = new THREE.Color(0x4b3b3d);
+  private readonly fogNight = new THREE.Color(0x090707);
+  private readonly sunDay = new THREE.Color(0xffe2c4);
+  private readonly sunDusk = new THREE.Color(0xb9cdf5);
+  private readonly labelPoint = new THREE.Vector3();
+  /** Screen positions of the Moon, Voyager and Mars in the last shot. */
+  public readonly trioLabels: { name: string; x: number; y: number; visible: boolean }[] = [
+    { name: 'The Moon · Apollo 11', x: 0, y: 0, visible: false },
+    { name: 'Voyager 1', x: 0, y: 0, visible: false },
+    { name: 'Mars · Sample Return', x: 0, y: 0, visible: false }
+  ];
   private readonly trio: THREE.Group;
   private readonly basin = new THREE.Group();
   private readonly approachLight: THREE.DirectionalLight;
@@ -177,20 +222,19 @@ export class MarsEngine {
   private introT = 0;
   private introSent = false;
   private shotT = 0;
-  private live: MarsSiteId | null = 'igneous';
+  private live: MarsSiteId[] = [];
   private focus: MarsSiteId | null = null;
-  private near = false;
+  private near: MarsSiteId | null = null;
   private holoFrozen = false;
   private wheelSpin = 0;
   /** Solid footprints of the things the rover can inspect. Radius is the object, not the rover. */
   private readonly colliders: { x: number; z: number; radius: number }[] = [];
   private perseveranceCollider: { x: number; z: number; radius: number } | null = null;
-  private beaconBeam: THREE.MeshBasicMaterial | null = null;
   private readonly labMaterials: THREE.MeshBasicMaterial[] = [];
   private labRing: THREE.Object3D | null = null;
 
   public onTelemetry?: (telemetry: MarsTelemetry) => void;
-  public onNear?: (near: boolean) => void;
+  public onNear?: (site: MarsSiteId | null) => void;
   public onIntroDone?: () => void;
 
   public get veilOpacity() {
@@ -231,8 +275,8 @@ export class MarsEngine {
     this.camera.position.copy(APPROACH_DIR).multiplyScalar(APPROACH_START);
     this.smoothedLook.set(0, 0, 0);
 
-    this.scene.add(new THREE.AmbientLight(0x5c3c32, 0.5));
-    this.scene.add(new THREE.HemisphereLight(0xffd0ad, 0x4a2c24, 0.9));
+    this.scene.add(this.ambient);
+    this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(0xffe2c4, 2.8);
     this.sun.position.set(32, 36, 18);
     if (!isSoftwareGl) {
@@ -267,17 +311,19 @@ export class MarsEngine {
     this.addCache();
     this.addTerminal();
     this.planGroup = this.addPlanHardware();
-    this.questionGroup = this.addQuestionStage();
-    this.questionExtras = this.questionGroup.getObjectByName('QuestionExtras') as THREE.Group;
+    this.routeLine = this.addRoute();
+    this.signalBeam = this.addLegacyProps();
     this.trio = this.addTrio();
+    this.trioLines = this.trio.getObjectByName('TrioLines') as THREE.Line;
+    this.resetCinema();
     const built = buildApolloSceneModels(this.renderer);
     this.rover = built.roverGroup;
     this.wheels = built.roverWheels;
     this.rover.name = 'Explorer';
     this.markShadows(this.rover);
     this.basin.add(this.rover);
-    this.beacon = this.addBeacon();
-    this.diamond = this.beacon.getObjectByName('BeaconDiamond')!;
+    for (let i = 0; i < 3; i++) this.beacons.push(this.addBeacon());
+    this.scanRing = this.addScanRing();
     this.holoRing = this.scene.getObjectByName('TerminalRing')!;
     this.holoMat = (this.scene.getObjectByName('TerminalPane') as THREE.Mesh).material as THREE.MeshBasicMaterial;
 
@@ -377,13 +423,20 @@ export class MarsEngine {
     this.shot = 'drive';
   }
 
-  public setLive(id: MarsSiteId | null) {
-    this.live = id;
-    this.near = false;
-    this.onNear?.(false);
-    if (!id) return;
-    const site = SITES[id];
-    this.beacon.position.set(site.x, marsHeight(site.x, site.z), site.z);
+  /** Every open site gets a marker. In an act there are up to three at once. */
+  public setLive(ids: MarsSiteId[]) {
+    this.live = ids.slice(0, this.beacons.length);
+    this.near = null;
+    this.onNear?.(null);
+    this.live.forEach((id, index) => {
+      const site = SITES[id];
+      this.beacons[index].group.position.set(site.x, marsHeight(site.x, site.z), site.z);
+    });
+  }
+
+  /** 0 to 1 while the player sweeps the scanner over the focused site. Null hides it. */
+  public setScan(progress: number | null) {
+    this.scan = progress;
   }
 
   public setFocus(id: MarsSiteId | null) {
@@ -398,6 +451,7 @@ export class MarsEngine {
 
   /** The return hardware appears only once the player opens the terminal. */
   public showPlan() {
+    this.planShown = true;
     this.setPlanOpacity(0.45);
   }
 
@@ -410,23 +464,77 @@ export class MarsEngine {
     if (shot !== this.shot) {
       this.shot = shot;
       this.rover.getWorldPosition(this.shotAnchor);
+      this.resetCinema();
     }
     this.shotT = THREE.MathUtils.clamp(progress, 0, 1);
-    if (shot === 'reveal') this.setPlanOpacity(0.55 * (1 - this.shotT));
-    if (shot === 'question') this.setQuestionFade(this.shotT);
+    // Once the reveal has played, the plan is gone for good.
+    if (shot === 'reveal' && this.shotT >= 1) this.planShown = false;
+  }
+
+  public hidePlan() {
+    this.planShown = false;
+    this.setPlanOpacity(0);
   }
 
   private setPlanOpacity(opacity: number) {
     this.planGroup.visible = opacity > 0.03;
-    for (const material of this.planMaterials) material.opacity = opacity;
+    this.fade(this.holoLander, opacity);
+    this.fade(this.holoMav, opacity);
   }
 
-  private setQuestionFade(t: number) {
-    const fade = THREE.MathUtils.smoothstep(t, 0.4, 1);
-    for (const material of this.questionFade) {
-      if ('opacity' in material) material.opacity = 1 - fade;
+  /** Set every see-through material under an object to one opacity. Hidden at zero. */
+  private fade(object: THREE.Object3D, opacity: number) {
+    object.visible = opacity > 0.02;
+    object.traverse(node => {
+      const mesh = node as THREE.Mesh;
+      const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      if (!material) return;
+      for (const item of Array.isArray(material) ? material : [material]) {
+        item.transparent = true;
+        item.opacity = opacity * ((item.userData.share as number | undefined) ?? 1);
+      }
+    });
+  }
+
+  /** Put the sky, the lights and every cinematic prop back the way a normal drive needs them. */
+  private resetCinema() {
+    this.setMood(0, 0);
+    const shown = this.planShown;
+    this.holoLander.position.set(0, 0, 0);
+    this.holoMav.position.set(0, 0, 0);
+    this.holoMav.rotation.set(0, 0, 0);
+    for (const group of [this.holoOrbiter, this.holoEarth, this.holoCapsule, this.holoContainer, this.earth]) {
+      this.fade(group, 0);
     }
-    this.questionExtras.visible = fade < 0.98;
+    this.setPlanOpacity(shown ? 0.45 : 0);
+    this.routeLine.visible = false;
+    for (const tag of this.tags) tag.visible = false;
+    for (const orb of this.orbs) orb.visible = false;
+    this.signalBeam.visible = false;
+    this.trio.visible = false;
+    for (const label of this.trioLabels) label.visible = false;
+  }
+
+  /**
+   * dusk: 0 is midday, 1 is a Martian sunset, blue around the low sun.
+   * night: 0 keeps the sky, 1 is open space with stars.
+   */
+  private setMood(dusk: number, night: number) {
+    this.dusk = dusk;
+    this.night = night;
+    const dark = Math.max(dusk, night);
+    if (this.dayDome) this.dayDome.opacity = 1 - dark;
+    if (this.duskDome) this.duskDome.opacity = dusk * (1 - night);
+    if (this.skyStars) this.skyStars.opacity = Math.max(night, dusk * 0.55);
+    for (const material of this.dayOnly) material.opacity = (material.userData.full as number) * (1 - dark);
+    for (const material of this.duskOnly) material.opacity = (material.userData.full as number) * dusk * (1 - night);
+    this.fog.color.copy(this.fogDay).lerp(this.fogDusk, dusk).lerp(this.fogNight, night);
+    this.skyColor.copy(this.fogNight);
+    if (dark < 0.001) this.skyColor.copy(this.fogDay);
+    this.sun.color.copy(this.sunDay).lerp(this.sunDusk, dusk);
+    this.sun.intensity = THREE.MathUtils.lerp(THREE.MathUtils.lerp(2.8, 1.5, dusk), 0.9, night);
+    this.hemi.intensity = THREE.MathUtils.lerp(THREE.MathUtils.lerp(0.9, 0.5, dusk), 0.28, night);
+    this.ambient.intensity = THREE.MathUtils.lerp(0.5, 0.28, dark);
   }
 
   /** Daytime sky: pale butterscotch at the horizon, darker overhead, a small far sun, and the crater rim in haze. */
@@ -446,13 +554,86 @@ export class MarsEngine {
       colors[i * 3 + 2] = color.b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const dome = new THREE.Mesh(
-      geo,
-      new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })
-    );
+    this.dayDome = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      side: THREE.BackSide,
+      fog: false,
+      depthWrite: false,
+      transparent: true
+    });
+    const dome = new THREE.Mesh(geo, this.dayDome);
     dome.name = 'Sky';
-    dome.renderOrder = -2;
+    dome.renderOrder = -3;
     this.basin.add(dome);
+
+    // Sunset on Mars is blue near the sun and brown everywhere else, the reverse of Earth.
+    const sunsetDir = SUNSET_DIR;
+    const duskGeo = new THREE.SphereGeometry(radius - 20, 48, 28);
+    const duskPos = duskGeo.attributes.position;
+    const duskColors = new Float32Array(duskPos.count * 3);
+    const duskLow = new THREE.Color(0x5a4640);
+    const duskHigh = new THREE.Color(0x120e10);
+    const halo = new THREE.Color(0x8fb4e6);
+    const point = new THREE.Vector3();
+    for (let i = 0; i < duskPos.count; i++) {
+      point.fromBufferAttribute(duskPos, i).normalize();
+      const up = THREE.MathUtils.clamp(point.y, 0, 1);
+      color.copy(duskLow).lerp(duskHigh, Math.pow(up, 0.5));
+      const toward = Math.max(point.dot(sunsetDir), 0);
+      color.lerp(halo, Math.pow(toward, 9) * 0.95);
+      color.lerp(new THREE.Color(0xdfeaff), Math.pow(toward, 90) * 0.8);
+      duskColors[i * 3] = color.r;
+      duskColors[i * 3 + 1] = color.g;
+      duskColors[i * 3 + 2] = color.b;
+    }
+    duskGeo.setAttribute('color', new THREE.BufferAttribute(duskColors, 3));
+    this.duskDome = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      side: THREE.BackSide,
+      fog: false,
+      depthWrite: false,
+      transparent: true,
+      opacity: 0
+    });
+    const duskMesh = new THREE.Mesh(duskGeo, this.duskDome);
+    duskMesh.renderOrder = -2.5;
+    this.basin.add(duskMesh);
+
+    const lowSun = new THREE.MeshBasicMaterial({ color: 0xf4f8ff, fog: false, depthWrite: false, transparent: true, opacity: 0 });
+    lowSun.userData.full = 1;
+    this.duskOnly.push(lowSun);
+    const lowDisc = new THREE.Mesh(new THREE.CircleGeometry(7, 32), lowSun);
+    lowDisc.position.copy(sunsetDir).multiplyScalar(1280);
+    lowDisc.lookAt(0, 0, 0);
+    lowDisc.renderOrder = -1;
+    this.basin.add(lowDisc);
+
+    // Stars for dusk and for open space. They sit inside the domes so the far plane never cuts them.
+    const starCount = 1400;
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 1150 + Math.random() * 200;
+      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = r * Math.cos(phi);
+      starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    this.skyStars = new THREE.PointsMaterial({
+      color: 0xf8fafc,
+      size: 2.6,
+      sizeAttenuation: false,
+      fog: false,
+      depthWrite: false,
+      transparent: true,
+      opacity: 0
+    });
+    const stars = new THREE.Points(starGeo, this.skyStars);
+    // Drawn over the sky domes, so the first stars show through the sunset.
+    stars.renderOrder = -2.2;
+    this.basin.add(stars);
 
     const sunDir = new THREE.Vector3(32, 36, 18).normalize();
     const glow = new THREE.Mesh(
@@ -461,8 +642,11 @@ export class MarsEngine {
     );
     const disc = new THREE.Mesh(
       new THREE.CircleGeometry(9, 32),
-      new THREE.MeshBasicMaterial({ color: 0xfff6ea, fog: false, depthWrite: false })
+      new THREE.MeshBasicMaterial({ color: 0xfff6ea, fog: false, depthWrite: false, transparent: true })
     );
+    (glow.material as THREE.MeshBasicMaterial).userData.full = 0.22;
+    (disc.material as THREE.MeshBasicMaterial).userData.full = 1;
+    this.dayOnly.push(glow.material as THREE.MeshBasicMaterial, disc.material as THREE.MeshBasicMaterial);
     for (const mesh of [glow, disc]) {
       mesh.position.copy(sunDir).multiplyScalar(1300);
       mesh.lookAt(0, 0, 0);
@@ -491,8 +675,10 @@ export class MarsEngine {
     ridge.setIndex(indices);
     const rim = new THREE.Mesh(
       ridge,
-      new THREE.MeshBasicMaterial({ color: 0xb08463, side: THREE.DoubleSide, fog: false })
+      new THREE.MeshBasicMaterial({ color: 0xb08463, side: THREE.DoubleSide, fog: false, transparent: true })
     );
+    (rim.material as THREE.MeshBasicMaterial).userData.full = 1;
+    this.dayOnly.push(rim.material as THREE.MeshBasicMaterial);
     rim.name = 'FarRim';
     rim.renderOrder = -1;
     this.basin.add(rim);
@@ -830,6 +1016,7 @@ export class MarsEngine {
       const x = (i - 4.5) * 0.5;
       const z = i % 2 === 0 ? -0.5 : 0.5;
       tube.position.set(x, marsHeight(x, z) - marsHeight(0, 0) + 0.06, z);
+      this.tubeSpots.push(new THREE.Vector3(x, marsHeight(x, z) + 0.06, z));
       tube.rotation.y = (i % 2 === 0 ? 0.5 : -0.5) + Math.sin(i * 3.1) * 0.25;
       tubes.add(tube);
     }
@@ -951,98 +1138,377 @@ export class MarsEngine {
     this.basin.add(group);
   }
 
+  private holo(opacity = 0.5, wireframe = true, color = 0x7dd3fc) {
+    const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, wireframe, fog: false });
+    material.userData.share = opacity / 0.5;
+    return material;
+  }
+
+  /** The return hardware, drawn as holograms: lander and rocket by the tubes, orbiter and Earth in the sky. */
   private addPlanHardware() {
     const group = new THREE.Group();
     group.name = 'ReturnPlan';
-    const holo = () => {
-      const material = new THREE.MeshBasicMaterial({
-        color: 0x7dd3fc,
-        transparent: true,
-        opacity: 0.45,
-        wireframe: true
-      });
-      this.planMaterials.push(material);
-      return material;
-    };
-    const lander = new THREE.Group();
-    const deck = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.9, 0.35, 8), holo());
+    const deck = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.9, 0.35, 8), this.holo());
     deck.position.y = 0.35;
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.7, 1.15), holo());
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.7, 1.15), this.holo());
     body.position.y = 0.95;
-    lander.add(deck, body);
-    const mav = new THREE.Group();
-    const rocket = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 2.2, 10), holo());
+    this.holoLander.add(deck, body);
+    for (let i = 0; i < 4; i++) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 5), this.holo(0.5, false));
+      const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      leg.position.set(Math.cos(angle) * 1.9, 0.3, Math.sin(angle) * 1.9);
+      leg.rotation.z = Math.cos(angle) * 0.5;
+      leg.rotation.x = -Math.sin(angle) * 0.5;
+      this.holoLander.add(leg);
+    }
+    const rocket = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 2.2, 10), this.holo());
     rocket.position.set(0.15, 2.3, 0.1);
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 10), holo());
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 10), this.holo());
     nose.position.set(0.15, 3.55, 0.1);
-    mav.add(rocket, nose);
-    group.add(lander, mav);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.4, 10), this.holo(0.5, false, 0xfbbf24));
+    flame.name = 'Flame';
+    flame.rotation.x = Math.PI;
+    flame.position.set(0.15, 0.55, 0.1);
+    this.holoMav.add(rocket, nose, flame);
+    group.add(this.holoLander, this.holoMav);
     this.plant(group, PLAN_SITE.x, PLAN_SITE.z);
     group.visible = false;
     this.basin.add(group);
+
+    const base = group.position;
+    // Orbiter: a body with two wide solar wings.
+    const bus = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 3.2), this.holo());
+    const wingA = new THREE.Mesh(new THREE.BoxGeometry(9, 0.1, 2.4), this.holo(0.4));
+    wingA.position.x = 6;
+    const wingB = wingA.clone();
+    wingB.position.x = -6;
+    this.holoOrbiter.add(bus, wingA, wingB);
+    this.holoOrbiter.position.set(base.x - 10, 50, base.z - 30);
+
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(9, 20, 14), this.holo(0.42, true, 0x60a5fa));
+    const core = new THREE.Mesh(new THREE.SphereGeometry(8.8, 20, 14), this.holo(0.2, false, 0x1d4ed8));
+    this.holoEarth.add(core, globe);
+    this.holoEarth.position.set(base.x + 34, 40, base.z - 110);
+
+    const capsule = new THREE.Mesh(new THREE.ConeGeometry(1.1, 1.3, 14), this.holo(0.8, false, 0xfde68a));
+    capsule.rotation.x = Math.PI;
+    this.holoCapsule.add(capsule);
+
+    const container = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), this.holo(0.95, false, 0xfde68a));
+    this.holoContainer.add(container);
+    this.basin.add(this.holoOrbiter, this.holoEarth, this.holoCapsule, this.holoContainer);
     return group;
   }
 
-  private addQuestionStage() {
-    const group = new THREE.Group();
-    group.position.set(240, 30, 0);
-    const mars = new THREE.Mesh(
-      new THREE.SphereGeometry(3.2, 28, 18),
-      new THREE.MeshStandardMaterial({ color: 0xc4513a, roughness: 0.82 })
+  /** Earth as seen from Mars, and the line a sample would have travelled to reach it. */
+  private addRoute() {
+    const fallback = new THREE.Mesh(
+      new THREE.SphereGeometry(11, 32, 20),
+      new THREE.MeshStandardMaterial({ color: 0x3b82c4, roughness: 0.7, fog: false })
     );
-    const extras = new THREE.Group();
-    extras.name = 'QuestionExtras';
-    const solid = (color: number) => {
-      const material = new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.2, transparent: true });
-      this.questionFade.push(material);
-      return material;
-    };
-    const rocket = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.32, 2.4, 10), solid(0xe2e8f0));
-    rocket.position.set(6.5, 0.4, 1.5);
-    const orbiter = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.08, 8, 24), solid(0xcbd5e1));
-    orbiter.position.set(-1.5, 2.4, 7);
-    const earth = new THREE.Mesh(new THREE.SphereGeometry(1.35, 20, 14), solid(0x3b82c4));
-    earth.position.set(11, 0.6, -5);
-    extras.add(rocket, orbiter, earth);
-    group.add(mars, extras);
-    this.markShadows(group);
-    this.basin.add(group);
-    return group;
+    this.earth.add(fallback);
+    this.earth.position.copy(EARTH_SPOT);
+    this.basin.add(this.earth);
+    new GLTFLoader().load('/models/earth.glb', gltf => {
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const span = Math.max(size.x, size.y, size.z);
+      if (!(span > 0)) return;
+      model.position.sub(box.getCenter(new THREE.Vector3()));
+      // The model's glow shell is built to read as a far dot of light. Up close it hides the globe.
+      const shells: THREE.Object3D[] = [];
+      model.traverse(node => {
+        const mesh = node as THREE.Mesh;
+        if (mesh.isMesh && (mesh.material as THREE.Material).name === 'EarthAtmosphere') shells.push(mesh);
+      });
+      for (const shell of shells) shell.removeFromParent();
+      const holder = new THREE.Group();
+      holder.add(model);
+      holder.scale.setScalar(22 / span);
+      holder.traverse(node => {
+        const mesh = node as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        // Light the globe from its own map, so the continents show against a night sky.
+        const surface = mesh.material as THREE.MeshStandardMaterial;
+        surface.emissive = new THREE.Color(0xffffff);
+        surface.emissiveMap = surface.map;
+        surface.emissiveIntensity = 0.55;
+        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+          (material as THREE.MeshStandardMaterial).fog = false;
+        }
+      });
+      const opacity = this.earth.visible ? 1 : 0;
+      this.earth.remove(fallback);
+      this.earth.add(holder);
+      this.fade(this.earth, opacity);
+    });
+
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.3, 0),
+      new THREE.Vector3(-2, 14, -6),
+      new THREE.Vector3(-16, 44, -44),
+      new THREE.Vector3(-44, 46, -104),
+      EARTH_SPOT.clone().add(new THREE.Vector3(8, 6, 10))
+    ]);
+    const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(this.routeCount - 1));
+    const line = new THREE.Line(
+      geometry,
+      new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.95, fog: false })
+    );
+    line.visible = false;
+    line.frustumCulled = false;
+    this.basin.add(line);
+    return line;
   }
 
+  /** Archive tags for the tubes, and the three questions sent up from the terminal. */
+  private addLegacyProps() {
+    const tagMat = new THREE.MeshBasicMaterial({ color: 0x67e8f9, fog: false });
+    for (const spot of this.tubeSpots) {
+      const tag = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.022, 6, 20), tagMat);
+      tag.rotation.x = Math.PI / 2;
+      tag.position.set(spot.x, spot.y + 0.3, spot.z);
+      tag.visible = false;
+      this.tags.push(tag);
+      this.basin.add(tag);
+    }
+    const orbMat = new THREE.MeshBasicMaterial({ color: 0xa5f3fc, fog: false });
+    for (let i = 0; i < 3; i++) {
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), orbMat);
+      orb.visible = false;
+      this.orbs.push(orb);
+      this.basin.add(orb);
+    }
+    const site = SITES.terminal;
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.05, 160, 8),
+      new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.35, fog: false })
+    );
+    beam.position.set(site.x, marsHeight(site.x, site.z) + 82, site.z);
+    beam.visible = false;
+    this.basin.add(beam);
+    return beam;
+  }
+
+  /** The Moon, Voyager 1 and Mars, joined as one constellation. */
   private addTrio() {
     const group = new THREE.Group();
-    group.position.set(-240, 48, 0);
+    group.position.copy(TRIO_SPOT);
+    const spots = [new THREE.Vector3(-15, -2, 0), new THREE.Vector3(0, 5, 0), new THREE.Vector3(15, -2, 0)];
+
+    const moonTexture = new THREE.TextureLoader().load('/models/regolith_tile.png');
+    moonTexture.colorSpace = THREE.SRGBColorSpace;
+    moonTexture.wrapS = THREE.RepeatWrapping;
+    moonTexture.wrapT = THREE.RepeatWrapping;
+    moonTexture.repeat.set(3, 2);
     const moon = new THREE.Mesh(
-      new THREE.SphereGeometry(2.3, 24, 16),
-      new THREE.MeshStandardMaterial({ color: 0xc8ccd2, roughness: 0.9 })
+      new THREE.SphereGeometry(2.5, 40, 28),
+      new THREE.MeshStandardMaterial({ map: moonTexture, color: 0xd8dade, roughness: 0.95, fog: false })
     );
-    moon.position.x = -14;
-    const mars = new THREE.Mesh(
-      new THREE.SphereGeometry(2.5, 24, 16),
-      new THREE.MeshStandardMaterial({ color: 0xc4553a, roughness: 0.8 })
-    );
-    mars.position.x = 14;
+    moon.position.copy(spots[0]);
+
     const voyager = new THREE.Group();
-    const metal = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.6, roughness: 0.28 });
+    const metal = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.6, roughness: 0.28, fog: false });
     const dish = new THREE.Mesh(new THREE.SphereGeometry(1.35, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.48), metal);
     dish.rotation.x = Math.PI * 0.5;
     const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.4, 8), metal);
     boom.rotation.z = Math.PI / 2;
     boom.position.x = 1.5;
-    const record = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.42, 0.42, 0.06, 20),
-      new THREE.MeshStandardMaterial({ color: 0xd4a017, metalness: 0.7, roughness: 0.35 })
-    );
-    record.rotation.x = Math.PI / 2;
-    record.position.set(0.15, 0.15, 0.9);
-    voyager.add(dish, boom, record);
-    voyager.scale.setScalar(1.7);
+    voyager.add(dish, boom);
+    voyager.position.copy(spots[1]);
     voyager.rotation.set(0.35, -0.7, 0.15);
-    group.add(moon, mars, voyager);
-    this.markShadows(group);
+
+    const mars = new THREE.Group();
+    const marsBall = new THREE.Mesh(
+      new THREE.SphereGeometry(2.7, 40, 28),
+      new THREE.MeshStandardMaterial({ color: 0xc4553a, roughness: 0.85, fog: false })
+    );
+    mars.add(marsBall);
+    mars.position.copy(spots[2]);
+
+    // Swap the stand-ins for the real models when they arrive.
+    const fit = (model: THREE.Object3D, size: number) => {
+      const box = new THREE.Box3().setFromObject(model);
+      const span = box.getSize(new THREE.Vector3());
+      const longest = Math.max(span.x, span.y, span.z);
+      if (!(longest > 0)) return null;
+      model.position.sub(box.getCenter(new THREE.Vector3()));
+      const holder = new THREE.Group();
+      holder.add(model);
+      holder.scale.setScalar(size / longest);
+      holder.traverse(node => {
+        const mesh = node as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+          (material as THREE.MeshStandardMaterial).fog = false;
+        }
+      });
+      return holder;
+    };
+    const loader = new GLTFLoader();
+    loader.load('/models/voyager.glb', gltf => {
+      const holder = fit(gltf.scene, 6.5);
+      if (!holder) return;
+      voyager.remove(dish, boom);
+      voyager.add(holder);
+    });
+    loader.load('/models/nasa/mars-lite.glb', gltf => {
+      const holder = fit(gltf.scene, 5.4);
+      if (!holder) return;
+      mars.remove(marsBall);
+      mars.add(holder);
+    });
+
+    const lines = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([spots[0], spots[1], spots[2], spots[0]]),
+      new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0, fog: false })
+    );
+    lines.name = 'TrioLines';
+    group.add(moon, voyager, mars, lines);
+    this.trioBodies.push(
+      { name: 'moon', object: moon, top: 3.4 },
+      { name: 'voyager', object: voyager, top: 3.6 },
+      { name: 'mars', object: mars, top: 3.6 }
+    );
+    group.visible = false;
     this.basin.add(group);
     return group;
+  }
+
+  /** Move every cinematic prop to where the current shot's progress puts it. */
+  private updateCinema() {
+    const t = this.shotT;
+    const base = this.planGroup.position;
+    const orbit = this.holoOrbiter.position;
+    const flame = this.holoMav.getObjectByName('Flame');
+    if (this.shot === 'plan') {
+      this.planGroup.visible = true;
+      // A dimmer sky lets the hologram lines stand out.
+      this.setMood(smooth(t, 0.1, 0.22) * 0.55, 0);
+      // Step 2: the lander comes down.
+      const landed = smooth(t, 0.18, 0.35);
+      this.fade(this.holoLander, t >= 0.16 ? 0.5 : 0);
+      this.holoLander.position.y = (1 - landed) * (1 - landed) * 40;
+      // The tubes are carried across, then step 3: the rocket leaves.
+      const carry = smooth(t, 0.37, 0.46);
+      this.fade(this.holoContainer, t > 0.36 && t < 0.47 ? 1 : 0);
+      this.holoContainer.position.set(base.x * carry, base.y + 0.4 + Math.sin(carry * Math.PI) * 1.6 + carry * 2, base.z * carry);
+      const climb = smooth(t, 0.47, 0.62);
+      const rise = climb * climb;
+      this.fade(this.holoMav, t >= 0.16 && t < 0.625 ? 0.5 : 0);
+      this.holoMav.position.set(
+        (orbit.x - base.x) * rise,
+        this.holoLander.position.y * (1 - climb) + (orbit.y - base.y - 3) * rise,
+        (orbit.z - base.z) * rise
+      );
+      if (flame) flame.visible = climb > 0.01 && climb < 1;
+      // Step 4: the orbiter catches the samples and leaves for Earth.
+      this.fade(this.holoOrbiter, smooth(t, 0.5, 0.58) * 0.55);
+      const cruise = smooth(t, 0.7, 0.88);
+      const dock = this.labelPoint.copy(this.holoEarth.position).add(new THREE.Vector3(-13, 5, 12));
+      this.holoOrbiter.position.set(
+        THREE.MathUtils.lerp(base.x - 10, dock.x, cruise),
+        THREE.MathUtils.lerp(50, dock.y, cruise),
+        THREE.MathUtils.lerp(base.z - 30, dock.z, cruise)
+      );
+      this.holoOrbiter.scale.setScalar(1 + Math.sin(smooth(t, 0.62, 0.7) * Math.PI) * 0.35);
+      this.fade(this.holoEarth, smooth(t, 0.64, 0.74) * 0.5);
+      // Step 5: the capsule falls to Earth.
+      const fall = smooth(t, 0.88, 0.98);
+      this.fade(this.holoCapsule, t > 0.875 ? 0.9 : 0);
+      this.holoCapsule.position.lerpVectors(this.holoOrbiter.position, this.holoEarth.position, fall * 0.72);
+      this.holoEarth.scale.setScalar(1 + Math.sin(smooth(t, 0.96, 1) * Math.PI) * 0.12);
+    } else if (this.shot === 'reveal') {
+      // The launch starts again, stops in mid-air, and the plan goes dark piece by piece.
+      this.planGroup.visible = true;
+      this.setMood(0.55 * (1 - smooth(t, 0.6, 1)), 0);
+      const blink = (from: number, to: number) => {
+        if (t < from) return 1;
+        if (t >= to) return 0;
+        return Math.sin(t * 260) > 0 ? 1 : 0.15;
+      };
+      const climb = smooth(t, 0, 0.2);
+      this.holoLander.position.y = 0;
+      this.holoMav.position.set(0, climb * climb * 9, 0);
+      if (flame) flame.visible = t < 0.2;
+      this.holoOrbiter.position.set(base.x - 10, 50, base.z - 30);
+      this.holoOrbiter.scale.setScalar(1);
+      this.fade(this.holoCapsule, 0);
+      this.fade(this.holoContainer, 0);
+      this.fade(this.holoEarth, 0.5 * blink(0.26, 0.32));
+      this.fade(this.holoOrbiter, 0.55 * blink(0.34, 0.4));
+      this.fade(this.holoLander, 0.5 * blink(0.44, 0.5));
+      this.fade(this.holoMav, 0.5 * (1 - smooth(t, 0.56, 0.84)));
+    } else if (this.shot === 'question') {
+      this.setMood(0, smooth(t, 0, 0.28) * 0.88);
+      this.earth.position.set(EARTH_SPOT.x, THREE.MathUtils.lerp(-14, EARTH_SPOT.y, smooth(t, 0.06, 0.46)), EARTH_SPOT.z);
+      this.fade(this.earth, 1 - smooth(t, 0.8, 0.95));
+      this.earth.rotation.y = t * 0.6;
+      this.drawRoute(smooth(t, 0.34, 0.68), smooth(t, 0.74, 0.92));
+    } else if (this.shot === 'preserve') {
+      this.setMood(0, 0);
+      this.tags.forEach((tag, index) => {
+        const pop = smooth(t, 0.12 + index * 0.065, 0.2 + index * 0.065);
+        tag.visible = pop > 0;
+        tag.scale.setScalar(0.4 + pop * 0.6 + Math.sin(pop * Math.PI) * 0.5);
+      });
+    } else if (this.shot === 'questions') {
+      this.setMood(smooth(t, 0, 0.3) * 0.7, 0);
+      const site = SITES.terminal;
+      const ground = marsHeight(site.x, site.z);
+      this.signalBeam.visible = t > 0.08;
+      this.orbs.forEach((orb, index) => {
+        const lift = smooth(t, 0.1 + index * 0.16, 0.75 + index * 0.1);
+        orb.visible = lift > 0;
+        orb.position.set(site.x, ground + 2.6 + lift * lift * 70, site.z);
+        orb.scale.setScalar(1 + Math.sin(this.elapsed * 6 + index) * 0.15);
+      });
+    } else if (this.shot === 'inspire') {
+      this.setMood(0, smooth(t, 0, 0.25) * 0.8);
+      this.earth.position.copy(EARTH_SPOT);
+      this.fade(this.earth, smooth(t, 0.05, 0.3));
+      this.earth.rotation.y = t * 0.5;
+      this.drawRoute(smooth(t, 0.15, 0.85), 0);
+    } else if (this.shot === 'closing') {
+      const space = smooth(t, 0.5, 0.56);
+      this.setMood(smooth(t, 0, 0.22), space);
+      // Out in space the three bodies are lit plainly, not by the dim crater light.
+      this.sun.intensity = THREE.MathUtils.lerp(this.sun.intensity, 2.6, space);
+      this.hemi.intensity = THREE.MathUtils.lerp(this.hemi.intensity, 1.0, space);
+      this.trio.visible = t > 0.5;
+      this.trio.children.forEach((child, index) => {
+        if (index < 3) child.rotation.y += 0.0025;
+      });
+      (this.trioLines.material as THREE.LineBasicMaterial).opacity = smooth(t, 0.66, 0.8) * 0.75;
+    }
+  }
+
+  /** Show the route from `0` up to `drawn`, with the first `erased` share already gone. */
+  private drawRoute(drawn: number, erased: number) {
+    const from = Math.floor(erased * (this.routeCount - 1));
+    const to = Math.floor(drawn * (this.routeCount - 1));
+    this.routeLine.visible = to - from > 1;
+    this.routeLine.geometry.setDrawRange(from, Math.max(to - from + 1, 0));
+  }
+
+  /** Screen positions for the three names in the last shot. */
+  private projectTrio() {
+    const show = this.shot === 'closing' && this.shotT > 0.6;
+    const bounds = show ? this.renderer.domElement.getBoundingClientRect() : null;
+    this.trioBodies.forEach((body, index) => {
+      const label = this.trioLabels[index];
+      if (!bounds) {
+        label.visible = false;
+        return;
+      }
+      body.object.getWorldPosition(this.labelPoint);
+      this.labelPoint.y -= body.top;
+      this.ndc.copy(this.labelPoint).project(this.camera);
+      label.x = bounds.left + (this.ndc.x * 0.5 + 0.5) * bounds.width;
+      label.y = bounds.top + (-this.ndc.y * 0.5 + 0.5) * bounds.height;
+      label.visible = this.ndc.z > 0 && this.ndc.z < 1;
+    });
   }
 
   /** Same glowing column and floating diamond as a Moon inspection marker. */
@@ -1059,7 +1525,6 @@ export class MarsEngine {
       side: THREE.FrontSide,
       depthWrite: false
     });
-    this.beaconBeam = beamMat;
     const diamond = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.24, 0),
       new THREE.MeshStandardMaterial({
@@ -1070,13 +1535,54 @@ export class MarsEngine {
         metalness: 0.8
       })
     );
-    diamond.name = 'BeaconDiamond';
     diamond.position.y = 2.2;
     group.add(new THREE.Mesh(beamGeo, beamMat), diamond);
-    const site = SITES.igneous;
-    group.position.set(site.x, marsHeight(site.x, site.z), site.z);
+    group.visible = false;
     this.basin.add(group);
-    return group;
+    return { group, diamond, beam: beamMat };
+  }
+
+  /** A bright ring that travels up and down the thing being scanned. */
+  private addScanRing() {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.75, 0.035, 8, 64),
+      new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.95, fog: false })
+    );
+    ring.rotation.x = Math.PI / 2;
+    const sheet = new THREE.Mesh(
+      new THREE.CircleGeometry(1.75, 48),
+      new THREE.MeshBasicMaterial({
+        color: 0x67e8f9,
+        transparent: true,
+        opacity: 0.14,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        fog: false
+      })
+    );
+    ring.add(sheet);
+    ring.visible = false;
+    this.basin.add(ring);
+    return ring;
+  }
+
+  private updateScanRing() {
+    if (this.shot === 'plan' && this.shotT < 0.18) {
+      // Step 1 of the plan: the sealed tubes light up.
+      this.scanRing.visible = true;
+      const sweep = Math.abs(Math.sin(this.shotT * 60));
+      this.scanRing.position.set(0, marsHeight(0, 0) + 0.08 + sweep * 0.8, 0);
+      (this.scanRing.material as THREE.MeshBasicMaterial).opacity = 0.95;
+      return;
+    }
+    const show = this.scan !== null && this.shot === 'focus' && this.focus !== null;
+    this.scanRing.visible = show;
+    if (!show || !this.focus) return;
+    const site = SITES[this.focus];
+    const sweep = Math.abs(Math.sin((this.scan ?? 0) * Math.PI * 3));
+    this.scanRing.position.set(site.x, marsHeight(site.x, site.z) + 0.08 + sweep * 1.5, site.z);
+    const done = (this.scan ?? 0) >= 1;
+    (this.scanRing.material as THREE.MeshBasicMaterial).opacity = done ? 0.35 : 0.95;
   }
 
   private markerBeamTexture() {
@@ -1097,22 +1603,27 @@ export class MarsEngine {
     return tex;
   }
 
-  /** Bob, tumble, and pulse the waypoint the way a Moon marker does. */
-  private updateBeacon(dt: number) {
-    const diamond = this.diamond as THREE.Mesh;
-    const material = diamond.material as THREE.MeshStandardMaterial;
-    diamond.position.y = 2.2 + Math.sin(this.elapsed * 2.8 + this.beacon.position.x * 0.5) * 0.15;
-    diamond.rotation.y += dt * 2.2;
-    diamond.rotation.x += dt * 0.9;
+  /** Bob, tumble, and pulse each waypoint the way a Moon marker does. */
+  private updateBeacons(dt: number) {
+    const driving = this.shot === 'drive' || this.shot === 'intro';
     const pulse = Math.sin(this.elapsed * 3.5);
     const fastPulse = Math.sin(this.elapsed * 7.5);
-    if (this.near) {
-      if (this.beaconBeam) this.beaconBeam.opacity = 0.62 + 0.06 * fastPulse;
-      material.emissiveIntensity = 1.4 + 0.5 * fastPulse;
-    } else {
-      if (this.beaconBeam) this.beaconBeam.opacity = 0.48 + 0.05 * pulse;
-      material.emissiveIntensity = 0.85;
-    }
+    this.beacons.forEach((beacon, index) => {
+      const id = this.live[index];
+      beacon.group.visible = driving && id !== undefined;
+      if (!beacon.group.visible) return;
+      const material = beacon.diamond.material as THREE.MeshStandardMaterial;
+      beacon.diamond.position.y = 2.2 + Math.sin(this.elapsed * 2.8 + beacon.group.position.x * 0.5) * 0.15;
+      beacon.diamond.rotation.y += dt * 2.2;
+      beacon.diamond.rotation.x += dt * 0.9;
+      if (this.near === id) {
+        beacon.beam.opacity = 0.62 + 0.06 * fastPulse;
+        material.emissiveIntensity = 1.4 + 0.5 * fastPulse;
+      } else {
+        beacon.beam.opacity = 0.48 + 0.05 * pulse;
+        material.emissiveIntensity = 0.85;
+      }
+    });
   }
 
   /** Same white starfield as Mission 2, sized for the approach camera. */
@@ -1317,7 +1828,12 @@ export class MarsEngine {
 
   private updateSunShadow() {
     if (!this.sun.castShadow) return;
-    this.sun.position.set(this.look.x + 32, this.look.y + 36, this.look.z + 18);
+    // At dusk the light comes in low from the setting sun, so shadows run long.
+    this.sun.position.set(
+      this.look.x + THREE.MathUtils.lerp(32, 58, this.dusk),
+      this.look.y + THREE.MathUtils.lerp(36, 9, this.dusk),
+      this.look.z + THREE.MathUtils.lerp(18, -18, this.dusk)
+    );
     this.sun.target.position.set(this.look.x, this.look.y, this.look.z);
     this.sun.target.updateMatrixWorld();
   }
@@ -1357,13 +1873,14 @@ export class MarsEngine {
       this.holoMat.opacity = 0.26 + Math.sin(this.elapsed * 3) * 0.08;
     }
     if (this.labRing) this.labRing.rotation.z += dt * 0.5;
-    const showBeacon = (this.shot === 'drive' || this.shot === 'focus' || this.shot === 'intro') && this.live !== null;
-    this.beacon.visible = showBeacon;
     this.updateNear();
-    this.updateBeacon(dt);
+    this.updateBeacons(dt);
+    this.updateScanRing();
     this.applyCamera(dt);
+    this.updateCinema();
     this.updateSunShadow();
     this.projectJezero();
+    this.projectTrio();
     this.projectPerseverance();
     this.projectFocus();
     this.publish();
@@ -1492,17 +2009,31 @@ export class MarsEngine {
     }
   }
 
-  private updateNear() {
-    if (!this.live || (this.shot !== 'drive' && this.shot !== 'intro')) {
-      if (this.near) {
-        this.near = false;
-        this.onNear?.(false);
+  private nearestLive() {
+    let best: MarsSiteId | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const id of this.live) {
+      const site = SITES[id];
+      const dist = Math.hypot(this.x - site.x, this.z - site.z);
+      if (dist < bestDist) {
+        best = id;
+        bestDist = dist;
       }
-      return;
     }
-    const site = SITES[this.live];
-    const dist = Math.hypot(this.x - site.x, this.z - site.z);
-    const near = this.near ? dist < 7.6 : dist < 6.2;
+    return { id: best, dist: bestDist };
+  }
+
+  private updateNear() {
+    let near: MarsSiteId | null = null;
+    if (this.live.length > 0 && (this.shot === 'drive' || this.shot === 'intro')) {
+      const held = this.near && this.live.includes(this.near) ? SITES[this.near] : null;
+      if (held && Math.hypot(this.x - held.x, this.z - held.z) < 7.6) {
+        near = this.near;
+      } else {
+        const nearest = this.nearestLive();
+        if (nearest.id && nearest.dist < 6.2) near = nearest.id;
+      }
+    }
     if (near !== this.near) {
       this.near = near;
       this.onNear?.(near);
@@ -1531,43 +2062,74 @@ export class MarsEngine {
         this.desired.set(site.x + 5.2, y + 2.3, site.z + 5.2);
         this.look.set(site.x + 1.1, y + 0.9, site.z - 1.1);
       }
+    } else if (this.shot === 'plan') {
+      const t = this.shotT;
+      const base = this.planGroup.position;
+      if (t < 0.18) {
+        // Step 1: the tubes Perseverance sealed.
+        this.desired.set(4.6, 2.4, 6.2);
+        this.look.set(0.4, 0.3, 0);
+      } else {
+        this.desired.set(base.x + 12, base.y + 3, base.z + 15);
+        if (t < 0.47) this.look.set(base.x, base.y + 2 + this.holoLander.position.y * 0.5, base.z);
+        else if (t < 0.62) this.look.copy(base).add(this.holoMav.position).setY(base.y + 3 + this.holoMav.position.y);
+        else if (t < 0.88) this.look.copy(this.holoOrbiter.position);
+        else this.look.copy(this.holoEarth.position);
+      }
+      this.fog.density = 0.011;
     } else if (this.shot === 'reveal') {
-      this.desired.set(13, 5.5, 15);
-      this.look.set(0, 0.7, -1);
+      const t = this.shotT;
+      const base = this.planGroup.position;
+      const settle = smooth(t, 0.5, 0.9);
+      this.desired.set(
+        THREE.MathUtils.lerp(base.x + 12, 3.4, settle),
+        THREE.MathUtils.lerp(base.y + 3, 1.5, settle),
+        THREE.MathUtils.lerp(base.z + 15, 3.8, settle)
+      );
+      this.look.set(
+        THREE.MathUtils.lerp(base.x, 0, settle),
+        THREE.MathUtils.lerp(base.y + 3 + this.holoMav.position.y * 0.6, 0.15, settle),
+        THREE.MathUtils.lerp(base.z, 0, settle)
+      );
       this.fog.density = 0.012;
     } else if (this.shot === 'question') {
-      this.desired.set(252, 34, 16);
-      this.look.copy(this.questionGroup.position);
-      this.fog.density = 0.01;
+      // Low across the tubes, with Earth coming up beyond them.
+      const t = this.shotT;
+      this.desired.set(5.4 - t * 3.2, 0.95 + t * 0.5, 5.6 - t * 1.2);
+      this.look.set(-8 - t * 8, 2.6 + smooth(t, 0.1, 0.6) * 5.5, -22);
+      this.fog.density = 0.006;
     } else if (this.shot === 'preserve') {
       const t = this.shotT;
-      this.desired.set(8 - t * 5.5, 3.2 - t * 1.5, 8 - t * 5.2);
-      this.look.set(0, 0.45, 0);
+      this.desired.set(5.2 - t * 2.2, 2.9 - t * 1.2, 5.4 - t * 2.2);
+      this.look.set(0, 0.2, 0);
       this.fog.density = 0.013;
     } else if (this.shot === 'questions') {
       const site = SITES.terminal;
       const y = marsHeight(site.x, site.z);
-      const angle = this.shotT * Math.PI * 1.35;
-      this.desired.set(site.x + Math.cos(angle) * 4.4, y + 1.8, site.z + Math.sin(angle) * 4.4);
-      this.look.set(site.x, y + 1.6, site.z);
-      this.fog.density = 0.013;
+      const t = this.shotT;
+      this.desired.set(site.x + 7.5, y + 1.6, site.z + 8.5);
+      this.look.set(site.x, y + 2 + smooth(t, 0.1, 0.9) * 11, site.z);
+      this.fog.density = 0.008;
     } else if (this.shot === 'inspire') {
       const t = this.shotT;
-      this.desired.set(this.shotAnchor.x, this.shotAnchor.y + 2 + t * 34, this.shotAnchor.z + 8);
-      this.look.set(this.shotAnchor.x, 6 + t * 22, this.shotAnchor.z - 30);
-      this.fog.density = 0.01;
+      this.desired.set(9 - t * 2, 2.2 + t * 2.5, 13);
+      this.look.set(-14 - t * 10, 9 + smooth(t, 0, 0.8) * 16, -40);
+      this.fog.density = 0.006;
     } else if (this.shot === 'closing') {
       const t = this.shotT;
-      if (t < 0.46) {
-        const u = t / 0.46;
-        this.desired.set(this.shotAnchor.x - 6, this.shotAnchor.y + 3 + u * 32, this.shotAnchor.z + 14);
-        this.look.set(0, u * 4, -8);
-        this.fog.density = 0.012;
+      if (t < 0.53) {
+        // From the top of the delta, looking across the crater into the sunset.
+        const u = t / 0.53;
+        const x = -41 - u * 9;
+        const z = 9;
+        this.desired.set(x, marsHeight(x, z) + 2.6 + u * 9, z);
+        this.look.set(4, 1.5 + u * 5, -3);
+        this.fog.density = 0.009;
       } else {
-        const u = (t - 0.46) / 0.54;
-        this.desired.set(this.trio.position.x, this.trio.position.y + 6, this.trio.position.z + 16 + u * 42);
-        this.look.copy(this.trio.position);
-        this.fog.density = 0.008;
+        const u = (t - 0.53) / 0.47;
+        this.desired.set(TRIO_SPOT.x, TRIO_SPOT.y + 3, TRIO_SPOT.z + 24 + u * 26);
+        this.look.set(TRIO_SPOT.x, TRIO_SPOT.y + 1, TRIO_SPOT.z);
+        this.fog.density = 0;
       }
     } else {
       const fx = Math.sin(this.heading);
@@ -1604,11 +2166,11 @@ export class MarsEngine {
   }
 
   private publish() {
-    const site = this.live ? SITES[this.live] : null;
+    const nearest = this.nearestLive();
     this.onTelemetry?.({
       speed: Math.abs(this.velocity),
       heading: ((((this.heading * 180) / Math.PI) % 360) + 360) % 360,
-      distanceToTarget: site ? Math.hypot(this.x - site.x, this.z - site.z) : 0,
+      distanceToTarget: nearest.id ? nearest.dist : 0,
       position: { x: this.x, z: this.z },
       cache: { x: 0, z: 0 },
       rangeRadius: MARS_RANGE

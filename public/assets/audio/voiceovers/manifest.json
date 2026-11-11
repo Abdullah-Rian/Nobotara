@@ -9,7 +9,7 @@
       "speaker": "Neil Armstrong",
       "filename": "intro_neil.mp3",
       "size": 404210,
-      "text": "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn\u2019t just chase a rock in the sky; we went to learn what people can do when they dare.",
+      "text": "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn’t just chase a rock in the sky; we went to learn what people can do when they dare.",
       "engine": "Gemini TTS (Fenrir)"
     },
     {
@@ -17,7 +17,7 @@
       "speaker": "Neil Armstrong",
       "filename": "descent_stage_neil.mp3",
       "size": 185198,
-      "text": "This is the Eagle\u2019s descent stage. It helped the Lunar Module land on the Moon. The ascent stage carried me and Aldrin back into lunar orbit, while the descent stage remained behind.",
+      "text": "This is the Eagle’s descent stage. It helped the Lunar Module land on the Moon. The ascent stage carried me and Aldrin back into lunar orbit, while the descent stage remained behind.",
       "engine": "Gemini TTS (Fenrir)"
     },
     {
@@ -49,7 +49,7 @@
       "speaker": "Neil Armstrong",
       "filename": "plaque_neil.mp3",
       "size": 159285,
-      "text": "This plaque commemorates humanity\u2019s first crewed lunar landing. It carries a message of peace from Earth. A message left behind for history to remember.",
+      "text": "This plaque commemorates humanity’s first crewed lunar landing. It carries a message of peace from Earth. A message left behind for history to remember.",
       "engine": "Gemini TTS (Fenrir)"
     },
     {
@@ -57,7 +57,7 @@
       "speaker": "Scientific Voice",
       "filename": "plaque_scientific.mp3",
       "size": 276732,
-      "text": "Engraved on stainless steel to withstand cosmic radiation and 300\u00b0C temperature swings: 'HERE MEN FROM THE PLANET EARTH FIRST SET FOOT UPON THE MOON JULY 1969 A.D. WE CAME IN PEACE FOR ALL MANKIND.'",
+      "text": "Engraved on stainless steel to withstand cosmic radiation and 300°C temperature swings: 'HERE MEN FROM THE PLANET EARTH FIRST SET FOOT UPON THE MOON JULY 1969 A.D. WE CAME IN PEACE FOR ALL MANKIND.'",
       "engine": "Gemini TTS (Fenrir)"
     },
     {
@@ -73,7 +73,7 @@
       "speaker": "Neil Armstrong",
       "filename": "outro_voyager.mp3",
       "size": 204007,
-      "text": "The footprints at Tranquility Base proved that humanity could leave Earth. But our journey didn't stop at the Moon. We aimed further\u2014beyond the planets, into interstellar space.",
+      "text": "The footprints at Tranquility Base proved that humanity could leave Earth. But our journey didn't stop at the Moon. We aimed further—beyond the planets, into interstellar space.",
       "engine": "Gemini TTS (Fenrir)"
     },
     {
@@ -230,7 +230,7 @@
     },
     {
       "id": "mars_arrival",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_arrival.mp3",
       "size": 309750,
       "text": "Welcome to Jezero Crater, Mars. I am Tara, your mission assistant. More than three and a half billion years ago, this crater was a lake. A river flowed in and dropped sand and mud here, layer upon layer. The water is long gone. The rocks are still here.",
@@ -240,8 +240,8 @@
       "id": "mars_arrival_narrator",
       "speaker": "Narrator",
       "filename": "mars_arrival_narrator.mp3",
-      "size": 214038,
-      "text": "A photograph can show us a rock. It cannot tell us how old it is, or what once lived beside it. For that, you need the rock itself. Drive to the green marker and scan your first one.",
+      "size": 207350,
+      "text": "A photograph can show us a rock. It cannot tell us how old it is, or what once lived beside it. For that, you need the rock itself. Three rocks are marked in green. Drive to one and scan it.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
     {
@@ -254,7 +254,7 @@
     },
     {
       "id": "mars_igneous_science",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_igneous_science.mp3",
       "size": 211530,
       "text": "It holds dark minerals called olivine and pyroxene. Rocks like this carry a natural clock. A laboratory on Earth could read that clock, and tell us exactly how old this crater floor is.",
@@ -270,7 +270,7 @@
     },
     {
       "id": "mars_sedimentary_science",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_sedimentary_science.mp3",
       "size": 202753,
       "text": "Where a river meets a lake, it slows down and drops its sand. The pile it leaves is called a delta. This sandstone is a piece of that delta. It shows that water once flowed here.",
@@ -286,15 +286,15 @@
     },
     {
       "id": "mars_mudstone_science",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_mudstone_science.mp3",
-      "size": 265865,
-      "text": "Fine mud buries things gently and keeps them safe. On Earth, rocks like this hold some of the oldest signs of life. That does not mean life was here. It means this is the right place to look. The sample tubes are next, beside Perseverance.",
+      "size": 224905,
+      "text": "Fine mud buries things gently and keeps them safe. On Earth, rocks like this hold some of the oldest signs of life. That does not mean life was here. It means this is the right place to look.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "mars_tubes_assistant",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_tubes_assistant.mp3",
       "size": 202753,
       "text": "These are samples collected by Perseverance. Each tube holds a piece of Mars about the size of a stick of chalk. The rover left this set on the ground as a backup, and carries the rest on board.",
@@ -318,7 +318,7 @@
     },
     {
       "id": "mars_water_science",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_water_science.mp3",
       "size": 167644,
       "text": "Every living thing we know of needs water. So a lake that lasted is exactly where scientists want to look. The rocks here are the record of that lake.",
@@ -329,12 +329,12 @@
       "speaker": "Narrator",
       "filename": "mars_bio_narrator.mp3",
       "size": 197737,
-      "text": "Clue two. In 2024, in the old river valley that fed this lake, Perseverance drilled a rock named Cheyava Falls. It is covered in small dark spots, like a leopard\u2019s.",
+      "text": "Clue two. In 2024, in the old river valley that fed this lake, Perseverance drilled a rock named Cheyava Falls. It is covered in small dark spots, like a leopard’s.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
     {
       "id": "mars_bio_science",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_bio_science.mp3",
       "size": 309750,
       "text": "On Earth, spots like these can form when tiny living things feed on mud. But chemistry without life can make them too. Scientists call this a possible biosignature. To know for sure, they need that sample in a laboratory on Earth. It is still on Mars, sealed in a tube.",
@@ -350,7 +350,7 @@
     },
     {
       "id": "mars_lab_science",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_lab_science.mp3",
       "size": 218635,
       "text": "Samples on Earth can be studied again and again. Scientists still study Moon rocks from Apollo, using tools that did not exist in 1969. That is why these samples were meant to come home.",
@@ -358,7 +358,7 @@
     },
     {
       "id": "mars_question",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_question.mp3",
       "size": 83634,
       "text": "Final record found. Did life ever exist on Mars?",
@@ -374,7 +374,7 @@
     },
     {
       "id": "mars_sequence",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_sequence.mp3",
       "size": 145074,
       "text": "Plan rebuilt. Five machines, each with one job. Together, they would have made one of the boldest journeys ever planned.",
@@ -382,7 +382,7 @@
     },
     {
       "id": "mars_unfinished",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_unfinished.mp3",
       "size": 209022,
       "text": "Warning. Mission record found. The plan grew too complicated, too slow, and too expensive. In 2026, its funding was stopped. The original plan was never flown.",
@@ -398,7 +398,7 @@
     },
     {
       "id": "mars_unanswered",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_unanswered.mp3",
       "size": 104114,
       "text": "One mission may stay unfinished. But discovery does not end with a single mission.",
@@ -406,7 +406,7 @@
     },
     {
       "id": "mars_legacy",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_legacy.mp3",
       "size": 136715,
       "text": "Archive complete. The evidence is safe. The questions are still open. Exploration continues.",
@@ -430,7 +430,7 @@
     },
     {
       "id": "mars_brief_assistant",
-      "speaker": "Tara \u00b7 Mission Assistant",
+      "speaker": "Tara · Mission Assistant",
       "filename": "mars_brief_assistant.mp3",
       "size": 238697,
       "text": "This terminal holds the plan. NASA and the European Space Agency designed it together. It was not one spacecraft. It was a relay of several machines, including the first rocket ever meant to launch from another planet.",
@@ -449,8 +449,16 @@
       "speaker": "Narrator",
       "filename": "mars_unfinished_narrator.mp3",
       "size": 171406,
-      "text": "Years of work. Thousands of people. An extraordinary plan to bring another world\u2019s secrets home. And yet the journey was never finished.",
+      "text": "Years of work. Thousands of people. An extraordinary plan to bring another world’s secrets home. And yet the journey was never finished.",
       "engine": ""
+    },
+    {
+      "id": "mars_rocks_done",
+      "speaker": "Tara · Mission Assistant",
+      "filename": "mars_rocks_done.mp3",
+      "size": 137551,
+      "text": "Three rocks scanned. Fire, river and lake: three chapters of one story. The sample tubes are next, beside Perseverance.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     }
   ]
 }

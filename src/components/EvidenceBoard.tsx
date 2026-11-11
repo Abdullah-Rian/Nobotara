@@ -55,7 +55,7 @@ export const EvidenceBoard: React.FC<EvidenceBoardProps> = ({ onComplete }) => {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div data-coach="mars-board" className="grid gap-6 md:grid-cols-2">
           <div className="space-y-3">
             <div className="text-xs font-mono-num font-semibold text-slate-400">1. PICK A CLUE</div>
             {EVIDENCE_ITEMS.map(item => {

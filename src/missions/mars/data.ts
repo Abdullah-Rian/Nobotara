@@ -10,20 +10,27 @@ export type MarsSiteId =
   | 'biosignature'
   | 'laboratory';
 
+/** `rocks` and `clues` are acts: three sites each, visited in any order. */
 export type MarsStep =
-  | 'igneous'
-  | 'sedimentary'
-  | 'mudstone'
+  | 'rocks'
   | 'tubes'
   | 'sequence'
   | 'reveal'
-  | 'water'
-  | 'biosignature'
-  | 'laboratory'
+  | 'clues'
   | 'board'
   | 'question'
   | 'choice'
   | 'closing';
+
+export type MarsReadingId =
+  | 'igneous'
+  | 'sedimentary'
+  | 'mudstone'
+  | 'tubes'
+  | 'water'
+  | 'biosignature'
+  | 'laboratory'
+  | 'question';
 
 export type LegacyId = 'preserve' | 'questions' | 'inspire';
 
@@ -42,6 +49,8 @@ export interface MarsReading {
   narratorClip: string;
   scienceClip: string;
   continueLabel: string;
+  /** The player sweeps a scanner over the site to fill in the facts. */
+  scan?: boolean;
 }
 
 export interface SequenceStage {
@@ -83,38 +92,47 @@ export const SITES: Record<MarsSiteId, { x: number; z: number; label: string }> 
   laboratory: { x: 16, z: 13, label: 'LAB' }
 };
 
-export const LIVE_SITE: Partial<Record<MarsStep, MarsSiteId>> = {
-  igneous: 'igneous',
-  sedimentary: 'sedimentary',
-  mudstone: 'mudstone',
-  tubes: 'tubes',
-  sequence: 'terminal',
-  water: 'water',
-  biosignature: 'biosignature',
-  laboratory: 'laboratory',
-  question: 'tubes'
+/** Sites that are open during each step. Acts list three; the player picks the order. */
+export const STEP_SITES: Record<MarsStep, MarsSiteId[]> = {
+  rocks: ['igneous', 'sedimentary', 'mudstone'],
+  tubes: ['tubes'],
+  sequence: ['terminal'],
+  reveal: [],
+  clues: ['water', 'biosignature', 'laboratory'],
+  board: [],
+  question: ['tubes'],
+  choice: [],
+  closing: []
 };
 
 export const NEXT_STEP: Partial<Record<MarsStep, MarsStep>> = {
-  igneous: 'sedimentary',
-  sedimentary: 'mudstone',
-  mudstone: 'tubes',
+  rocks: 'tubes',
   tubes: 'sequence',
-  water: 'biosignature',
-  biosignature: 'laboratory',
-  laboratory: 'board'
+  clues: 'board'
 };
 
+/** Short names for the sample log in the HUD. */
+export const SITE_NAMES: Partial<Record<MarsSiteId, string>> = {
+  igneous: 'Volcanic rock',
+  sedimentary: 'Sandstone',
+  mudstone: 'Mudstone',
+  water: 'Water',
+  biosignature: 'Leopard spots',
+  laboratory: 'Earth labs'
+};
+
+export function readingIdFor(step: MarsStep, site: MarsSiteId): MarsReadingId | null {
+  if (step === 'question') return 'question';
+  if (site === 'terminal') return null;
+  return site;
+}
+
 export const MARS_OBJECTIVES: Record<MarsStep, string> = {
-  igneous: 'Scan the dark rock on the crater floor',
-  sedimentary: 'Scan the sandstone from the delta',
-  mudstone: 'Scan the mudstone from the lake bed',
+  rocks: 'Scan the three rocks, in any order',
   tubes: 'Find the sealed sample tubes',
   sequence: 'Open the terminal and rebuild the plan',
   reveal: 'The plan to bring the samples home',
-  water: 'Clue 1: find the signs of ancient water',
-  biosignature: 'Clue 2: find the possible sign of life',
-  laboratory: 'Clue 3: find out why the samples must go to Earth',
+  clues: 'Find the three clues, in any order',
   board: 'Match each clue to what it means',
   question: 'Go back to the sealed tubes',
   choice: 'Choose what this mission is remembered for',
@@ -123,20 +141,19 @@ export const MARS_OBJECTIVES: Record<MarsStep, string> = {
 
 /** Short zone-pill names for a phone in landscape. */
 export const MARS_OBJECTIVE_SHORT: Record<MarsStep, string> = {
-  igneous: 'CRATER FLOOR',
-  sedimentary: 'DELTA ROCK',
-  mudstone: 'LAKE BED',
+  rocks: 'SCAN 3 ROCKS',
   tubes: 'SAMPLE TUBES',
   sequence: 'RETURN PLAN',
   reveal: 'RETURN PLAN',
-  water: 'ANCIENT WATER',
-  biosignature: 'SIGN OF LIFE?',
-  laboratory: 'EARTH LAB',
+  clues: 'FIND 3 CLUES',
   board: 'EVIDENCE',
   question: 'SAMPLE TUBES',
   choice: 'LEGACY',
   closing: 'ARCHIVE'
 };
+
+/** Parts of the mission the player works through, for the progress count. */
+export const MARS_PARTS: MarsStep[] = ['rocks', 'tubes', 'sequence', 'clues', 'board', 'question', 'choice'];
 
 export const MARS_APPROACH = narrator(
   'We have travelled beyond the edge of our familiar world. We have sent machines into the unknown, carrying questions we still cannot answer. But sometimes the greatest discoveries are not in the farthest corners of space. Sometimes they are waiting on a neighbouring world. A world that once had rivers and lakes, and may once have been a place where life could survive. Mars. In February 2021, a NASA rover named Perseverance landed here, in Jezero Crater. Its job: to read the rocks an ancient lake left behind, and to seal the best pieces in tubes for a journey home.'
@@ -147,11 +164,12 @@ export const MARS_ARRIVAL = assistant(
 );
 
 export const MARS_ARRIVAL_NARRATOR = narrator(
-  'A photograph can show us a rock. It cannot tell us how old it is, or what once lived beside it. For that, you need the rock itself. Drive to the green marker and scan your first one.'
+  'A photograph can show us a rock. It cannot tell us how old it is, or what once lived beside it. For that, you need the rock itself. Three rocks are marked in green. Drive to one and scan it.'
 );
 
-export const MARS_READINGS: Partial<Record<MarsStep, MarsReading>> = {
+export const MARS_READINGS: Record<MarsReadingId, MarsReading> = {
   igneous: {
+    scan: true,
     kicker: 'ROCK SCAN · CRATER FLOOR',
     title: 'Volcanic floor rock',
     facts: [
@@ -167,6 +185,7 @@ export const MARS_READINGS: Partial<Record<MarsStep, MarsReading>> = {
     continueLabel: 'CONTINUE'
   },
   sedimentary: {
+    scan: true,
     kicker: 'ROCK SCAN · DELTA',
     title: 'Delta sandstone',
     facts: [
@@ -182,6 +201,7 @@ export const MARS_READINGS: Partial<Record<MarsStep, MarsReading>> = {
     continueLabel: 'CONTINUE'
   },
   mudstone: {
+    scan: true,
     kicker: 'ROCK SCAN · LAKE BED',
     title: 'Lake-bed mudstone',
     facts: [
@@ -191,10 +211,10 @@ export const MARS_READINGS: Partial<Record<MarsStep, MarsReading>> = {
       { label: 'Why collect it', text: 'Fine mud traps traces of the past and keeps them. If tiny living things were ever here, this is where to look.' }
     ],
     narrator: narrator('This is mud from the bottom of the lake, now hard as stone.'),
-    science: assistant('Fine mud buries things gently and keeps them safe. On Earth, rocks like this hold some of the oldest signs of life. That does not mean life was here. It means this is the right place to look. The sample tubes are next, beside Perseverance.'),
+    science: assistant('Fine mud buries things gently and keeps them safe. On Earth, rocks like this hold some of the oldest signs of life. That does not mean life was here. It means this is the right place to look.'),
     narratorClip: 'mars_mudstone_narrator',
     scienceClip: 'mars_mudstone_science',
-    continueLabel: 'CONTINUE TO THE TUBES'
+    continueLabel: 'CONTINUE'
   },
   tubes: {
     kicker: 'SAMPLE TUBES',
@@ -212,6 +232,7 @@ export const MARS_READINGS: Partial<Record<MarsStep, MarsReading>> = {
     continueLabel: 'DRIVE TO THE TERMINAL'
   },
   water: {
+    scan: true,
     kicker: 'CLUE 1 · WATER',
     title: 'Ancient water',
     facts: [
@@ -227,6 +248,7 @@ export const MARS_READINGS: Partial<Record<MarsStep, MarsReading>> = {
     continueLabel: 'CONTINUE'
   },
   biosignature: {
+    scan: true,
     kicker: 'CLUE 2 · A SIGN OF LIFE?',
     title: 'The leopard-spot rock',
     facts: [
@@ -242,6 +264,7 @@ export const MARS_READINGS: Partial<Record<MarsStep, MarsReading>> = {
     continueLabel: 'CONTINUE'
   },
   laboratory: {
+    scan: true,
     kicker: 'CLUE 3 · EARTH LABORATORIES',
     title: 'Why bring them home?',
     facts: [
@@ -254,7 +277,7 @@ export const MARS_READINGS: Partial<Record<MarsStep, MarsReading>> = {
     science: assistant('Samples on Earth can be studied again and again. Scientists still study Moon rocks from Apollo, using tools that did not exist in 1969. That is why these samples were meant to come home.'),
     narratorClip: 'mars_lab_narrator',
     scienceClip: 'mars_lab_science',
-    continueLabel: 'OPEN THE EVIDENCE BOARD'
+    continueLabel: 'CONTINUE'
   },
   question: {
     kicker: 'THE OPEN QUESTION',
@@ -273,6 +296,12 @@ export const MARS_READINGS: Partial<Record<MarsStep, MarsReading>> = {
     continueLabel: 'CONTINUE'
   }
 };
+
+export const MARS_ROCKS_DONE = assistant(
+  'Three rocks scanned. Fire, river and lake: three chapters of one story. The sample tubes are next, beside Perseverance.'
+);
+
+export const MARS_CLUES_DONE = 'OPEN THE EVIDENCE BOARD';
 
 export const MARS_BRIEFING = assistant(
   'This terminal holds the plan. NASA and the European Space Agency designed it together. It was not one spacecraft. It was a relay of several machines, including the first rocket ever meant to launch from another planet.'
@@ -388,9 +417,10 @@ export const MARS_ARCHIVE = [
   ...CURIOUS_QUESTIONS.flatMap(item => [`Question: ${item.q}`, `Answer: ${item.a}`])
 ].join('\n');
 
-export function interactLabel(step: MarsStep): string {
+export function interactLabel(step: MarsStep, site: MarsSiteId | null): string {
   if (step === 'sequence') return 'OPEN TERMINAL';
   if (step === 'question') return 'OPEN THE RECORD';
-  if (step === 'igneous' || step === 'sedimentary' || step === 'mudstone') return 'SCAN ROCK';
+  if (step === 'rocks') return 'SCAN ROCK';
+  if (step === 'clues') return site === 'laboratory' ? 'OPEN HOLOGRAM' : 'INVESTIGATE';
   return 'INSPECT';
 }

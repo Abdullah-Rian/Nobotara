@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ApolloThreeEngine } from './game/threeEngine';
 import { VoyagerEngine, VoyagerTelemetry, SkyFrame } from './game/voyagerEngine';
-import { MarsEngine, MarsShot, MarsTelemetry } from './game/marsEngine';
+import { MarsEngine, MarsShot, MarsTelemetry, PLAN_STAGE_STARTS } from './game/marsEngine';
 import { gameInputs } from './game/controls';
 import { apolloAudio } from './audio/apolloAudio';
 import { GamePhase, ArtifactId, MarkerId, ObjectiveStep, DialogueMessage, RoverTelemetry } from './types/game';
@@ -78,12 +78,13 @@ const MARS_OPENING_TITLE = 'MARS';
 const DEBUG_SKIP = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug');
 
 import { MarsInspect } from './components/MarsInspect';
+import { marsCoachBeat } from './tutorials/mars';
+import { LastWord, PlanCaption, QuestionTitle, TrioLabels } from './components/MarsCinema';
 import { SequencePuzzle } from './components/SequencePuzzle';
 import { EvidenceBoard } from './components/EvidenceBoard';
 import { LegacyChoice } from './components/LegacyChoice';
 import { CuriousCard } from './components/CuriousCard';
 import {
-  LIVE_SITE,
   MARS_APPROACH,
   MARS_ARRIVAL,
   MARS_ARRIVAL_NARRATOR,
@@ -91,6 +92,7 @@ import {
   MARS_BRIEFING_NARRATOR,
   MARS_CLOSING,
   MARS_CLOSING_FINAL,
+  MARS_LAST_WORD,
   MARS_LEGACY_LINE,
   MARS_MEANING,
   MARS_OBJECTIVES,
@@ -101,6 +103,13 @@ import {
   MARS_UNFINISHED,
   MARS_UNFINISHED_NARRATOR,
   NEXT_STEP,
+  MARS_CLUES_DONE,
+  MARS_PARTS,
+  MARS_ROCKS_DONE,
+  MarsSiteId,
+  SITE_NAMES,
+  STEP_SITES,
+  readingIdFor,
   LEGACY_CHOICES,
   SITES,
   LegacyId,
@@ -214,11 +223,21 @@ export default function App() {
   /** Narrator-02 is still delivering the opening line. Mission Control waits for it. */
   const voyagerIntroSpeakingRef = useRef(false);
   const voyagerCameraReadyRef = useRef(false);
-  const [marsStep, setMarsStep] = useState<MarsStep>('igneous');
-  const marsStepRef = useRef<MarsStep>('igneous');
+  const [marsStep, setMarsStep] = useState<MarsStep>('rocks');
+  const marsStepRef = useRef<MarsStep>('rocks');
   marsStepRef.current = marsStep;
+  /** Sites already finished inside the current act. */
+  const [marsDone, setMarsDone] = useState<MarsSiteId[]>([]);
+  const marsDoneRef = useRef<MarsSiteId[]>([]);
+  marsDoneRef.current = marsDone;
+  const marsReadingSiteRef = useRef<MarsSiteId | null>(null);
+  const [marsScanDone, setMarsScanDone] = useState(false);
+  const [marsSpeaking, setMarsSpeaking] = useState(false);
+  const marsSkipLineRef = useRef<(() => void) | null>(null);
   const [marsTelemetry, setMarsTelemetry] = useState<MarsTelemetry>(EMPTY_MARS_TELEMETRY);
-  const [marsNear, setMarsNear] = useState(false);
+  const [marsNear, setMarsNear] = useState<MarsSiteId | null>(null);
+  const marsNearRef = useRef<MarsSiteId | null>(null);
+  marsNearRef.current = marsNear;
   const [marsReading, setMarsReading] = useState<MarsReading | null>(null);
   const marsReadingRef = useRef<MarsReading | null>(null);
   marsReadingRef.current = marsReading;
@@ -228,6 +247,9 @@ export default function App() {
   const marsCueRef = useRef<string | null>(null);
   const marsSpeakRef = useRef(0);
   const closingReadyRef = useRef({ shot: false, line: false });
+  const planReadyRef = useRef({ shot: false, line: false });
+  const [marsShotName, setMarsShotName] = useState<MarsShot | null>(null);
+  const readMarsTrio = useCallback(() => marsRef.current?.trioLabels, []);
   const revealReadyRef = useRef({ shot: false, line: false });
   const alignHandledRef = useRef(false);
   const crossHandledRef = useRef(false);
@@ -279,6 +301,9 @@ export default function App() {
     lander: { x: -17.331, z: -5.862 },
     rangeRadius: 0
   });
+
+  /** A scanned site can be left as soon as the scan is complete. Other readings wait for the voice. */
+  const marsCanContinue = marsReading?.scan ? marsScanDone : marsNarrationDone;
 
   // Dynamic dialogue & subtitles
   const [activeDialogue, setActiveDialogue] = useState<DialogueMessage | null>(null);
@@ -403,8 +428,8 @@ export default function App() {
 
   useEffect(() => {
     if (mission !== 'mars') return;
-    marsRef.current?.setLive(LIVE_SITE[marsStep] ?? null);
-  }, [mission, marsStep]);
+    marsRef.current?.setLive(STEP_SITES[marsStep].filter(site => !marsDone.includes(site)));
+  }, [mission, marsStep, marsDone]);
 
   const holdRover = () => {
     roverLockedRef.current = true;
@@ -439,7 +464,7 @@ export default function App() {
           return;
         } else if (mission === 'mars' && phase === 'explore' && marsNear) {
           handleMarsInteract();
-        } else if (mission === 'mars' && phase === 'inspect' && marsNarrationDone) {
+        } else if (mission === 'mars' && phase === 'inspect' && marsCanContinue) {
           resumeMarsReading();
         } else if (phase === 'explore' && objective === 'free' && nearArtifact) {
           if (nearArtifact === 'laser_station') beginRanging();
@@ -449,7 +474,7 @@ export default function App() {
       () => {
         if (mission === 'mars' && phase === 'intro') {
           handleSkipIntro();
-        } else if (mission === 'mars' && phase === 'inspect' && marsNarrationDone) {
+        } else if (mission === 'mars' && phase === 'inspect' && marsCanContinue) {
           resumeMarsReading();
         } else if (mission === 'voyager' && phase === 'intro') {
           handleSkipIntro();
@@ -464,7 +489,7 @@ export default function App() {
         }
       }
     );
-  }, [phase, nearArtifact, objective, mission, voyagerStep, recordOpen, marsNear, marsNarrationDone, marsStep, voyagerPanel, inspectNarrationDone]);
+  }, [phase, nearArtifact, objective, mission, voyagerStep, recordOpen, marsNear, marsNarrationDone, marsScanDone, marsReading, marsStep, voyagerPanel, inspectNarrationDone]);
 
   // Guided objectives start as soon as the rover enters the one live marker.
   useEffect(() => {
@@ -1151,6 +1176,7 @@ export default function App() {
   const handleBackToMissions = () => {
     clearOutroTimer();
     apolloAudio.stopSpeaking();
+    apolloAudio.stopClosingTheme();
     voyagerSpeakRef.current += 1;
     marsSpeakRef.current += 1;
     marsCueRef.current = null;
@@ -1179,7 +1205,7 @@ export default function App() {
     setMarsNarrationDone(false);
     setMarsChoice(null);
     setMarsCurious(false);
-    setMarsNear(false);
+    setMarsNear(null);
     setOutroProgress(0);
     setPhase('title');
     if (canvasMountRef.current && !engineRef.current) {
@@ -1195,17 +1221,34 @@ export default function App() {
     const done = () => {
       if (settled || token !== marsSpeakRef.current) return;
       settled = true;
+      marsSkipLineRef.current = null;
+      setMarsSpeaking(false);
       after();
     };
     const words = text.split(/\s+/).length;
     window.setTimeout(done, Math.min(45000, Math.max(8000, words * 700)));
+    marsSkipLineRef.current = () => {
+      apolloAudio.stopSpeaking();
+      done();
+    };
+    setMarsSpeaking(true);
     void apolloAudio.speakDialogue(text, speaker, done, clipId);
+  };
+
+  const skipMarsLine = () => marsSkipLineRef.current?.();
+
+  const enterMarsStep = (step: MarsStep) => {
+    marsStepRef.current = step;
+    setMarsStep(step);
+    marsDoneRef.current = [];
+    setMarsDone([]);
   };
 
   const runMarsShot = (shot: MarsShot, seconds: number, onDone: () => void) => {
     clearOutroTimer();
     const start = performance.now();
     marsRef.current?.setCinematic(shot, 0);
+    setMarsShotName(shot);
     setOutroProgress(0);
     outroTimerRef.current = setInterval(() => {
       const progress = Math.min(1, (performance.now() - start) / (seconds * 1000));
@@ -1221,8 +1264,7 @@ export default function App() {
   const maybeReleaseLegacy = () => {
     if (!revealReadyRef.current.shot || !revealReadyRef.current.line) return;
     setActiveDialogue(null);
-    marsStepRef.current = 'water';
-    setMarsStep('water');
+    enterMarsStep('clues');
     setPhase('explore');
     marsRef.current?.setCinematic('drive', 0);
   };
@@ -1236,7 +1278,7 @@ export default function App() {
     marsRef.current?.setFocus(null);
     marsCueRef.current = 'unfinished';
     setActiveDialogue(MARS_UNFINISHED);
-    runMarsShot('reveal', 9, () => {
+    runMarsShot('reveal', 11, () => {
       revealReadyRef.current.shot = true;
       maybeReleaseLegacy();
     });
@@ -1250,7 +1292,7 @@ export default function App() {
     marsSpeakRef.current += 1;
     apolloAudio.stopSpeaking();
     setActiveDialogue(null);
-    runMarsShot('question', 8, () => {
+    runMarsShot('question', 14, () => {
       marsCueRef.current = 'unanswered';
       setActiveDialogue(MARS_UNANSWERED);
     });
@@ -1273,7 +1315,8 @@ export default function App() {
     marsCueRef.current = 'closing-a';
     setActiveDialogue(MARS_CLOSING);
     closingReadyRef.current = { shot: false, line: false };
-    runMarsShot('closing', 16, () => {
+    apolloAudio.playClosingTheme();
+    runMarsShot('closing', 32, () => {
       closingReadyRef.current.shot = true;
       maybeShowCurious();
     });
@@ -1299,45 +1342,38 @@ export default function App() {
       setActiveDialogue(null);
     }
 
+    marsRef.current?.setScan(null);
+    marsSkipLineRef.current = null;
+    setMarsSpeaking(false);
+    setMarsScanDone(false);
+    if (current === 'sequence' || current === 'reveal') marsRef.current?.hidePlan();
+    apolloAudio.stopClosingTheme();
+
     const drive = (step: MarsStep) => {
-      marsStepRef.current = step;
-      setMarsStep(step);
+      enterMarsStep(step);
       setPhase('explore');
+      marsRef.current?.setCinematic('drive', 0);
+    };
+    const open = (step: MarsStep) => {
+      enterMarsStep(step);
+      setPhase('puzzle');
       marsRef.current?.setCinematic('drive', 0);
     };
 
     if (current === 'closing') {
       setOutroProgress(1);
       marsRef.current?.setCinematic('closing', 1);
-      marsStepRef.current = 'closing';
-      setMarsStep('closing');
       setPhase('outro');
       setMarsCurious(true);
-      return;
+    } else if (current === 'choice') beginClosing();
+    else if (current === 'question') open('choice');
+    else if (current === 'board') drive('question');
+    else if (current === 'clues') open('board');
+    else if (current === 'sequence' || current === 'reveal') drive('clues');
+    else {
+      const next = NEXT_STEP[current];
+      if (next) drive(next);
     }
-    if (current === 'choice') {
-      beginClosing();
-      return;
-    }
-    if (current === 'question' || current === 'board') {
-      marsStepRef.current = current === 'board' ? 'question' : 'choice';
-      setMarsStep(current === 'board' ? 'question' : 'choice');
-      setPhase(current === 'board' ? 'explore' : 'puzzle');
-      marsRef.current?.setCinematic('drive', 0);
-      return;
-    }
-    if (current === 'sequence' || current === 'reveal') {
-      drive('water');
-      return;
-    }
-    if (current === 'laboratory') {
-      marsStepRef.current = 'board';
-      setMarsStep('board');
-      setPhase('puzzle');
-      return;
-    }
-    const next = NEXT_STEP[current];
-    if (next) drive(next);
   };
 
   const onMarsTyped = () => {
@@ -1404,6 +1440,13 @@ export default function App() {
       });
       return;
     }
+    if (cue === 'rocks-done') {
+      marsCueRef.current = null;
+      speakMars(MARS_ROCKS_DONE.text, MARS_ROCKS_DONE.speaker, 'mars_rocks_done', () => {
+        setActiveDialogue(null);
+      });
+      return;
+    }
     if (cue === 'brief-a') {
       marsCueRef.current = null;
       speakMars(MARS_BRIEFING.text, MARS_BRIEFING.speaker, 'mars_brief_assistant', () => {
@@ -1422,7 +1465,11 @@ export default function App() {
     }
     if (cue === 'sequence') {
       marsCueRef.current = null;
-      speakMars(MARS_SEQUENCE_LINE.text, MARS_SEQUENCE_LINE.speaker, 'mars_sequence', startReveal);
+      speakMars(MARS_SEQUENCE_LINE.text, MARS_SEQUENCE_LINE.speaker, 'mars_sequence', () => {
+        setActiveDialogue(null);
+        planReadyRef.current.line = true;
+        if (planReadyRef.current.shot) startReveal();
+      });
       return;
     }
     if (cue === 'unfinished') {
@@ -1495,16 +1542,22 @@ export default function App() {
       setPhase('outro');
       return;
     }
-    const reading = MARS_READINGS[step];
-    if (!reading) return;
+    const site = marsNearRef.current;
+    if (!site) return;
+    dismissCoach('mars-interact');
+    const readingId = readingIdFor(step, site);
+    if (!readingId) return;
+    const reading = MARS_READINGS[readingId];
     marsReadingRef.current = reading;
+    marsReadingSiteRef.current = site;
     setMarsReading(reading);
     setMarsNarrationDone(false);
+    setMarsScanDone(false);
     marsCueRef.current = 'narrator';
     setActiveDialogue(reading.narrator);
     setPhase('inspect');
-    const site = LIVE_SITE[step];
-    if (site) marsRef.current?.setFocus(site);
+    marsRef.current?.setFocus(site);
+    marsRef.current?.setScan(reading.scan ? 0 : null);
   };
 
   const resumeMarsReading = () => {
@@ -1513,32 +1566,62 @@ export default function App() {
       beginQuestionShot();
       return;
     }
-    const next = NEXT_STEP[step];
+    const site = marsReadingSiteRef.current;
     marsRef.current?.setFocus(null);
+    marsRef.current?.setScan(null);
     marsReadingRef.current = null;
+    marsReadingSiteRef.current = null;
     setMarsReading(null);
     setMarsNarrationDone(false);
+    setMarsScanDone(false);
     setActiveDialogue(null);
     marsCueRef.current = null;
     marsSpeakRef.current += 1;
+    marsSkipLineRef.current = null;
+    setMarsSpeaking(false);
     apolloAudio.stopSpeaking();
+
+    // Inside an act, tick this site off and stay until all three are done.
+    const sites = STEP_SITES[step];
+    if (sites.length > 1 && site) {
+      const done = marsDoneRef.current.includes(site) ? marsDoneRef.current : [...marsDoneRef.current, site];
+      if (done.length < sites.length) {
+        marsDoneRef.current = done;
+        setMarsDone(done);
+        setPhase('explore');
+        marsRef.current?.setCinematic('drive', 0);
+        return;
+      }
+    }
+
+    const next = NEXT_STEP[step];
     if (!next) return;
-    marsStepRef.current = next;
-    setMarsStep(next);
+    enterMarsStep(next);
     setPhase(next === 'board' ? 'puzzle' : 'explore');
     if (next !== 'board') marsRef.current?.setCinematic('drive', 0);
+    if (step === 'rocks') {
+      marsCueRef.current = 'rocks-done';
+      setActiveDialogue(MARS_ROCKS_DONE);
+    }
   };
 
+  // The rebuilt plan plays out as a hologram: lander, rocket, orbiter, Earth. Then the reveal takes it away.
   const finishSequence = () => {
     marsRef.current?.setHologramFrozen(true);
+    marsRef.current?.setFocus(null);
+    marsRef.current?.showPlan();
+    planReadyRef.current = { shot: false, line: false };
     marsCueRef.current = 'sequence';
     setActiveDialogue(MARS_SEQUENCE_LINE);
     setPhase('outro');
+    runMarsShot('plan', 19, () => {
+      planReadyRef.current.shot = true;
+      if (planReadyRef.current.line) startReveal();
+    });
   };
 
   const finishBoard = () => {
-    marsStepRef.current = 'question';
-    setMarsStep('question');
+    enterMarsStep('question');
     setPhase('explore');
     marsRef.current?.setCinematic('drive', 0);
   };
@@ -1548,7 +1631,7 @@ export default function App() {
     setMarsNarrationDone(false);
     setActiveDialogue(null);
     setPhase('outro');
-    runMarsShot(id, 5.5, () => {
+    runMarsShot(id, 7.5, () => {
       marsCueRef.current = 'choice';
       setActiveDialogue(MARS_LEGACY_LINE);
     });
@@ -1585,9 +1668,11 @@ export default function App() {
     };
     missionRef.current = 'mars';
     setMission('mars');
-    marsStepRef.current = 'igneous';
-    setMarsStep('igneous');
-    setMarsNear(false);
+    enterMarsStep('rocks');
+    setMarsNear(null);
+    setMarsScanDone(false);
+    setMarsSpeaking(false);
+    marsSkipLineRef.current = null;
     setMarsReading(null);
     marsReadingRef.current = null;
     setMarsNarrationDone(false);
@@ -1598,7 +1683,7 @@ export default function App() {
     marsCueRef.current = 'approach';
     setActiveDialogue(null);
     setPhase('intro');
-    engine.setLive('igneous');
+    engine.setLive(STEP_SITES.rocks);
     engine.beginIntro(introTitleLeadSeconds(MARS_OPENING_TITLE) + MARS_APPROACH.text.length * 0.012);
   };
   beginMarsRef.current = beginMars;
@@ -1663,8 +1748,37 @@ export default function App() {
     orientationHold: orientationHold !== null,
     seen: coachSeen
   });
-  const marsSiteId = LIVE_SITE[marsStep];
-  const marsTarget = marsSiteId ? { ...SITES[marsSiteId] } : null;
+  // With ?debug, the cinematics can be started from the console: __mars.plan(), .question(), .legacy('inspire'), .closing()
+  if (DEBUG_SKIP) {
+    (window as unknown as { __mars: unknown }).__mars = {
+      plan: finishSequence,
+      question: beginQuestionShot,
+      legacy: chooseLegacy,
+      closing: beginClosing
+    };
+  }
+
+  const marsStepSites = STEP_SITES[marsStep];
+  const marsTargets = marsStepSites.filter(site => !marsDone.includes(site)).map(site => ({ ...SITES[site] }));
+  const marsLog =
+    marsStepSites.length > 1 && (phase === 'explore' || phase === 'inspect')
+      ? marsStepSites.map(site => ({ label: SITE_NAMES[site] ?? site, done: marsDone.includes(site) }))
+      : [];
+  const marsPart = MARS_PARTS.indexOf(marsStep === 'reveal' ? 'sequence' : marsStep);
+  const marsLastInAct = marsStepSites.length > 1 && marsDone.length === marsStepSites.length - 1;
+  const marsContinueLabel =
+    marsReading && marsStep === 'clues' && marsLastInAct ? MARS_CLUES_DONE : marsReading?.continueLabel ?? 'CONTINUE';
+  const marsBeat = marsCoachBeat({
+    mission,
+    phase,
+    step: marsStep,
+    near: marsNear !== null,
+    firstSite: marsDone.length === 0,
+    linePlaying: activeDialogue !== null,
+    scanning: phase === 'inspect' && Boolean(marsReading?.scan) && !marsScanDone,
+    orientationHold: orientationHold !== null,
+    seen: coachSeen
+  });
   const marsObjective =
     marsChoice && marsStep === 'choice'
       ? LEGACY_CHOICES.find(choice => choice.id === marsChoice)?.title ?? MARS_OBJECTIVES.choice
@@ -1816,7 +1930,28 @@ export default function App() {
         <VoyagerSkyLabels readFrame={readVoyagerSky} />
       )}
 
-      {mission === 'mars' && phase !== 'title' && <PerseveranceMark read={readPerseverance} />}
+      {mission === 'mars' &&
+        phase !== 'title' &&
+        !(phase === 'outro' && (marsShotName === 'question' || marsShotName === 'closing' || marsShotName === 'inspire')) && (
+          <PerseveranceMark read={readPerseverance} />
+        )}
+
+      {mission === 'mars' && phase === 'outro' && marsShotName === 'plan' && (
+        <PlanCaption
+          stage={PLAN_STAGE_STARTS.reduce((stage, start, index) => (outroProgress >= start ? index : stage), 0)}
+        />
+      )}
+
+      {mission === 'mars' && phase === 'outro' && marsShotName === 'question' && (
+        <QuestionTitle progress={outroProgress} />
+      )}
+
+      {mission === 'mars' && phase === 'outro' && marsShotName === 'closing' && !marsCurious && (
+        <>
+          <TrioLabels read={readMarsTrio} />
+          <LastWord text={MARS_LAST_WORD} progress={outroProgress} />
+        </>
+      )}
 
       {mission === 'mars' && phase === 'intro' && (
         <>
@@ -1923,10 +2058,13 @@ export default function App() {
           telemetry={marsTelemetry}
           objective={marsObjective}
           objectiveShort={marsObjectiveShort}
-          target={marsTarget}
+          targets={marsTargets}
+          log={marsLog}
+          part={marsPart >= 0 ? { index: marsPart + 1, total: MARS_PARTS.length } : null}
           pulseCache={marsStep === 'question' && marsTelemetry.distanceToTarget > 16}
-          near={phase === 'explore' && marsNear}
-          interactLabel={interactLabel(marsStep)}
+          near={phase === 'explore' && marsNear !== null}
+          interactLabel={interactLabel(marsStep, marsNear)}
+          onSkipLine={marsSpeaking && phase !== 'intro' ? skipMarsLine : undefined}
           onInteract={handleMarsInteract}
           onMissions={handleBackToMissions}
           dialogue={activeDialogue}
@@ -1947,6 +2085,13 @@ export default function App() {
         <MarsInspect
           reading={marsReading}
           narrationDone={marsNarrationDone}
+          scanDone={marsScanDone}
+          continueLabel={marsContinueLabel}
+          onScanProgress={progress => marsRef.current?.setScan(progress)}
+          onScanDone={() => {
+            setMarsScanDone(true);
+            dismissCoach('mars-scan');
+          }}
           onClose={resumeMarsReading}
           read={readMarsFocus}
         />
@@ -1970,7 +2115,7 @@ export default function App() {
         </div>
       )}
 
-      <ObjectiveCoach beat={apolloBeat ?? voyagerBeat} onDismiss={dismissCoach} />
+      <ObjectiveCoach beat={apolloBeat ?? voyagerBeat ?? marsBeat} onDismiss={dismissCoach} />
       {orientationHold && <RotateOverlay />}
     </div>
   );
