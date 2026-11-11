@@ -161,12 +161,9 @@ const TEAM_MEMBERS: TeamMember[] = [
     name: 'Md Ferdouse Oahid',
     role: 'Game Developer',
     tag: 'Game Dev',
+    avatarUrl: '/team/Ferdouse_PP_1254.png',
   },
-  {
-    name: 'Farhan Bin Masud',
-    role: 'Research Associate & Editor',
-    tag: 'Multimedia',
-  },
+
 ];
 
 // Pre-renders sound effect PCM samples into a reusable AudioBuffer
@@ -534,15 +531,11 @@ export default function App() {
     setNavOpen(false);
   };
 
-  const handleGetStarted = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    setNavOpen(false);
-    playSfx('cta');
-    setActiveModal('dossier');
-  };
+const handleGetStarted = () => {
+  setNavOpen(false);
+  playSfx('cta');
+  window.location.href = 'https://nobotara-71.netlify.app/';
+};
 
   const handleOpenSpaceAi = () => {
     playSfx('cta');

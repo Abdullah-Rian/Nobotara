@@ -1,0 +1,14 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "nobotara-worker",
+	"main": "src/index.js",
+	"compatibility_date": "2026-11-04",
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+	"ai": { "binding": "AI" },
+	"vectorize": [
+		{ "binding": "VEC", "index_name": "nobotara-rag", "remote": true }
+	]
+}

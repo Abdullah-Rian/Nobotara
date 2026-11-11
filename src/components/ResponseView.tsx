@@ -25,7 +25,7 @@ interface ResponseViewProps {
   onOpenLiveUpdates?: () => void;
 }
 
-const SYNTH_DURATION_SEC = 88; // 01:28 default track length
+
 
 export const ResponseView: React.FC<ResponseViewProps> = ({
   conversation,
@@ -39,13 +39,26 @@ export const ResponseView: React.FC<ResponseViewProps> = ({
   const [isMicActive, setIsMicActive] = useState(false);
   const [attachments, setAttachments] = useState<{ id: string; name: string }[]>([]);
 
-  // Audio telemetry player state
+  const visual = conversation.media?.visual;
+  const audio = conversation.media?.audio;
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(14); // 00:14 starting point per reference
-  const [duration] = useState(SYNTH_DURATION_SEC); // 01:28
-  const synthCtxRef = useRef<AudioContext | null>(null);
-  const synthTimerRef = useRef<number | null>(null);
-  const synthNodesRef = useRef<AudioNode[]>([]);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }, [audio?.audioUrl]);
+
+  const togglePlayAudio = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (a.paused) a.play().catch(() => {});
+    else a.pause();
+  };
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -85,69 +98,7 @@ export const ResponseView: React.FC<ResponseViewProps> = ({
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // Audio Telemetry synthesis
-  const stopSynth = useCallback(() => {
-    if (synthTimerRef.current) {
-      window.clearInterval(synthTimerRef.current);
-      synthTimerRef.current = null;
-    }
-    synthNodesRef.current.forEach((n) => {
-      try {
-        if ('stop' in n && typeof (n as OscillatorNode).stop === 'function') {
-          (n as OscillatorNode).stop();
-        }
-        n.disconnect();
-      } catch (_) {}
-    });
-    synthNodesRef.current = [];
-  }, []);
-
-  const startSynth = useCallback((startOffset: number) => {
-    stopSynth();
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    synthCtxRef.current = ctx;
-
-    const masterGain = ctx.createGain();
-    masterGain.gain.setValueAtTime(0.2, ctx.currentTime);
-    masterGain.connect(ctx.destination);
-
-    // Warm deep space carrier frequency
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(110, ctx.currentTime);
-    osc.connect(masterGain);
-    osc.start();
-
-    synthNodesRef.current = [osc, masterGain];
-    setIsPlaying(true);
-
-    const startedAt = performance.now() - startOffset * 1000;
-    synthTimerRef.current = window.setInterval(() => {
-      const elapsed = (performance.now() - startedAt) / 1000;
-      if (elapsed >= duration) {
-        stopSynth();
-        setIsPlaying(false);
-        setCurrentTime(0);
-      } else {
-        setCurrentTime(elapsed);
-      }
-    }, 150);
-  }, [duration, stopSynth]);
-
-  const togglePlayAudio = () => {
-    if (isPlaying) {
-      stopSynth();
-      setIsPlaying(false);
-    } else {
-      startSynth(currentTime >= duration ? 0 : currentTime);
-    }
-  };
-
-  useEffect(() => {
-    return () => stopSynth();
-  }, [stopSynth]);
+ 
 
   // Handle follow up submit
   const handleFollowUpSubmit = (e?: React.FormEvent) => {
@@ -165,9 +116,7 @@ export const ResponseView: React.FC<ResponseViewProps> = ({
     conversation.question.toLowerCase().includes('ice');
 
   // Scientific structure data
-  const synthesisLead = isArtemisOrMoon
-    ? "NASA's Artemis program targets the Lunar South Pole because it hosts geological conditions found nowhere else on the Moon: deep, permanently shadowed impact craters that act as cosmic cold traps, maintaining constant temperatures as low as 40 K (−233°C) for over two billion years."
-    : (conversation.fullAnswer || "Astrophysics telemetry analysis confirmed key celestial mechanisms and planetary dynamics for this target mission.");
+  const synthesisLead = conversation.fullAnswer;
 
   const pillar1Title = isArtemisOrMoon ? "VOLATILES & WATER ICE" : "PLANETARY GEOLOGY & DYNAMICS";
   const pillar1Body = isArtemisOrMoon
@@ -298,7 +247,7 @@ export const ResponseView: React.FC<ResponseViewProps> = ({
         </p>
 
         {/* Clean Numbered Micro-Cards (01 // Volatiles, 02 // ISRU) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-5">
+        <div className="hidden">
           {/* Card 01 */}
           <div className="p-4 rounded-xl bg-white/[0.025] hover:bg-white/[0.04] border border-white/[0.07] hover:border-[#38bdf8]/30 transition-all flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
@@ -331,142 +280,112 @@ export const ResponseView: React.FC<ResponseViewProps> = ({
         </div>
 
         {/* Concluding Takeaway */}
-        <p className="text-[14px] text-slate-300 leading-relaxed pt-1">
+        <p className="hidden">
           {conclusionText}
         </p></article>
 
-      {/* 3. NASA Telemetry Surface Photography Card (Hasselblad Crosshairs, Reseau Markings) */}
-      <section className="rounded-2xl bg-[#0a0f1d]/85 backdrop-blur-2xl border border-white/10 overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.6)] mb-5">
-        <div className="relative w-full h-[260px] sm:h-[340px] bg-black overflow-hidden flex items-center justify-center">
-          {/* Apollo 11 Lunar Surface Image */}
-          <img
-            src="https://images-assets.nasa.gov/image/as11-40-5903/as11-40-5903~medium.jpg"
-            onError={(e) => {
-              e.currentTarget.src = '/manus-storage/apollo11-still.jpg';
-            }}
-            alt="Apollo 11 Lunar Module Eagle & Astronaut Buzz Aldrin on Mare Tranquillitatis"
-            className="w-full h-full object-cover brightness-[0.92] contrast-[1.08]"
-          />
-
-          {/* Authentic Hasselblad 70mm Reseau Crosshair Markings */}
-          <div className="pointer-events-none absolute inset-0 select-none">
-            {/* Top-Left Crosshair */}
-            <span className="absolute top-[28%] left-[28%] text-white/45 font-mono text-sm leading-none font-light">
-              +
-            </span>
-            {/* Top-Right Crosshair */}
-            <span className="absolute top-[28%] right-[28%] text-white/45 font-mono text-sm leading-none font-light">
-              +
-            </span>
-            {/* Center Crosshair */}
-            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/50 font-mono text-base leading-none font-light">
-              +
-            </span>
-            {/* Bottom-Left Crosshair */}
-            <span className="absolute bottom-[28%] left-[28%] text-white/45 font-mono text-sm leading-none font-light">
-              +
-            </span>
-            {/* Bottom-Right Crosshair */}
-            <span className="absolute bottom-[28%] right-[28%] text-white/45 font-mono text-sm leading-none font-light">
-              +
-            </span>
-          </div>
-
-          {/* Top-Left Journal Badge Overlay */}
-          <div className="absolute top-3.5 left-3.5">
-            <span className="px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-[11px] font-mono text-slate-200 flex items-center gap-1.5 shadow-lg">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#06b6d4] shadow-[0_0_6px_#06b6d4]" />
-              Apollo Lunar Surface Journal
-            </span>
-          </div>
-        </div>
-
-        {/* Bottom Metadata Caption Bar */}
-        <div className="px-5 py-3 border-t border-white/10 bg-[#070b15]/90 flex items-center justify-between gap-4 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold text-white truncate">
-              Apollo 11 Lunar Module Eagle &amp; Astronaut Buzz Aldrin on Mare Tranquillitatis
-            </h3>
-            <p className="text-[11px] font-mono text-slate-400 mt-0.5">
-              JSC • 1969-07-20 • ID: as11-40-5903 • Coordinates: 0.67408° N, 23.47297° E
-            </p>
-          </div>
-
-          <a
-            href="https://images.nasa.gov/details/as11-40-5903"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-xs text-slate-200 hover:text-white transition-all cursor-pointer shrink-0"
-          >
-            <span>NASA Image Library</span>
-            <ExternalLink className="w-3 h-3 text-[#38bdf8]" />
-          </a>
-        </div>
-      </section>
-
-      {/* 4. Deep Space Audio Telemetry — Sleek Minimal Soundbar */}
-      <section className="rounded-2xl bg-[#090d16]/80 backdrop-blur-xl border border-white/[0.08] p-3.5 sm:px-4 shadow-[0_12px_32px_rgba(0,0,0,0.5)] mb-5 select-none">
-        <div className="flex items-center gap-3.5">
-          {/* Refined Circular Cyan Play/Pause Button */}
-          <button
-            type="button"
-            onClick={togglePlayAudio}
-            className="w-9 h-9 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 flex items-center justify-center shadow-[0_0_14px_rgba(6,182,212,0.4)] active:scale-95 transition-all cursor-pointer shrink-0"
-            title={isPlaying ? "Pause Telemetry Audio" : "Play Telemetry Audio"}
-          >
-            {isPlaying ? (
-              <Pause className="w-4 h-4 fill-slate-950" />
+      {visual && (
+        <section className="rounded-2xl bg-[#0a0f1d]/85 backdrop-blur-2xl border border-white/10 overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.6)] mb-5">
+          <div className="relative w-full h-[260px] sm:h-[340px] bg-black overflow-hidden flex items-center justify-center">
+            {visual.type === 'video' ? (
+              <video
+                key={visual.url}
+                src={visual.url}
+                poster={visual.previewUrl}
+                controls
+                playsInline
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <Play className="w-4 h-4 fill-slate-950 ml-0.5" />
+              <img
+                key={visual.url}
+                src={visual.url}
+                alt={visual.title}
+                className="w-full h-full object-cover"
+              />
             )}
-          </button>
-
-          {/* Track Info & Fine Frequency Soundwave */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-3 mb-1.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-medium text-white truncate">
-                  Apollo 11: &quot;The Eagle Has Landed&quot; — Descent Comm
-                </span>
-                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-cyan-400/90 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20 shrink-0">
-                  <span className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
-                  Sonification
-                </span>
-              </div>
-              <span className="text-[11px] font-mono text-slate-400 tabular-nums shrink-0 font-medium">
-                {formatTime(currentTime)} / 82:38
+            <div className="absolute top-3.5 left-3.5">
+              <span className="px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-[11px] font-mono text-slate-200 flex items-center gap-1.5 shadow-lg">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#06b6d4] shadow-[0_0_6px_#06b6d4]" />
+                {visual.center || 'NASA'}
               </span>
             </div>
-
-            {/* Fine 2px Vertical Audio Frequency Equalizer */}
-            <div className="flex items-end gap-[3px] h-3.5 w-full">
-              {[0.35, 0.65, 0.45, 0.85, 0.55, 0.95, 0.7, 0.4, 0.8, 0.6, 0.3, 0.9, 0.5, 0.75, 0.4, 0.85, 0.6, 0.35, 0.7, 0.95, 0.5, 0.8, 0.45, 0.65, 0.3, 0.75, 0.55, 0.85, 0.4, 0.7, 0.5, 0.9, 0.6, 0.4, 0.75, 0.5, 0.3].map((base, i) => (
-                <div
-                  key={i}
-                  className={`w-[2px] rounded-full transition-all duration-100 ${
-                    isPlaying ? 'bg-cyan-400' : 'bg-slate-700/60'
-                  }`}
-                  style={{
-                    height: isPlaying
-                      ? `${Math.max(18, Math.min(100, (base * 100 * (0.5 + 0.5 * Math.sin(Date.now() / 150 + i * 0.8)))))}%`
-                      : `${base * 70}%`,
-                    boxShadow: isPlaying ? '0 0 4px rgba(6, 182, 212, 0.5)' : 'none',
-                  }}
-                />
-              ))}
-            </div>
           </div>
 
-          {/* Muted Volume Control */}
-          <button
-            type="button"
-            className="w-7 h-7 rounded-lg hover:bg-white/[0.06] flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer shrink-0 ml-1"
-            title="Telemetry Volume"
-          >
-            <Volume2 className="w-3.5 h-3.5 text-slate-400 hover:text-cyan-400 transition-colors" />
-          </button>
-        </div>
-      </section>
+          <div className="px-5 py-3 border-t border-white/10 bg-[#070b15]/90 flex items-center justify-between gap-4 flex-wrap">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold text-white truncate">{visual.title}</h3>
+              <p className="text-[11px] font-mono text-slate-400 mt-0.5">
+                {[visual.center, visual.dateCreated, `ID: ${visual.nasaId}`].filter(Boolean).join(' • ')}
+              </p>
+            </div>
+            <a
+              href={`https://images.nasa.gov/details/${encodeURIComponent(visual.nasaId)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-xs text-slate-200 hover:text-white transition-all cursor-pointer shrink-0"
+            >
+              <span>NASA Image Library</span>
+              <ExternalLink className="w-3 h-3 text-[#38bdf8]" />
+            </a>
+          </div>
+        </section>
+      )}
+
+      {audio && (
+        <section className="rounded-2xl bg-[#090d16]/80 backdrop-blur-xl border border-white/[0.08] p-3.5 sm:px-4 shadow-[0_12px_32px_rgba(0,0,0,0.5)] mb-5 select-none">
+          <audio
+            key={audio.audioUrl}
+            ref={audioRef}
+            src={audio.audioUrl}
+            preload="metadata"
+            onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
+          />
+          <div className="flex items-center gap-3.5">
+            <button
+              type="button"
+              onClick={togglePlayAudio}
+              className="w-9 h-9 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 flex items-center justify-center shadow-[0_0_14px_rgba(6,182,212,0.4)] active:scale-95 transition-all cursor-pointer shrink-0"
+              title={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? (
+                <Pause className="w-4 h-4 fill-slate-950" />
+              ) : (
+                <Play className="w-4 h-4 fill-slate-950 ml-0.5" />
+              )}
+            </button>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <span className="text-xs font-medium text-white truncate">{audio.title}</span>
+                <span className="text-[11px] font-mono text-slate-400 tabular-nums shrink-0 font-medium">
+                  {formatTime(currentTime)} / {duration ? formatTime(duration) : '--:--'}
+                </span>
+              </div>
+              <div
+                className="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden cursor-pointer"
+                onClick={(e) => {
+                  const a = audioRef.current;
+                  if (!a || !duration) return;
+                  const r = e.currentTarget.getBoundingClientRect();
+                  a.currentTime = ((e.clientX - r.left) / r.width) * duration;
+                }}
+              >
+                <div
+                  className="h-full bg-cyan-400"
+                  style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
+                />
+              </div>
+            </div>
+
+            <Volume2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          </div>
+        </section>
+      )}
 
       {/* 6. Google Gemini Signature Lighting Follow-Up Chatbox */}
       <div className="gemini-chatbox-wrap relative w-full mb-6">

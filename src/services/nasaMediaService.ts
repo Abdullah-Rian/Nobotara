@@ -7,6 +7,7 @@ interface NasaApiSearchItem {
     nasa_id: string;
     media_type: 'image' | 'video' | 'audio';
     description?: string;
+    keywords?: string[];
     date_created?: string;
     center?: string;
   }[];
@@ -14,6 +15,7 @@ interface NasaApiSearchItem {
     href: string;
     rel?: string;
     render?: string;
+    width?: number;
   }[];
 }
 
@@ -24,6 +26,19 @@ interface NasaApiSearchResponse {
 }
 
 const mediaCache = new Map<string, NasaMediaBundle>();
+
+function fetchWithTimeout(url: string, ms = 5000): Promise<Response> {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t));
+}
+
+function pickBestImageUrl(links: NonNullable<NasaApiSearchItem['links']>): string | undefined {
+  const alts = links
+    .filter((l) => l.rel === 'alternate' && l.render === 'image' && l.width && l.width <= 1920)
+    .sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
+  return normalizeHttpsUrl((alts[0] ?? links[0])?.href ?? '') || undefined;
+}
 
 function normalizeHttpsUrl(url: string): string {
   const httpsUrl = url.replace(/^http:\/\//i, 'https://');
@@ -43,70 +58,70 @@ export function extractNasaSearchKeyword(query: string, topic?: string): {
   if (combined.includes('apollo 10') || combined.includes('hear sound on the moon') || combined.includes('space music')) {
     return {
       visualQuery: 'Apollo 10 lunar module moon',
-      audioQuery: 'Apollo 11 moon',
+      audioQuery: 'Apollo 11',
       presetKey: 'moon-sound',
     };
   }
   if (combined.includes('apollo 11') || combined.includes('neil armstrong') || combined.includes('lunar landing')) {
     return {
       visualQuery: 'Apollo 11 Buzz Aldrin Moon',
-      audioQuery: 'Apollo 11 eagle landed',
+      audioQuery: 'Apollo 11',
       presetKey: 'apollo11',
     };
   }
   if (combined.includes('olympus mons') || combined.includes('volcano on mars')) {
     return {
       visualQuery: 'Olympus Mons Mars volcano',
-      audioQuery: 'Mars Perseverance sounds',
+      audioQuery: 'Mars',
       presetKey: 'olympus-mons',
     };
   }
   if (combined.includes('mars') || combined.includes('red planet') || combined.includes('perseverance')) {
     return {
       visualQuery: 'Mars surface Perseverance rover',
-      audioQuery: 'Mars sound Perseverance',
+      audioQuery: 'Mars',
       presetKey: 'mars',
     };
   }
   if (combined.includes('trappist') || combined.includes('james webb') || combined.includes('jwst') || combined.includes('exoplanet')) {
     return {
       visualQuery: 'James Webb Space Telescope Carina Nebula',
-      audioQuery: 'sonification Chandra Webb',
+      audioQuery: 'Webb',
       presetKey: 'jwst',
     };
   }
   if (combined.includes('voyager') || combined.includes('interstellar') || combined.includes('heliopause')) {
     return {
       visualQuery: 'Voyager 1 spacecraft interstellar',
-      audioQuery: 'Voyager plasma wave sound',
+      audioQuery: 'Voyager',
       presetKey: 'voyager',
     };
   }
   if (combined.includes('jupiter') || combined.includes('great red spot') || combined.includes('juno') || combined.includes('europa')) {
     return {
       visualQuery: 'Jupiter Great Red Spot Juno',
-      audioQuery: 'Juno Jupiter bow shock sound',
+      audioQuery: 'Jupiter',
       presetKey: 'jupiter',
     };
   }
   if (combined.includes('black hole') || combined.includes('event horizon') || combined.includes('sagittarius') || combined.includes('spaghettification')) {
     return {
       visualQuery: 'Black hole accretion disk NASA',
-      audioQuery: 'Black hole sonification Perseus',
+      audioQuery: 'Black hole',
       presetKey: 'blackhole',
     };
   }
   if (combined.includes('artemis') || combined.includes('orion')) {
     return {
       visualQuery: 'Artemis I Orion Moon NASA',
-      audioQuery: 'Artemis launch NASA',
+      audioQuery: 'Artemis',
       presetKey: 'artemis',
     };
   }
   if (combined.includes('saturn') || combined.includes('cassini') || combined.includes('titan')) {
     return {
       visualQuery: 'Saturn rings Cassini',
-      audioQuery: 'Cassini Saturn radio emissions',
+      audioQuery: 'Saturn',
       presetKey: 'saturn',
     };
   }
@@ -119,7 +134,7 @@ export function extractNasaSearchKeyword(query: string, topic?: string): {
   const words = cleaned.split(/\s+/).slice(0, 5).join(' ') || 'NASA deep space';
   return {
     visualQuery: words,
-    audioQuery: `${words} space sound`,
+    audioQuery: words,
     presetKey: 'generic',
   };
 }
@@ -276,9 +291,7 @@ async function resolveAssetManifestUrl(
   preferredExtensions: string[]
 ): Promise<string | null> {
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1000);
-    const res = await fetch(normalizeHttpsUrl(manifestHref), { signal: controller.signal }).finally(() => clearTimeout(timer));
+    const res = await fetchWithTimeout(normalizeHttpsUrl(manifestHref), 3000);
     if (!res.ok) return null;
     const urls: string[] = await res.json();
     if (!Array.isArray(urls) || urls.length === 0) return null;
@@ -311,41 +324,24 @@ export async function fetchNasaMediaForTopic(
     return cached;
   }
 
-  const fallbackBundle = VERIFIED_NASA_FALLBACKS[presetKey] || VERIFIED_NASA_FALLBACKS.apollo11;
+  const fallbackBundle: NasaMediaBundle | undefined = VERIFIED_NASA_FALLBACKS[presetKey];
+
+  let resolvedVisual: NasaMediaVisual | undefined;
+  let resolvedAudio: NasaMediaAudio | undefined;
 
   try {
-    const visualSearchUrl = `https://images-api.nasa.gov/search?q=${encodeURIComponent(visualQuery)}&media_type=image,video&page_size=6`;
-    const audioSearchUrl = `https://images-api.nasa.gov/search?q=${encodeURIComponent(audioQuery)}&media_type=audio&page_size=5`;
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1200);
-
-    const [visualRes, audioRes] = await Promise.allSettled([
-      fetch(visualSearchUrl, { signal: controller.signal }),
-      fetch(audioSearchUrl, { signal: controller.signal }),
-    ]).finally(() => clearTimeout(timer));
-
-    let resolvedVisual: NasaMediaVisual | undefined;
-    let resolvedAudio: NasaMediaAudio | undefined;
-
-    // 1. Parse visual (preferring video when available with valid mp4, or crisp high-res image)
-    if (visualRes.status === 'fulfilled' && visualRes.value.ok) {
-      const data: NasaApiSearchResponse = await visualRes.value.json();
+    const res = await fetchWithTimeout(
+      `https://images-api.nasa.gov/search?q=${encodeURIComponent(visualQuery)}&media_type=image,video&page_size=6`
+    );
+    if (res.ok) {
+      const data: NasaApiSearchResponse = await res.json();
       const items = data.collection?.items || [];
 
-      // Check if there's a video item first or a top image item
       const videoCandidate = items.find((it) => it.data?.[0]?.media_type === 'video' && it.href);
-      const imageCandidate = items.find(
-        (it) => it.data?.[0]?.media_type === 'image' && it.links?.[0]?.href
-      );
-
-      if (videoCandidate && videoCandidate.data?.[0]) {
+      if (videoCandidate?.data?.[0]) {
         const meta = videoCandidate.data[0];
         const mp4Url = await resolveAssetManifestUrl(videoCandidate.href, [
-          '~mobile.mp4',
-          '~medium.mp4',
-          '~preview.mp4',
-          '.mp4',
+          '~mobile.mp4', '~medium.mp4', '~preview.mp4', '.mp4',
         ]);
         if (mp4Url) {
           resolvedVisual = {
@@ -363,31 +359,51 @@ export async function fetchNasaMediaForTopic(
         }
       }
 
-      if (!resolvedVisual && imageCandidate && imageCandidate.data?.[0] && imageCandidate.links?.[0]?.href) {
-        const meta = imageCandidate.data[0];
-        const thumbUrl = normalizeHttpsUrl(imageCandidate.links[0].href);
-        resolvedVisual = {
-          type: 'image',
-          title: meta.title,
-          nasaId: meta.nasa_id,
-          url: thumbUrl,
-          previewUrl: thumbUrl,
-          description: meta.description,
-          dateCreated: meta.date_created?.slice(0, 10),
-          center: meta.center || 'NASA',
-        };
+      if (!resolvedVisual) {
+        const images = items.filter(
+          (it) => it.data?.[0]?.media_type === 'image' && it.links?.length
+        );
+        const pick = images[Math.floor(Math.random() * images.length)];
+        if (pick) {
+          const meta = pick.data[0];
+          const url = pickBestImageUrl(pick.links!);
+          if (url) {
+            resolvedVisual = {
+              type: 'image',
+              title: meta.title,
+              nasaId: meta.nasa_id,
+              url,
+              previewUrl: url,
+              description: meta.description,
+              dateCreated: meta.date_created?.slice(0, 10),
+              center: meta.center || 'NASA',
+            };
+          }
+        }
       }
     }
+  } catch (e) {
+    console.warn('[NASA media] visual fetch failed:', e);
+  }
 
-    // 2. Parse audio from NASA Audio archive (`media_type=audio`)
-    if (audioRes.status === 'fulfilled' && audioRes.value.ok) {
-      const data: NasaApiSearchResponse = await audioRes.value.json();
-      const items = data.collection?.items || [];
-
-      for (const item of items.slice(0, 3)) {
+  const audioTries = [...new Set([audioQuery, visualQuery.split(' ')[0]])];
+  for (const q of audioTries) {
+    if (resolvedAudio) break;
+    try {
+      const res = await fetchWithTimeout(
+        `https://images-api.nasa.gov/search?q=${encodeURIComponent(q)}&media_type=audio&page_size=5`
+      );
+      if (!res.ok) continue;
+      const data: NasaApiSearchResponse = await res.json();
+      const term = q.toLowerCase();
+      const relevant = (data.collection?.items || []).filter((item) => {
+        const m = item.data?.[0];
+        if (!m) return false;
+        return `${m.title} ${(m.keywords || []).join(' ')}`.toLowerCase().includes(term);
+      });
+      for (const item of relevant.slice(0, 3)) {
         const meta = item.data?.[0];
         if (!meta || !item.href) continue;
-
         const audioFileUrl = await resolveAssetManifestUrl(item.href, ['~128k.mp3', '.mp3', '.wav', '.m4a']);
         if (audioFileUrl) {
           resolvedAudio = {
@@ -401,16 +417,16 @@ export async function fetchNasaMediaForTopic(
           break;
         }
       }
+    } catch (e) {
+      console.warn('[NASA media] audio fetch failed:', e);
     }
-
-    const finalBundle: NasaMediaBundle = {
-      visual: resolvedVisual || fallbackBundle.visual,
-      audio: resolvedAudio || fallbackBundle.audio,
-    };
-
-    mediaCache.set(cacheKey, finalBundle);
-    return finalBundle;
-  } catch {
-    return fallbackBundle;
   }
+
+  const finalBundle: NasaMediaBundle = {
+    visual: resolvedVisual ?? fallbackBundle?.visual,
+    audio: resolvedAudio,
+  };
+
+  if (resolvedVisual) mediaCache.set(cacheKey, finalBundle);
+  return finalBundle;
 }

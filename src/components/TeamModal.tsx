@@ -37,13 +37,10 @@ export const TEAM_MEMBERS: TeamMember[] = [
     role: 'Game Developer',
     tag: 'GAME DEV',
     initials: 'MF',
+    avatarUrl: '/team/Ferdouse_PP_1254.png',
+
   },
-  {
-    name: 'Farhan Bin Masud',
-    role: 'Research Associate & Editor',
-    tag: 'MULTIMEDIA',
-    initials: 'FB',
-  },
+
 ];
 
 interface TeamModalProps {
