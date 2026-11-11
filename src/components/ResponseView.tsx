@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { 
   ArrowLeft, 
   Copy, 
@@ -242,9 +244,30 @@ export const ResponseView: React.FC<ResponseViewProps> = ({
         </div>
 
         {/* Authoritative Scientific Synthesis Lead Paragraph */}
-        <p className="text-[14.5px] sm:text-[15px] text-slate-200 leading-relaxed mb-5 whitespace-pre-line">
-          {synthesisLead}
-        </p>
+        <div className="
+          text-[14.5px] sm:text-[15px] text-slate-200 leading-relaxed mb-5
+          [&_strong]:font-bold [&_strong]:text-white
+          [&_em]:italic
+          [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mt-6 [&_h1]:mb-3
+          [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-5 [&_h2]:mb-2
+          [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2
+          [&_p]:mb-4
+          [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-3
+          [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-3
+          [&_li]:pl-1 [&_li]:my-1
+          [&_a]:text-sky-400 [&_a]:underline [&_a]:underline-offset-2
+          [&_blockquote]:border-l-2 [&_blockquote]:border-sky-400/50 [&_blockquote]:pl-4 [&_blockquote]:text-slate-400 [&_blockquote]:my-3
+          [&_code]:bg-white/10 [&_code]:text-sky-300 [&_code]:px-1 [&_code]:rounded
+          [&_pre]:bg-black/40 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto
+          [&_hr]:border-white/10 [&_hr]:my-5
+          [&_table]:w-full [&_table]:text-sm [&_table]:my-4
+          [&_th]:text-white [&_th]:font-semibold [&_th]:text-left [&_th]:p-2 [&_th]:border-b [&_th]:border-white/20
+          [&_td]:p-2 [&_td]:border-b [&_td]:border-white/10
+        ">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {synthesisLead}
+          </ReactMarkdown>
+        </div>
 
         {/* Clean Numbered Micro-Cards (01 // Volatiles, 02 // ISRU) */}
         <div className="hidden">
