@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { useShortHeight } from '../utils/displayMode';
 
 interface VirtualJoystickProps {
   onMove: (forward: number, turn: number) => void;
@@ -9,7 +10,8 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ onMove }) => {
   const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
 
-  const radius = 48; // Max movement radius
+  const short = useShortHeight();
+  const radius = short ? 32 : 48;
 
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
@@ -72,7 +74,7 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ onMove }) => {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="w-28 h-28 rounded-full bg-slate-900/70 border-2 border-slate-700/80 flex items-center justify-center shadow-lg relative cursor-grab active:cursor-grabbing"
+        className={`rounded-full bg-slate-900/70 border-2 border-slate-700/80 flex items-center justify-center shadow-lg relative cursor-grab active:cursor-grabbing ${short ? 'w-20 h-20' : 'w-28 h-28'}`}
       >
         {/* Cardinal Direction ticks */}
         <div className="absolute top-2 text-[9px] font-mono-num text-slate-500 font-bold">W</div>
@@ -82,7 +84,7 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ onMove }) => {
 
         {/* Center Knob */}
         <div
-          className="w-12 h-12 rounded-full bg-amber-500/90 border border-amber-300 shadow-md flex items-center justify-center transition-transform duration-75"
+          className={`rounded-full bg-amber-500/90 border border-amber-300 shadow-md flex items-center justify-center transition-transform duration-75 ${short ? 'w-8 h-8' : 'w-12 h-12'}`}
           style={{
             transform: `translate(${knobPos.x}px, ${knobPos.y}px)`
           }}

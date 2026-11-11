@@ -3,14 +3,15 @@ import { SkyFrame } from '../game/voyagerEngine';
 
 interface VoyagerSkyLabelsProps {
   readFrame: () => SkyFrame | undefined;
-  /** Draw only these names. Mission 1 uses the Sun label alone. */
+  /** Draw only these names. Mission 1 uses the Sun and Earth labels. */
   keys?: Array<(typeof LABELS)[number]['key']>;
 }
 
 const LABELS = [
   { key: 'sun' as const, name: 'SUN', dx: -78, dy: -52, tone: 'border-amber-200/80 text-amber-50' },
   { key: 'earth' as const, name: 'EARTH', dx: -130, dy: 24, tone: 'border-sky-200/80 text-sky-50' },
-  { key: 'mars' as const, name: 'MARS', dx: 0, dy: 62, tone: 'border-orange-400/80 text-orange-100' }
+  { key: 'mars' as const, name: 'MARS', dx: 0, dy: 62, tone: 'border-orange-400/80 text-orange-100' },
+  { key: 'jezero' as const, name: 'Jezero Crater', dx: -120, dy: -48, tone: 'border-orange-400/80 text-orange-100' }
 ];
 
 /**
@@ -53,12 +54,14 @@ export const VoyagerSkyLabels: React.FC<VoyagerSkyLabelsProps> = ({ readFrame, k
         const rect = chip.getBoundingClientRect();
         const startX = rect.left + rect.width / 2;
         const startY = rect.top + rect.height / 2;
+        const tipX = point.x - (point.tipLeft ?? 0);
+        const tipY = point.y;
         line.setAttribute('x1', String(startX));
         line.setAttribute('y1', String(startY));
-        line.setAttribute('x2', String(point.x));
-        line.setAttribute('y2', String(point.y));
-        dot.setAttribute('cx', String(point.x));
-        dot.setAttribute('cy', String(point.y));
+        line.setAttribute('x2', String(tipX));
+        line.setAttribute('y2', String(tipY));
+        dot.setAttribute('cx', String(tipX));
+        dot.setAttribute('cy', String(tipY));
         line.style.opacity = '1';
         dot.style.opacity = '1';
       });

@@ -15,12 +15,15 @@ export interface SkyPoint {
   x: number;
   y: number;
   visible: boolean;
+  /** Shift the leader tip this many pixels left of the anchor. Mission 1 uses it for Earth. */
+  tipLeft?: number;
 }
 
 export interface SkyFrame {
   sun: SkyPoint;
   earth: SkyPoint;
   mars: SkyPoint;
+  jezero?: SkyPoint;
 }
 
 export interface VoyagerTelemetry {

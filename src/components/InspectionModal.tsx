@@ -90,11 +90,12 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
   };
 
   return (
-    <div className="absolute left-6 bottom-16 z-30 flex flex-col items-start gap-3 pointer-events-none">
+    <>
+    <div className="absolute left-6 bottom-16 short:left-2 short:bottom-2 z-30 flex flex-col items-start gap-3 pointer-events-none">
       {artifact.id === 'plaque' && readPlaquePoint && <PlaqueCallout readPoint={readPlaquePoint} />}
 
       {dialogue && (
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto origin-bottom-left short:scale-75">
           <DialoguePanel message={dialogue} typewriter={!narrationDone} onTyped={onTyped} />
         </div>
       )}
@@ -119,16 +120,17 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
         </div>
       )}
 
-      {narrationDone && (
-        <button
-          onClick={onClose}
-          data-coach="apollo-resume"
-          className="pointer-events-auto flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm"
-        >
-          <span>RESUME EXPLORATION</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      )}
     </div>
+    {narrationDone && (
+      <button
+        onClick={onClose}
+        data-coach="apollo-resume"
+        className="pointer-events-auto absolute bottom-6 right-6 short:bottom-2 short:right-2 z-30 flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm"
+      >
+        <span>RESUME EXPLORATION</span>
+        <ArrowRight className="w-4 h-4" />
+      </button>
+    )}
+    </>
   );
 };

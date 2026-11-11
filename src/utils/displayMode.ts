@@ -1,4 +1,22 @@
+import { useEffect, useState } from 'react';
+
 const HANDHELD = '(hover: none) and (pointer: coarse)';
+const SHORT_HEIGHT = '(max-height: 500px)';
+
+/** True when the viewport is a phone in landscape, not a monitor. */
+export function useShortHeight() {
+  const [short, setShort] = useState(() => window.matchMedia(SHORT_HEIGHT).matches);
+
+  useEffect(() => {
+    const query = window.matchMedia(SHORT_HEIGHT);
+    const onChange = () => setShort(query.matches);
+    onChange();
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+
+  return short;
+}
 
 let landscapeLockRejected = false;
 

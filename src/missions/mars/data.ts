@@ -119,6 +119,27 @@ export const MARS_OBJECTIVES: Record<MarsStep, string> = {
   closing: 'Three journeys, one archive'
 };
 
+/** Short zone-pill names for a phone in landscape. */
+export const MARS_OBJECTIVE_SHORT: Record<MarsStep, string> = {
+  igneous: 'CRATER FLOOR',
+  sedimentary: 'DELTA ROCK',
+  mudstone: 'LAKE BED',
+  tubes: 'SAMPLE TUBES',
+  sequence: 'RETURN PLAN',
+  reveal: 'RETURN PLAN',
+  water: 'ANCIENT WATER',
+  biosignature: 'BIOSIGNATURES',
+  laboratory: 'EARTH LAB',
+  board: 'EVIDENCE',
+  question: 'SAMPLE TUBES',
+  choice: 'LEGACY',
+  closing: 'ARCHIVE'
+};
+
+export const MARS_APPROACH = narrator(
+  'We have travelled beyond the boundaries of our familiar world. We have sent machines into the unknown, carrying questions that humanity has yet to answer. But sometimes, the greatest discoveries are not found in the farthest corners of space. Sometimes, they are waiting on a neighbouring world. A world that once may have held rivers, lakes, and conditions suitable for life. Mars. NASA\'s Mars 2020 mission carried the rover Perseverance. It launched in July 2020 and landed in Jezero Crater in February 2021, to read the rocks a lake left behind and to seal selected samples for a journey home.'
+);
+
 export const MARS_ARRIVAL = assistant(
   'Jezero Crater once held a lake. A river carried sediment into that water and built a delta. The lake is gone. What remains is the rock it left behind.'
 );

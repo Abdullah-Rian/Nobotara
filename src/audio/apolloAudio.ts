@@ -381,8 +381,16 @@ class ApolloAudioSystem {
    * Speak dialogue prioritizing local offline MP3 assets (/assets/audio/voiceovers/*.mp3),
    * with seamless fallback to server-side Gemini TTS and client-side male Web Speech API.
    */
-  public async speakDialogue(text: string, speaker: string, onEnd?: () => void, clipId?: string) {
+  public async speakDialogue(
+    text: string,
+    speaker: string,
+    onEnd?: () => void,
+    clipId?: string,
+    onStart?: (duration: number) => void
+  ) {
+    const guess = Math.max(8, text.split(/\s+/).filter(Boolean).length / 2.2);
     if (this.isMuted) {
+      onStart?.(0);
       if (onEnd) onEnd();
       return;
     }
@@ -393,7 +401,7 @@ class ApolloAudioSystem {
 
     // 1. First priority: Check for pre-rendered local offline audio asset
     if (clipId) {
-      const localLoaded = await this.playLocalAudioClip(clipId, onEnd, generation);
+      const localLoaded = await this.playLocalAudioClip(clipId, onEnd, generation, onStart, guess);
       if (generation !== this.speakGeneration) return;
       if (localLoaded) {
         return;
@@ -415,7 +423,7 @@ class ApolloAudioSystem {
       if (response.ok) {
         const data = await response.json();
         if (data.audioData && !data.useFallback) {
-          await this.playBase64Wav(data.audioData, onEnd, generation);
+          await this.playBase64Wav(data.audioData, onEnd, generation, onStart, guess);
           return;
         }
       }
@@ -426,13 +434,19 @@ class ApolloAudioSystem {
     if (generation !== this.speakGeneration) return;
 
     // 3. Third priority: Client-side fallback with strictly male voice selection & Apollo tuning
-    this.speakClientFallback(text, speaker, onEnd);
+    this.speakClientFallback(text, speaker, onEnd, onStart, guess);
   }
 
   /**
    * Play pre-rendered local offline MP3 audio file with Quindar beeps & radio filter
    */
-  private async playLocalAudioClip(clipId: string, onEnd: (() => void) | undefined, generation: number): Promise<boolean> {
+  private async playLocalAudioClip(
+    clipId: string,
+    onEnd: (() => void) | undefined,
+    generation: number,
+    onStart?: (duration: number) => void,
+    guess = 8
+  ): Promise<boolean> {
     try {
       const localUrl = `/assets/audio/voiceovers/${clipId}.mp3`;
 
@@ -458,6 +472,8 @@ class ApolloAudioSystem {
               this.playQuindarTone('outro');
               if (onEnd) onEnd();
             };
+            const duration = audio.duration;
+            onStart?.(Number.isFinite(duration) && duration > 0.35 ? duration : guess);
             await audio.play();
             resolve(true);
           } catch (playErr) {
@@ -490,7 +506,13 @@ class ApolloAudioSystem {
   /**
    * Play generated WAV at full bandwidth, matching the opening MP3.
    */
-  private async playBase64Wav(base64Data: string, onEnd: (() => void) | undefined, generation: number) {
+  private async playBase64Wav(
+    base64Data: string,
+    onEnd: (() => void) | undefined,
+    generation: number,
+    onStart?: (duration: number) => void,
+    guess = 8
+  ) {
     try {
       const ctx = this.getContext();
       const binaryString = atob(base64Data);
@@ -519,6 +541,8 @@ class ApolloAudioSystem {
         if (onEnd) onEnd();
       };
 
+      const duration = audioBuffer.duration;
+      onStart?.(Number.isFinite(duration) && duration > 0.35 ? duration : guess);
       source.start();
     } catch (err) {
       console.warn('WAV playback failed, using fallback:', err);
@@ -529,15 +553,20 @@ class ApolloAudioSystem {
   /**
    * Client-side Web Speech API strictly configured for male astronaut voice
    */
-  private speakClientFallback(text: string, speaker: string, onEnd?: () => void) {
+  private speakClientFallback(
+    text: string,
+    speaker: string,
+    onEnd?: () => void,
+    onStart?: (duration: number) => void,
+    guess = 8
+  ) {
+    onStart?.(guess);
     if (!('speechSynthesis' in window)) {
       if (onEnd) {
-        const wordCount = text.split(' ').length;
-        const durationMs = Math.max(2500, (wordCount / 2.5) * 1000);
         setTimeout(() => {
           this.playQuindarTone('outro');
           onEnd();
-        }, durationMs);
+        }, guess * 1000);
       }
       return;
     }

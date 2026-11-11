@@ -6,6 +6,7 @@ import { apolloAudio } from '../audio/apolloAudio';
 import { VirtualJoystick } from './VirtualJoystick';
 import { NavMap } from './NavMap';
 import { DisplayControls } from './DisplayControls';
+import { useShortHeight } from '../utils/displayMode';
 
 interface HUDProps {
   telemetry: RoverTelemetry;
@@ -44,6 +45,7 @@ export const HUD: React.FC<HUDProps> = ({
   typeDialogue = false,
   onDialogueTyped
 }) => {
+  const short = useShortHeight();
   const visitedCount = Object.values(artifactsVisited).filter(Boolean).length;
   const activeArtifactData = nearArtifact && nearArtifact !== 'laser_station' ? ARTIFACTS[nearArtifact] : null;
   const objectiveLabel: Record<Exclude<ObjectiveStep, 'free'>, string> = {
@@ -52,13 +54,34 @@ export const HUD: React.FC<HUDProps> = ({
     laser: 'OBJECTIVE 3 · LASER RANGING',
     plaque: 'OBJECTIVE 4 · COMMEMORATIVE PLAQUE'
   };
+  const objectiveShort: Record<Exclude<ObjectiveStep, 'free'>, string> = {
+    lander: 'EAGLE',
+    retroreflector: 'RETROREFLECTOR',
+    laser: 'LASER',
+    plaque: 'PLAQUE'
+  };
+  const zoneName = objective !== 'free'
+    ? objectiveLabel[objective]
+    : nearArtifact === 'laser_station'
+      ? 'LASER STATION [IN MARKER]'
+      : activeArtifactData
+        ? `${activeArtifactData.shortName} [IN MARKER]`
+        : 'AREA MARKER';
+  const zoneShort = objective !== 'free'
+    ? objectiveShort[objective]
+    : nearArtifact === 'laser_station'
+      ? 'LASER'
+      : activeArtifactData
+        ? activeArtifactData.shortName
+        : 'MARKER';
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 z-10 overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 short:p-2 z-10 overflow-hidden">
       {/* Top Bar: Mission Info & Telemetry Status */}
       <div className="flex justify-between items-start gap-4 pointer-events-auto">
         {/* Mission Cluster */}
-        <div className="bg-slate-950/80 border border-slate-800/80 rounded-lg p-3 max-w-sm">
+        <div className="flex min-w-0 flex-col items-start gap-2">
+        <div className="bg-slate-950/80 border border-slate-800/80 rounded-lg p-3 short:p-2 max-w-sm">
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 bg-amber-400 rounded-full" />
             <span className="text-xs font-bold tracking-wider text-slate-200 font-mono-num uppercase">
@@ -72,6 +95,45 @@ export const HUD: React.FC<HUDProps> = ({
             <span>·</span>
             <span>HDG: {Math.round(telemetry.heading)}°</span>
           </div>
+        </div>
+
+        <div data-coach="apollo-compass" className="absolute left-4 top-1/2 -translate-y-1/2 md:left-6 short:static short:left-auto short:top-auto short:translate-y-0 short:max-w-full bg-slate-950/85 border border-slate-800/80 rounded-full px-4 py-1.5 short:px-2.5 short:py-1 flex items-center gap-4 short:gap-2 text-xs font-mono-num text-slate-300 pointer-events-auto">
+          <div className="flex items-center gap-1.5">
+            <Navigation className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
+            <span className="text-slate-400 short:hidden">ZONE:</span>
+            <span className={`font-semibold ${nearArtifact ? 'text-emerald-300' : 'text-slate-200'}`}>
+              <span className="short:hidden">{zoneName}</span>
+              <span className="hidden short:inline">{zoneShort}</span>
+            </span>
+            {telemetry.distanceToTarget < 400 && (
+              <span className="text-emerald-400 ml-1">
+                ({telemetry.distanceToTarget.toFixed(1)}m)
+              </span>
+            )}
+          </div>
+          {objective === 'free' && (
+            <div className="h-3 w-px bg-slate-800 short:hidden" />
+          )}
+          {objective === 'free' && (
+            <div className="flex items-center gap-2 text-[11px] short:hidden">
+              <span className={artifactsVisited.descent_stage ? 'text-emerald-400' : 'text-slate-400'}>
+                Descent Stage {artifactsVisited.descent_stage && '✓'}
+              </span>
+              <span>·</span>
+              <span className={artifactsVisited.retroreflector ? 'text-emerald-400' : 'text-slate-400'}>
+                Retroreflector {artifactsVisited.retroreflector && '✓'}
+              </span>
+              <span>·</span>
+              <span className={laserCompleted ? 'text-emerald-400' : 'text-slate-400'}>
+                Laser {laserCompleted && '✓'}
+              </span>
+              <span>·</span>
+              <span className={artifactsVisited.plaque ? 'text-emerald-400' : 'text-slate-400'}>
+                Plaque {artifactsVisited.plaque && '✓'}
+              </span>
+            </div>
+          )}
+        </div>
         </div>
 
         {/* Progress & Controls Cluster */}
@@ -106,55 +168,11 @@ export const HUD: React.FC<HUDProps> = ({
         </div>
       </div>
 
-      {/* Target Navigational Compass Beacon (Points towards unvisited artifacts) */}
-      <div data-coach="apollo-compass" className="mx-auto bg-slate-950/85 border border-slate-800/80 rounded-full px-4 py-1.5 flex items-center gap-4 text-xs font-mono-num text-slate-300 pointer-events-auto">
-        <div className="flex items-center gap-1.5">
-          <Navigation className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
-          <span className="text-slate-400">ZONE:</span>
-          <span className={`font-semibold ${nearArtifact ? 'text-emerald-300' : 'text-slate-200'}`}>
-            {objective !== 'free'
-              ? objectiveLabel[objective]
-              : nearArtifact === 'laser_station'
-                ? 'LASER STATION [IN MARKER]'
-                : activeArtifactData
-                  ? `${activeArtifactData.shortName} [IN MARKER]`
-                  : 'AREA MARKER'}
-          </span>
-          {telemetry.distanceToTarget < 400 && (
-            <span className="text-emerald-400 ml-1">
-              ({telemetry.distanceToTarget.toFixed(1)}m)
-            </span>
-          )}
-        </div>
-        {objective === 'free' && (
-          <div className="h-3 w-px bg-slate-800" />
-        )}
-        {objective === 'free' && (
-          <div className="flex items-center gap-2 text-[11px]">
-            <span className={artifactsVisited.descent_stage ? 'text-emerald-400' : 'text-slate-400'}>
-              Descent Stage {artifactsVisited.descent_stage && '✓'}
-            </span>
-            <span>·</span>
-            <span className={artifactsVisited.retroreflector ? 'text-emerald-400' : 'text-slate-400'}>
-              Retroreflector {artifactsVisited.retroreflector && '✓'}
-            </span>
-            <span>·</span>
-            <span className={laserCompleted ? 'text-emerald-400' : 'text-slate-400'}>
-              Laser {laserCompleted && '✓'}
-            </span>
-            <span>·</span>
-            <span className={artifactsVisited.plaque ? 'text-emerald-400' : 'text-slate-400'}>
-              Plaque {artifactsVisited.plaque && '✓'}
-            </span>
-          </div>
-        )}
-      </div>
-
       {/* Bottom Area: Dialogue, joystick, and action triggers */}
       <div className="flex justify-between items-end gap-4 pointer-events-auto">
         <div className="flex flex-col items-start gap-3">
           {activeDialogue && (
-            <div className="mb-12">
+            <div className="mb-12 short:mb-1">
               <DialoguePanel
                 message={activeDialogue}
                 typewriter={typeDialogue}
@@ -163,7 +181,7 @@ export const HUD: React.FC<HUDProps> = ({
             </div>
           )}
           {showJoystick && (
-            <div data-coach="apollo-stick" className="ml-10 mb-8 bg-slate-950/80 border border-slate-800/80 rounded-2xl p-2.5">
+            <div data-coach="apollo-stick" className="ml-10 mb-8 short:ml-0 short:mb-0 bg-slate-950/80 border border-slate-800/80 rounded-2xl p-2.5 short:p-1.5">
               <VirtualJoystick onMove={onJoystickMove} />
             </div>
           )}
@@ -198,6 +216,7 @@ export const HUD: React.FC<HUDProps> = ({
                 objective={objective}
                 artifactsVisited={artifactsVisited}
                 laserCompleted={laserCompleted}
+                size={short ? 104 : 168}
               />
             )}
           </div>
@@ -255,7 +274,7 @@ export function DialoguePanel({
   const shown = message.text.slice(0, count);
 
   return (
-    <div className={`w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 shadow-xl ${className}`}>
+    <div className={`w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 short:max-h-[30vh] short:overflow-y-auto short:p-2 shadow-xl ${className}`}>
       <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
@@ -267,7 +286,7 @@ export function DialoguePanel({
           TRANSMISSION LINK ACTIVE
         </span>
       </div>
-      <p className="relative text-sm md:text-base text-slate-100 font-medium leading-relaxed">
+      <p className="relative text-sm md:text-base short:text-xs text-slate-100 font-medium leading-relaxed">
         {typewriter ? (
           <>
             <span className="invisible" aria-hidden="true">

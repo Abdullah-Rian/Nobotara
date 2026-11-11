@@ -5,6 +5,7 @@ import { VoyagerTelemetry } from '../game/voyagerEngine';
 import { VoyagerStep } from '../missions/voyager/data';
 import { DisplayControls } from './DisplayControls';
 import { DialoguePanel } from './HUD';
+import { useShortHeight } from '../utils/displayMode';
 
 interface VoyagerHUDProps {
   telemetry: VoyagerTelemetry;
@@ -70,8 +71,10 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
   lookingAround = false,
   linkSent = false
 }) => {
-  const earth = blip(telemetry.yawError, telemetry.pitchError, 52);
-  const marker = blip(telemetry.markerYaw, telemetry.markerPitch, 52);
+  const short = useShortHeight();
+  const dialRadius = short ? 35 : 52;
+  const earth = blip(telemetry.yawError, telemetry.pitchError, dialRadius);
+  const marker = blip(telemetry.markerYaw, telemetry.markerPitch, dialRadius);
   const currentIndex = Math.max(0, OBJECTIVES.findIndex(item => item.id === step));
   const completed = currentIndex;
   const objectiveNote =
@@ -82,21 +85,21 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
           : null;
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4 md:p-6">
+    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4 md:p-6 short:p-2">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col items-stretch gap-3">
-        <div className="pointer-events-auto rounded-lg border border-slate-800/80 bg-slate-950/80 p-3">
+        <div className="pointer-events-auto rounded-lg border border-slate-800/80 bg-slate-950/80 p-3 short:p-2">
           <div className="text-xs font-bold tracking-wider text-slate-200">MISSION 02: VOYAGER 1</div>
           <div className="mt-1 text-xs font-mono-num text-slate-400">
             SIGNAL {Math.round(telemetry.signal * 100)}% · EARTH {telemetry.headingErrorDeg.toFixed(0)}°
           </div>
-          <div className="mt-1 max-w-56 text-[10px] font-mono-num leading-relaxed text-slate-500">
+          <div className="mt-1 max-w-56 text-[10px] font-mono-num leading-relaxed text-slate-500 short:hidden">
             24 BILLION KM · CROSSED AUG 2012 · RADIO DELAY MEASURED IN HOURS
           </div>
           <div className="mt-1 text-[10px] font-mono-num text-slate-500">
             {linkSent ? 'TELEMETRY SENT' : lookingAround ? 'PANNING' : '← → YAW · ↑ ↓ PITCH'}
           </div>
-          <div className="mt-1 max-w-56 text-[10px] leading-relaxed text-slate-500">
+          <div className="mt-1 max-w-56 text-[10px] leading-relaxed text-slate-500 short:hidden">
             {linkSent
               ? 'The radio signal is crossing the distance to Earth.'
               : lookingAround
@@ -132,7 +135,7 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
             const done = index < currentIndex;
             const current = index === currentIndex;
             return (
-              <li key={item.id} className="flex items-center gap-2">
+              <li key={item.id} className={`flex items-center gap-2 ${current ? '' : 'short:hidden'}`}>
                 <span
                   className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
                     done
@@ -221,7 +224,7 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
         </div>
 
         <div className="pointer-events-auto mb-4 flex flex-col items-end gap-3">
-          <div className="relative h-36 w-36 rounded-full border border-slate-700 bg-slate-950/80">
+          <div className="relative h-36 w-36 short:h-24 short:w-24 rounded-full border border-slate-700 bg-slate-950/80">
             <div className="absolute left-1/2 top-2 -translate-x-1/2 text-[9px] font-mono-num text-slate-500">DISH</div>
             <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rotate-0">
               <div className="mx-auto h-0 w-0 border-x-[6px] border-b-[10px] border-x-transparent border-b-slate-100" />

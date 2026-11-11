@@ -292,9 +292,14 @@ export const LIGHT_SPEED_KM_S = 299_792.458;
  * km, comes on 18 November 2026.
  */
 export const VOYAGER_EARTH_RANGE_KM = 25_880_381_236;
+/** Voyager 1's speed relative to the Sun, the figure published with its status. */
+export const VOYAGER_SUN_SPEED_KM_S = 17;
 export const VOYAGER_RANGE_DATE = '9 November 2026';
 export const VOYAGER_LIGHT_DAY_DATE = '18 November 2026';
 export const VOYAGER_LIGHT_DAY_BILLION_KM = 25.9;
+
+export const VOYAGER_INTRO_TITLE = 'VOYAGER 1';
+export const VOYAGER_INTRO_STATUS = `Distance from Earth: ${(VOYAGER_EARTH_RANGE_KM / 1_000_000_000).toFixed(2)} billion km ; Speed: ${VOYAGER_SUN_SPEED_KM_S.toFixed(1)} km/s`;
 
 export const LIVE_MARKER: Partial<Record<VoyagerStep, VoyagerMarkerId>> = {
   plasma: 'plasma',

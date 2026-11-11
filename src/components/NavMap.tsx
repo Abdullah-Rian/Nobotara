@@ -2,7 +2,7 @@ import React from 'react';
 import { ARTIFACTS, LASER_STATION, OBJECTIVE_MARKER, ALL_MARKERS } from '../data/artifactsData';
 import { ArtifactId, MarkerId, ObjectiveStep, RoverTelemetry } from '../types/game';
 
-const SIZE = 168;
+const DEFAULT_SIZE = 168;
 const MIN_SPAN = 90;
 const RETURN_DISTANCE = 80;
 
@@ -18,6 +18,7 @@ interface NavMapProps {
   objective: ObjectiveStep;
   artifactsVisited: Record<ArtifactId, boolean>;
   laserCompleted: boolean;
+  size?: number;
 }
 
 function markerPoint(id: MarkerId): { x: number; z: number } {
@@ -41,7 +42,8 @@ export const NavMap: React.FC<NavMapProps> = ({
   telemetry,
   objective,
   artifactsVisited,
-  laserCompleted
+  laserCompleted,
+  size = DEFAULT_SIZE
 }) => {
   const rover = telemetry.position;
   const lander = telemetry.lander;
@@ -64,9 +66,9 @@ export const NavMap: React.FC<NavMapProps> = ({
   const span = Math.max(MIN_SPAN, Math.max(maxX - minX, maxZ - minZ) * 1.35);
   const centerX = (minX + maxX) / 2;
   const centerZ = (minZ + maxZ) / 2;
-  const scale = (SIZE - 20) / span;
-  const toX = (x: number) => SIZE / 2 + (x - centerX) * scale;
-  const toY = (z: number) => SIZE / 2 - (z - centerZ) * scale;
+  const scale = (size - Math.round(20 * size / DEFAULT_SIZE)) / span;
+  const toX = (x: number) => size / 2 + (x - centerX) * scale;
+  const toY = (z: number) => size / 2 - (z - centerZ) * scale;
   const heading = ((telemetry.heading % 360) + 360) % 360;
   const roverX = toX(rover.x);
   const roverY = toY(rover.z);
@@ -74,8 +76,11 @@ export const NavMap: React.FC<NavMapProps> = ({
   const landerY = toY(lander.z);
 
   return (
-    <div className="w-[168px] h-[168px] rounded-lg border border-slate-800/80 bg-slate-950/85 overflow-hidden shadow-lg">
-      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="w-full h-full" role="img" aria-label="Navigation map">
+    <div
+      className="rounded-lg border border-slate-800/80 bg-slate-950/85 overflow-hidden shadow-lg"
+      style={{ width: size, height: size }}
+    >
+      <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full" role="img" aria-label="Navigation map">
         {telemetry.rangeRadius > 0 && (
           <circle
             cx={landerX}

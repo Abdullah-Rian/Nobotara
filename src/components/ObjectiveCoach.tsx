@@ -33,8 +33,8 @@ function coachElement(id: string) {
   return document.querySelector(`[data-coach="${id}"]`);
 }
 
-function chooseSide(rect: DOMRect, vw: number, vh: number): Side {
-  const need = HAND + GAP + 8;
+function chooseSide(rect: DOMRect, vw: number, vh: number, hand: number): Side {
+  const need = hand + GAP + 8;
   const canRight = vw - rect.right > need;
   const canLeft = rect.left > need;
   const canAbove = rect.top > need;
@@ -103,18 +103,23 @@ export function ObjectiveCoach({
 
   if (!beat || !rect || rect.width === 0) return null;
 
-  const captionWidth = Math.min(260, viewport.w - MARGIN * 2);
+  const short = viewport.h <= 500;
+  const hand = short ? 40 : HAND;
+  const captionWidth = Math.min(short ? 180 : 260, viewport.w - MARGIN * 2);
+  const captionClass = short
+    ? 'absolute rounded-lg border border-amber-300/80 bg-slate-950/95 px-2 py-1 text-xs font-semibold leading-snug text-slate-100 shadow-lg'
+    : 'absolute rounded-lg border border-amber-300/80 bg-slate-950/95 px-3 py-2 text-sm font-semibold leading-snug text-slate-100 shadow-lg';
 
   if (!beat.hand) {
     let left = rect.left + rect.width / 2 - captionWidth / 2;
     left = clamp(left, MARGIN, viewport.w - captionWidth - MARGIN);
-    let top = rect.top - 78;
+    let top = rect.top - (short ? 48 : 78);
     if (top < MARGIN) top = clamp(rect.bottom + GAP, MARGIN, viewport.h - 52);
     return (
       <div className="pointer-events-none fixed inset-0 z-[70]">
         <p
           role="status"
-          className="absolute rounded-lg border border-amber-300/80 bg-slate-950/95 px-3 py-2 text-sm font-semibold leading-snug text-slate-100 shadow-lg"
+          className={captionClass}
           style={{ left, top, width: captionWidth }}
         >
           {beat.text}
@@ -123,28 +128,28 @@ export function ObjectiveCoach({
     );
   }
 
-  const side = chooseSide(rect, viewport.w, viewport.h);
+  const side = chooseSide(rect, viewport.w, viewport.h, hand);
   const nudge = { above: [0, 7], below: [0, -7], left: [7, 0], right: [-7, 0] }[side];
   const rotation = { above: 225, below: 45, left: 135, right: 315 }[side];
-  let handLeft = rect.left + rect.width / 2 - HAND / 2;
-  let handTop = rect.top - HAND - GAP;
+  let handLeft = rect.left + rect.width / 2 - hand / 2;
+  let handTop = rect.top - hand - GAP;
   if (side === 'below') {
-    handLeft = rect.left + rect.width / 2 - HAND / 2;
+    handLeft = rect.left + rect.width / 2 - hand / 2;
     handTop = rect.bottom + GAP;
   } else if (side === 'left') {
-    handLeft = rect.left - HAND - GAP;
-    handTop = rect.top + rect.height / 2 - HAND / 2;
+    handLeft = rect.left - hand - GAP;
+    handTop = rect.top + rect.height / 2 - hand / 2;
   } else if (side === 'right') {
     handLeft = rect.right + GAP;
-    handTop = rect.top + rect.height / 2 - HAND / 2;
+    handTop = rect.top + rect.height / 2 - hand / 2;
   }
-  handLeft = clamp(handLeft, MARGIN, viewport.w - HAND - MARGIN);
-  handTop = clamp(handTop, MARGIN, viewport.h - HAND - MARGIN);
+  handLeft = clamp(handLeft, MARGIN, viewport.w - hand - MARGIN);
+  handTop = clamp(handTop, MARGIN, viewport.h - hand - MARGIN);
 
-  let captionLeft = side === 'left' ? handLeft - captionWidth - GAP : handLeft + HAND + GAP;
+  let captionLeft = side === 'left' ? handLeft - captionWidth - GAP : handLeft + hand + GAP;
   if (captionLeft + captionWidth > viewport.w - MARGIN) captionLeft = handLeft - captionWidth - GAP;
   captionLeft = clamp(captionLeft, MARGIN, viewport.w - captionWidth - MARGIN);
-  const captionTop = clamp(handTop + (HAND - 52) / 2, MARGIN, viewport.h - 56);
+  const captionTop = clamp(handTop + (hand - (short ? 36 : 52)) / 2, MARGIN, viewport.h - (short ? 40 : 56));
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[70]">
@@ -153,8 +158,8 @@ export function ObjectiveCoach({
         style={{
           left: handLeft,
           top: handTop,
-          width: HAND,
-          height: HAND,
+          width: hand,
+          height: hand,
           ['--coach-x' as string]: `${nudge[0]}px`,
           ['--coach-y' as string]: `${nudge[1]}px`
         }}
@@ -177,7 +182,7 @@ export function ObjectiveCoach({
       </div>
       <p
         role="status"
-        className="absolute rounded-lg border border-amber-300/80 bg-slate-950/95 px-3 py-2 text-sm font-semibold leading-snug text-slate-100 shadow-lg"
+        className={captionClass}
         style={{ left: captionLeft, top: captionTop, width: captionWidth }}
       >
         {beat.text}

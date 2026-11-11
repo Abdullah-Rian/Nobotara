@@ -17,6 +17,8 @@ import {
   VOYAGER_ALIGN_CONTROL,
   VOYAGER_ALIGN_SCIENCE,
   VOYAGER_INTRO,
+  VOYAGER_INTRO_STATUS,
+  VOYAGER_INTRO_TITLE,
   VOYAGER_SHELL_LINE,
   VoyagerMarkerId,
   VoyagerStep,
@@ -30,6 +32,7 @@ import { MatchingPuzzle } from './components/MatchingPuzzle';
 import { OutroScreen } from './components/OutroScreen';
 import { RotateOverlay } from './components/RotateOverlay';
 import { VoyagerHUD } from './components/VoyagerHUD';
+import { introTitleLeadSeconds, MissionIntroTitle } from './components/VoyagerIntroTitle';
 import { VoyagerParts } from './components/VoyagerParts';
 import { VoyagerSkyLabels } from './components/VoyagerSkyLabels';
 import { VoyagerRecord } from './components/VoyagerRecord';
@@ -38,6 +41,40 @@ import { VoyagerReading } from './components/VoyagerReading';
 import { VoyagerSignalSent } from './components/VoyagerSignalSent';
 import { VoyagerOutro } from './components/VoyagerOutro';
 import { MarsHUD } from './components/MarsHUD';
+import { PerseveranceMark } from './components/PerseveranceMark';
+
+const MarsIntroVeil: React.FC<{ read: () => number }> = ({ read }) => {
+  const veilRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let frame = 0;
+    const tick = () => {
+      const node = veilRef.current;
+      if (node) {
+        const opacity = read();
+        node.style.opacity = String(opacity);
+        node.style.visibility = opacity > 0.004 ? 'visible' : 'hidden';
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [read]);
+  return (
+    <div
+      ref={veilRef}
+      className="pointer-events-none fixed inset-0 z-30"
+      style={{ backgroundColor: '#8a3a2c', opacity: 0, visibility: 'hidden' }}
+    />
+  );
+};
+const APOLLO_INTRO_TITLE = 'MOON SURFACE';
+const APOLLO_INTRO_STATUS = 'Sea of Tranquility, Apollo 11 Landing Site';
+const APOLLO_INTRO_DIALOGUE: DialogueMessage = {
+  speaker: 'Neil Armstrong (Narrator-01)',
+  text: "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn’t just chase a rock in the sky; we went to learn what people can do when they dare."
+};
+const MARS_OPENING_TITLE = 'MARS';
+
 import { MarsInspect } from './components/MarsInspect';
 import { SequencePuzzle } from './components/SequencePuzzle';
 import { EvidenceBoard } from './components/EvidenceBoard';
@@ -45,6 +82,7 @@ import { LegacyChoice } from './components/LegacyChoice';
 import { CuriousCard } from './components/CuriousCard';
 import {
   LIVE_SITE,
+  MARS_APPROACH,
   MARS_ARRIVAL,
   MARS_ARRIVAL_NARRATOR,
   MARS_CLOSING,
@@ -52,6 +90,7 @@ import {
   MARS_LEGACY_LINE,
   MARS_MEANING,
   MARS_OBJECTIVES,
+  MARS_OBJECTIVE_SHORT,
   MARS_READINGS,
   MARS_SEQUENCE_LINE,
   MARS_UNANSWERED,
@@ -103,15 +142,27 @@ export default function App() {
   const readPlaquePoint = useCallback(() => engineRef.current?.plaqueScreenPoint, []);
   const readVoyagerParts = useCallback(() => voyagerRef.current?.partFrame, []);
   const readVoyagerSky = useCallback(() => voyagerRef.current?.skyFrame, []);
-  const readApolloSun = useCallback((): SkyFrame | undefined => {
-    const sun = engineRef.current?.sunScreen;
-    if (!sun) return undefined;
+  const readApolloSky = useCallback((): SkyFrame | undefined => {
+    const engine = engineRef.current;
+    if (!engine) return undefined;
     return {
-      sun,
-      earth: { x: 0, y: 0, visible: false },
+      sun: engine.sunScreen,
+      earth: engine.earthScreen,
       mars: { x: 0, y: 0, visible: false }
     };
   }, []);
+  const readMarsSky = useCallback((): SkyFrame | undefined => {
+    const engine = marsRef.current;
+    if (!engine) return undefined;
+    return {
+      sun: { x: 0, y: 0, visible: false },
+      earth: { x: 0, y: 0, visible: false },
+      mars: { x: 0, y: 0, visible: false },
+      jezero: engine.jezeroScreen
+    };
+  }, []);
+  const readMarsVeil = useCallback(() => marsRef.current?.veilOpacity ?? 0, []);
+  const readPerseverance = useCallback(() => marsRef.current?.perseveranceLabel, []);
   const phaseRef = useRef<GamePhase>('title');
   const roverLockedRef = useRef(true);
   const introVoiceRef = useRef({ cancelled: false });
@@ -436,13 +487,7 @@ export default function App() {
     setLaserResultReady(false);
     setPhase('intro');
     gameInputs.setVirtualJoystick(0, 0);
-
-    const introSpeech = "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn’t just chase a rock in the sky; we went to learn what people can do when they dare.";
-
-    setActiveDialogue({
-      speaker: 'Neil Armstrong (Narrator-01)',
-      text: introSpeech
-    });
+    setActiveDialogue(null);
   };
 
   const handleStartMission = () => requestStart('apollo');
@@ -773,7 +818,7 @@ export default function App() {
     setVoyagerPartsOpen(false);
     setVoyagerPartId(null);
     setVoyagerPartTour(false);
-    setActiveDialogue(VOYAGER_INTRO);
+    setActiveDialogue(null);
     setPhase('intro');
     engine.setStep('align');
     engine.beginIntro();
@@ -1219,6 +1264,36 @@ export default function App() {
     const cue = marsCueRef.current;
     if (!cue) return;
     const reading = marsReadingRef.current;
+    if (cue === 'approach') {
+      marsCueRef.current = null;
+      const engine = marsRef.current;
+      const speak = () => {
+        if (!engine || engine.introSkipped) return;
+        const token = ++marsSpeakRef.current;
+        let started = false;
+        let settled = false;
+        const finish = () => {
+          if (settled || token !== marsSpeakRef.current) return;
+          settled = true;
+          if (!started) engine.beginApproach(0);
+          engine.noteApproachSpeechEnded();
+        };
+        void apolloAudio.speakDialogue(
+          MARS_APPROACH.text,
+          MARS_APPROACH.speaker,
+          finish,
+          'mars_approach',
+          duration => {
+            if (token !== marsSpeakRef.current) return;
+            started = true;
+            engine.beginApproach(duration);
+          }
+        );
+      };
+      if (engine) engine.whenApproachReady(speak);
+      else speak();
+      return;
+    }
     if (cue === 'arrival') {
       marsCueRef.current = null;
       speakMars(MARS_ARRIVAL.text, MARS_ARRIVAL.speaker, 'mars_arrival', () => {
@@ -1396,6 +1471,9 @@ export default function App() {
     engine.onIntroDone = () => {
       if (missionRef.current !== 'mars') return;
       setPhase('explore');
+      if (engine.introSkipped) return;
+      marsCueRef.current = 'arrival';
+      setActiveDialogue(MARS_ARRIVAL);
     };
     missionRef.current = 'mars';
     setMission('mars');
@@ -1409,11 +1487,11 @@ export default function App() {
     setMarsCurious(false);
     setOutroProgress(0);
     revealReadyRef.current = { shot: false, line: false };
-    marsCueRef.current = 'arrival';
-    setActiveDialogue(MARS_ARRIVAL);
+    marsCueRef.current = 'approach';
+    setActiveDialogue(null);
     setPhase('intro');
     engine.setLive('igneous');
-    engine.beginIntro();
+    engine.beginIntro(introTitleLeadSeconds(MARS_OPENING_TITLE) + MARS_APPROACH.text.length * 0.012);
   };
   beginMarsRef.current = beginMars;
 
@@ -1483,6 +1561,7 @@ export default function App() {
     marsChoice && marsStep === 'choice'
       ? LEGACY_CHOICES.find(choice => choice.id === marsChoice)?.title ?? MARS_OBJECTIVES.choice
       : MARS_OBJECTIVES[marsStep];
+  const marsObjectiveShort = MARS_OBJECTIVE_SHORT[marsStep];
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
@@ -1548,12 +1627,36 @@ export default function App() {
         </button>
       )}
 
+      {mission === 'apollo' && phase === 'intro' && (
+        <MissionIntroTitle
+          line1={APOLLO_INTRO_TITLE}
+          line2={APOLLO_INTRO_STATUS}
+          onTyped={() => {
+            if (introVoiceRef.current.cancelled || missionRef.current !== 'apollo') return;
+            setActiveDialogue(APOLLO_INTRO_DIALOGUE);
+          }}
+        />
+      )}
+
       {mission === 'voyager' && phase === 'intro' && (
-        <div className="pointer-events-none absolute inset-x-0 top-28 z-20 px-6 text-center">
-          <h1 className="text-[0.5625rem] font-extrabold text-white drop-shadow md:text-[0.9rem]">
-            Meet Voyager 1 — The Endless Journey
-          </h1>
-        </div>
+        <MissionIntroTitle
+          line1={VOYAGER_INTRO_TITLE}
+          line2={VOYAGER_INTRO_STATUS}
+          onTyped={() => {
+            if (voyagerCueRef.current !== 'intro') return;
+            setActiveDialogue(VOYAGER_INTRO);
+          }}
+        />
+      )}
+
+      {mission === 'mars' && phase === 'intro' && (
+        <MissionIntroTitle
+          line1={MARS_OPENING_TITLE}
+          onTyped={() => {
+            if (marsCueRef.current !== 'approach') return;
+            setActiveDialogue(MARS_APPROACH);
+          }}
+        />
       )}
 
       {(phase === 'explore' || phase === 'intro' || (phase === 'inspect' && !recordOpen)) && mission === 'voyager' && (
@@ -1598,11 +1701,20 @@ export default function App() {
       )}
 
       {mission === 'apollo' && phase !== 'title' && phase !== 'outro' && phase !== 'puzzle' && (
-        <VoyagerSkyLabels readFrame={readApolloSun} keys={['sun']} />
+        <VoyagerSkyLabels readFrame={readApolloSky} keys={['sun', 'earth']} />
       )}
 
       {mission === 'voyager' && phase !== 'outro' && phase !== 'puzzle' && (
         <VoyagerSkyLabels readFrame={readVoyagerSky} />
+      )}
+
+      {mission === 'mars' && phase !== 'title' && <PerseveranceMark read={readPerseverance} />}
+
+      {mission === 'mars' && phase === 'intro' && (
+        <>
+          <VoyagerSkyLabels readFrame={readMarsSky} keys={['jezero']} />
+          <MarsIntroVeil read={readMarsVeil} />
+        </>
       )}
 
       {mission === 'voyager' && voyagerPartsOpen && (
@@ -1702,6 +1814,7 @@ export default function App() {
         <MarsHUD
           telemetry={marsTelemetry}
           objective={marsObjective}
+          objectiveShort={marsObjectiveShort}
           target={marsTarget}
           pulseCache={marsStep === 'question' && marsTelemetry.distanceToTarget > 16}
           near={phase === 'explore' && marsNear}
@@ -1711,7 +1824,7 @@ export default function App() {
           dialogue={activeDialogue}
           typeDialogue
           onDialogueTyped={onMarsTyped}
-          showJoystick={phase === 'explore'}
+          showJoystick={phase === 'explore' && !activeDialogue}
           showMap={phase === 'explore'}
           showContinue={phase === 'outro' && marsStep === 'choice' && marsNarrationDone}
           onContinue={beginClosing}

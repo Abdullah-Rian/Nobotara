@@ -1,10 +1,11 @@
 import React from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Navigation, Volume2, VolumeX } from 'lucide-react';
 import { DialogueMessage } from '../types/game';
 import { DialoguePanel } from './HUD';
 import { DisplayControls } from './DisplayControls';
 import { VirtualJoystick } from './VirtualJoystick';
 import { MarsTelemetry } from '../game/marsEngine';
+import { useShortHeight } from '../utils/displayMode';
 
 interface MarsTarget {
   x: number;
@@ -15,6 +16,7 @@ interface MarsTarget {
 interface MarsHUDProps {
   telemetry: MarsTelemetry;
   objective: string;
+  objectiveShort: string;
   target: MarsTarget | null;
   pulseCache: boolean;
   near: boolean;
@@ -33,12 +35,13 @@ interface MarsHUDProps {
   onToggleMute: () => void;
 }
 
-const SIZE = 168;
+const DEFAULT_SIZE = 168;
 const MIN_SPAN = 70;
 
 export const MarsHUD: React.FC<MarsHUDProps> = ({
   telemetry,
   objective,
+  objectiveShort,
   target,
   pulseCache,
   near,
@@ -56,69 +59,115 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
   isMuted,
   onToggleMute
 }) => {
+  const short = useShortHeight();
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between p-4 md:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="rounded-lg border border-slate-800 bg-slate-950/85 px-4 py-2 shadow-lg">
-          <div className="text-[10px] font-mono-num font-bold tracking-wider text-amber-300">MISSION 03 · JEZERO</div>
-          <div className="mt-1 text-sm font-bold text-slate-100">{objective}</div>
-          <div className="mt-1 text-[11px] font-mono-num text-slate-400">
-            {telemetry.speed.toFixed(1)} m/s · range {Math.round(telemetry.rangeRadius)} m
+    <div className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between p-4 md:p-6 short:p-2">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-col items-start gap-2">
+          <div className="max-w-sm rounded-lg border border-slate-800/80 bg-slate-950/80 p-3 short:p-2">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber-400" />
+              <span className="font-mono-num text-xs font-bold uppercase tracking-wider text-slate-200">
+                MISSION 03: MARS SAMPLE RETURN
+              </span>
+            </div>
+            <div className="flex items-center gap-2 font-mono-num text-xs text-slate-400">
+              <span>JEZERO CRATER</span>
+              <span>·</span>
+              <span>VEL: {telemetry.speed.toFixed(1)} m/s</span>
+              <span>·</span>
+              <span>HDG: {Math.round(telemetry.heading)}°</span>
+            </div>
+          </div>
+
+          <div className="pointer-events-auto absolute left-4 top-1/2 flex items-center gap-4 rounded-full border border-slate-800/80 bg-slate-950/85 px-4 py-1.5 font-mono-num text-xs text-slate-300 short:static short:left-auto short:top-auto short:max-w-full short:-translate-y-0 short:gap-2 short:px-2.5 short:py-1 md:left-6 -translate-y-1/2">
+            <div className="flex items-center gap-1.5">
+              <Navigation className="h-3.5 w-3.5 animate-bounce text-emerald-400" />
+              <span className="text-slate-400 short:hidden">ZONE:</span>
+              <span className="font-semibold text-slate-200">
+                <span className="short:hidden">{objective}</span>
+                <span className="hidden short:inline">{objectiveShort}</span>
+              </span>
+              <span className="ml-1 text-emerald-400">
+                ({telemetry.distanceToTarget.toFixed(1)}m)
+              </span>
+            </div>
           </div>
         </div>
+
         <div className="pointer-events-auto flex items-center gap-2">
           <button
             type="button"
             onClick={onMissions}
-            className="rounded-lg border border-slate-700 bg-slate-950/85 px-3 py-2 text-[11px] font-mono-num text-slate-300"
+            className="rounded-lg border border-slate-800/80 bg-slate-950/80 px-3 py-2 font-mono-num text-xs text-slate-300"
           >
             MISSIONS
           </button>
+          <DisplayControls compact labels="never" />
           <button
             type="button"
             onClick={onToggleMute}
-            className="rounded-lg border border-slate-700 bg-slate-950/85 p-2 text-slate-200"
-            aria-label={isMuted ? 'Unmute' : 'Mute'}
+            className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5 text-slate-300 transition-colors hover:bg-slate-900"
+            title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
           >
-            {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            {isMuted ? <VolumeX className="h-4 w-4 text-rose-400" /> : <Volume2 className="h-4 w-4 text-emerald-400" />}
           </button>
-          <DisplayControls compact />
         </div>
       </div>
 
-      <div className="flex items-end justify-between gap-4">
+      <div className="pointer-events-auto flex items-end justify-between gap-4">
         <div className="flex flex-col items-start gap-3">
           {dialogue && (
-            <DialoguePanel message={dialogue} typewriter={typeDialogue} onTyped={onDialogueTyped} />
-          )}
-          {showContinue && (
-            <button
-              type="button"
-              onClick={onContinue}
-              className="pointer-events-auto rounded-lg bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950"
-            >
-              LEAVE THE CRATER
-            </button>
+            <div className="mb-12 short:mb-1">
+              <DialoguePanel message={dialogue} typewriter={typeDialogue} onTyped={onDialogueTyped} />
+            </div>
           )}
           {showJoystick && (
-            <div className="pointer-events-auto mb-4 ml-6 rounded-2xl border border-slate-800/80 bg-slate-950/80 p-2.5">
+            <div className="mb-8 ml-10 rounded-2xl border border-slate-800/80 bg-slate-950/80 p-2.5 short:mb-0 short:ml-0 short:p-1.5">
               <VirtualJoystick onMove={onJoystickMove} />
             </div>
           )}
         </div>
 
         <div className="flex flex-col items-end gap-3">
-          {near && (
+          {showContinue && (
             <button
               type="button"
-              onClick={onInteract}
-              className="pointer-events-auto rounded-lg bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg"
+              onClick={onContinue}
+              className="rounded-lg bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950"
             >
-              <span className="mr-2 rounded bg-slate-950 px-1.5 py-0.5 text-[10px] font-mono-num text-emerald-400">E</span>
-              {interactLabel}
+              LEAVE THE CRATER
             </button>
           )}
-          {showMap && <MarsMap telemetry={telemetry} target={target} pulseCache={pulseCache} />}
+          {near && (
+            <div className="flex animate-bounce-subtle flex-col items-end gap-2">
+              <div className="flex items-center gap-2 rounded-md border border-emerald-500/60 bg-emerald-950/90 px-3 py-1 font-mono-num text-[11px] text-emerald-300 shadow-lg shadow-emerald-950/50">
+                <span className="h-2 w-2 animate-ping rounded-full bg-emerald-400" />
+                <span>MARKER ZONE ENTERED</span>
+              </div>
+              <button
+                type="button"
+                onClick={onInteract}
+                className="flex cursor-pointer items-center gap-3 rounded-lg bg-emerald-500 px-6 py-3.5 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 transition-all hover:-translate-y-0.5 hover:bg-emerald-400 active:translate-y-0 active:bg-emerald-600 md:text-base"
+              >
+                <span className="rounded bg-slate-950 px-2 py-0.5 font-mono-num text-xs font-bold text-emerald-400">
+                  PRESS E
+                </span>
+                <span>{interactLabel}</span>
+              </button>
+              <span className="font-mono-num text-xs text-emerald-300/80">
+                Press [SPACE] or [E] to begin
+              </span>
+            </div>
+          )}
+          {showMap && (
+            <MarsMap
+              telemetry={telemetry}
+              target={target}
+              pulseCache={pulseCache}
+              size={short ? 104 : DEFAULT_SIZE}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -128,11 +177,13 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
 function MarsMap({
   telemetry,
   target,
-  pulseCache
+  pulseCache,
+  size
 }: {
   telemetry: MarsTelemetry;
   target: MarsTarget | null;
   pulseCache: boolean;
+  size: number;
 }) {
   const rover = telemetry.position;
   const cache = telemetry.cache;
@@ -149,15 +200,18 @@ function MarsMap({
   const span = Math.max(MIN_SPAN, Math.max(maxX - minX, maxZ - minZ) * 1.35);
   const centerX = (minX + maxX) / 2;
   const centerZ = (minZ + maxZ) / 2;
-  const scale = (SIZE - 28) / span;
-  const toX = (x: number) => SIZE / 2 + (x - centerX) * scale;
-  const toY = (z: number) => SIZE / 2 - (z - centerZ) * scale;
+  const scale = (size - Math.round(28 * size / DEFAULT_SIZE)) / span;
+  const toX = (x: number) => size / 2 + (x - centerX) * scale;
+  const toY = (z: number) => size / 2 - (z - centerZ) * scale;
   const cacheX = toX(cache.x);
   const cacheY = toY(cache.z);
 
   return (
-    <div className="h-[168px] w-[168px] overflow-hidden rounded-lg border border-slate-800/80 bg-slate-950/85 shadow-lg">
-      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="h-full w-full" role="img" aria-label="Jezero navigation map">
+    <div
+      className="overflow-hidden rounded-lg border border-slate-800/80 bg-slate-950/85 shadow-lg"
+      style={{ width: size, height: size }}
+    >
+      <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full" role="img" aria-label="Jezero navigation map">
         <circle
           cx={cacheX}
           cy={cacheY}

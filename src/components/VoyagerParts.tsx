@@ -214,7 +214,7 @@ export const VoyagerParts: React.FC<VoyagerPartsProps> = ({
           type="button"
           onClick={() => onSelect(part.id)}
           aria-pressed={selectedId === part.id}
-          className={`pointer-events-auto fixed z-30 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold shadow-lg ${
+          className={`pointer-events-auto fixed z-30 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold shadow-lg short:px-1.5 short:py-0.5 short:text-[11px] ${
             selectedId === part.id
               ? 'border-amber-300 bg-amber-400 text-slate-950'
               : 'border-white/85 bg-slate-950/90 text-white'

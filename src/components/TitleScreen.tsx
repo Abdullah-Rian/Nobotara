@@ -18,7 +18,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onToggleMute
 }) => {
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 md:p-12 z-20">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 md:p-12 short:p-3 z-20">
       {/* Top Header / Audio Toggle & 3D Models */}
       <div className="flex justify-between items-center pointer-events-auto">
         <div className="flex items-center gap-3">
@@ -41,7 +41,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       </div>
 
       {/* Main Title Centerpiece Lockup */}
-      <div className="max-w-2xl mt-auto mb-6">
+      <div className="mt-auto mb-6 w-full">
+        <div className="max-w-2xl">
         {/* Inline SVG Title Graphic */}
         <div className="mb-4">
           <svg className="w-full max-w-lg h-auto" viewBox="0 0 520 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -58,19 +59,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           The mission that succeeded. The things it left behind.
         </p>
 
-        <p className="text-sm md:text-base text-slate-800 leading-relaxed max-w-xl mb-8">
+        <p className="text-sm md:text-base text-slate-800 leading-relaxed max-w-xl mb-8 short:mb-3 short:line-clamp-2">
           Pilot an autonomous lunar explorer rover across the Sea of Tranquility. Inspect the artifacts left behind at the historic landing site, discover the scientific reasons they remained, and conduct a live laser measurement between Earth and the Moon.
         </p>
+        </div>
 
-        <div className="pointer-events-auto grid gap-3 sm:grid-cols-3">
+        <div className="pointer-events-auto grid w-max max-w-full grid-cols-1 gap-3 sm:grid-cols-3">
           <button
             onClick={onStart}
             className="rounded-xl border border-amber-300 bg-slate-950/90 p-4 text-left text-slate-100 shadow-lg transition-transform hover:-translate-y-0.5"
           >
             <div className="text-[11px] font-mono-num font-bold text-amber-300">MISSION 01</div>
-            <div className="mt-1 flex items-center gap-2 text-sm font-bold">
-              <Play className="h-4 w-4 fill-amber-300 text-amber-300" />
-              Apollo 11
+            <div className="mt-1 flex items-center gap-2 whitespace-nowrap text-sm font-bold">
+              <Play className="h-4 w-4 shrink-0 fill-amber-300 text-amber-300" />
+              <span>Apollo 11 — ONE GREAT LEAP</span>
             </div>
             <div className="mt-1 text-xs text-slate-400">Sea of Tranquility</div>
           </button>
@@ -79,7 +81,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             className="rounded-xl border border-sky-400/70 bg-slate-950/90 p-4 text-left text-slate-100 shadow-lg transition-transform hover:-translate-y-0.5"
           >
             <div className="text-[11px] font-mono-num font-bold text-sky-300">MISSION 02</div>
-            <div className="mt-1 text-sm font-bold">Voyager 1</div>
+            <div className="mt-1 whitespace-nowrap text-sm font-bold">Voyager 1 — THE GOLDEN DISK</div>
             <div className="mt-1 text-xs text-slate-400">The endless journey</div>
           </button>
           <button
@@ -88,7 +90,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             className="rounded-xl border border-orange-400/80 bg-slate-950/90 p-4 text-left text-slate-100 shadow-lg transition-transform hover:-translate-y-0.5"
           >
             <div className="text-[11px] font-mono-num font-bold text-orange-300">MISSION 03</div>
-            <div className="mt-1 text-sm font-bold">Mars Sample Return</div>
+            <div className="mt-1 whitespace-nowrap text-sm font-bold">MARS — THE UNFINISHED PROMISE</div>
             <div className="mt-1 text-xs text-slate-400">Jezero Crater</div>
           </button>
         </div>
@@ -98,7 +100,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       </div>
 
       {/* Bottom Control Hint Strip */}
-      <div className="flex items-center justify-between text-xs text-slate-800 font-mono-num border-t border-slate-700/70 pt-4">
+      <div className="flex items-center justify-between text-xs text-slate-800 font-mono-num border-t border-slate-700/70 pt-4 short:hidden">
         <span>SEA OF TRANQUILITY · 0.67408° N, 23.47297° E</span>
         <span>WASD Move · Space/E Interact · Esc Close</span>
       </div>

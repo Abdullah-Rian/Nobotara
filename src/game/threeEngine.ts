@@ -113,12 +113,15 @@ export class ApolloThreeEngine {
   private readonly laserHaloMoon = 0.04;
   private readonly laserHaloEarth = 46;
   private earthLaserPos: THREE.Vector3 = new THREE.Vector3(-19890.44, 2091.26, 0);
+  /** World-space radius of the Earth model, including the atmosphere shell. */
+  private earthVisualRadius = 0;
   private reflectorLaserPos: THREE.Vector3 = new THREE.Vector3(-2.12, 0.5, 21.53);
   private sunLight!: THREE.DirectionalLight;
   private sunAnchor = new THREE.Vector3();
   private hasSun = false;
-  /** Screen position of the Sun model, for the same leader label Mission 2 uses. */
+  /** Screen positions of the Sun and Earth models, for the same leader labels Mission 2 uses. */
   public readonly sunScreen = { x: 0, y: 0, visible: false };
+  public readonly earthScreen = { x: 0, y: 0, visible: false, tipLeft: 0 };
 
   // Rover Kinematics
   private roverVelocity: number = 0;
@@ -129,6 +132,9 @@ export class ApolloThreeEngine {
   public onRoverBootComplete?: () => void;
   private readonly dishAim = new THREE.Vector3();
   private roverPosition: THREE.Vector3 = new THREE.Vector3(8, 0, 7);
+  /** Horizontal reach of the wheels, so the body stops before it overlaps a solid. */
+  private readonly roverClearance = 0.9;
+  private readonly solidBoxes: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
   private landerX = ARTIFACTS.descent_stage.position[0];
   private landerZ = ARTIFACTS.descent_stage.position[2];
   /** Radius of the circle that covers half the lunar surface, centered on the lander. */
@@ -588,6 +594,7 @@ export class ApolloThreeEngine {
     this.roverPosition.set(8, this.getLunarHeight(8, 7), 7);
     this.models.roverGroup.position.copy(this.roverPosition);
     this.models.roverGroup.rotation.y = this.roverHeading - Math.PI / 2;
+    this.rebuildSolidBoxes();
   }
 
   /** Load every bundled GLB, then reveal the canvas. */
@@ -628,6 +635,7 @@ export class ApolloThreeEngine {
       this.seatOnGround(newGroup, 0.22);
       this.updateLanderAnchor();
       this.customActiveModels.descent_stage = true;
+      this.rebuildSolidBoxes();
 
     } else if (type === 'retroreflector') {
       this.scene.remove(this.models.retroreflectorGroup);
@@ -636,6 +644,7 @@ export class ApolloThreeEngine {
       this.seatOnGround(newGroup);
       this.syncReflectorLaserPos();
       this.customActiveModels.retroreflector = true;
+      this.rebuildSolidBoxes();
 
     } else if (type === 'voyager') {
       this.scene.remove(this.models.voyagerGroup);
@@ -670,6 +679,7 @@ export class ApolloThreeEngine {
         this.seatOnGround(this.models.retroreflectorGroup);
         this.syncReflectorLaserPos();
       }
+      this.rebuildSolidBoxes();
 
     } else if (type === 'earth') {
       this.scene.remove(this.models.earthMesh);
@@ -678,7 +688,10 @@ export class ApolloThreeEngine {
       this.tuneEarth(newGroup);
       this.models.earthMesh = newGroup;
       this.scene.add(newGroup);
-      new THREE.Box3().setFromObject(newGroup).getCenter(this.earthLaserPos);
+      const earthBox = new THREE.Box3().setFromObject(newGroup);
+      earthBox.getCenter(this.earthLaserPos);
+      const earthSize = earthBox.getSize(new THREE.Vector3());
+      this.earthVisualRadius = Math.max(earthSize.x, earthSize.y, earthSize.z) * 0.5;
       this.retargetLaser();
       this.customActiveModels.earth = true;
 
@@ -737,6 +750,7 @@ export class ApolloThreeEngine {
     this.roverPosition.y = this.getLunarHeight(this.roverPosition.x, this.roverPosition.z);
     this.models.roverGroup.position.y = this.roverPosition.y;
     this.models.flagGroup.position.y = this.getLunarHeight(-23.331, 2.138);
+    this.rebuildSolidBoxes();
     for (const marker of this.inspectionMarkers.values()) {
       const y = this.getLunarHeight(marker.position.x, marker.position.z);
       marker.position.y = y;
@@ -1012,7 +1026,7 @@ export class ApolloThreeEngine {
     const earthNode = this.models.earthMesh.getObjectByName('Earth') ?? this.models.earthMesh;
     earthNode.rotation.y += 0.0003;
 
-    this.projectSunLabel();
+    this.projectSkyLabels();
 
     // 6. Render Scene
     this.renderer.render(this.scene, this.camera);
@@ -1181,6 +1195,165 @@ export class ApolloThreeEngine {
     return dist + step >= limit;
   }
 
+  /** Boxes around the lander, the reflector, and the flag, grown by the rover's body. */
+  private rebuildSolidBoxes() {
+    if (!this.models) return;
+    this.solidBoxes.length = 0;
+    this.addSolidBox(this.models.descentStageGroup);
+    this.addSolidBox(this.models.retroreflectorGroup);
+    this.addSolidBox(this.models.flagGroup);
+  }
+
+  private addSolidBox(root: THREE.Object3D | null | undefined) {
+    if (!root) return;
+    root.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(root);
+    if (box.isEmpty()) return;
+    const pad = this.roverClearance;
+    const minX = box.min.x - pad;
+    const maxX = box.max.x + pad;
+    const minZ = box.min.z - pad;
+    const maxZ = box.max.z + pad;
+    if (maxX - minX > 40 || maxZ - minZ > 40) return;
+    this.solidBoxes.push({ minX, maxX, minZ, maxZ });
+  }
+
+  /**
+   * Stop the rover at a solid. A fast step cannot skip the flag, and a slide
+   * along a face keeps the part of the speed that is not into the box.
+   */
+  private holdRoverOutsideSolids(x0: number, z0: number, forwardX: number, forwardZ: number) {
+    for (const box of this.solidBoxes) {
+      if (!this.pointInSolid(x0, z0, box)) continue;
+      this.roverPosition.x = x0;
+      this.roverPosition.z = z0;
+      const normal = this.pushOutOfSolid(box);
+      this.slideRoverVelocity(forwardX, forwardZ, normal.nx, normal.nz);
+      return;
+    }
+
+    const dx = this.roverPosition.x - x0;
+    const dz = this.roverPosition.z - z0;
+    let tHit = 1;
+    let nx = 0;
+    let nz = 0;
+    for (const box of this.solidBoxes) {
+      const hit = this.sweepSolid(x0, z0, dx, dz, box);
+      if (!hit || hit.t >= tHit) continue;
+      tHit = hit.t;
+      nx = hit.nx;
+      nz = hit.nz;
+    }
+    if (tHit >= 1) return;
+    const t = Math.max(0, tHit - 0.002);
+    this.roverPosition.x = x0 + dx * t;
+    this.roverPosition.z = z0 + dz * t;
+    this.slideRoverVelocity(forwardX, forwardZ, nx, nz);
+  }
+
+  private pointInSolid(
+    x: number,
+    z: number,
+    box: { minX: number; maxX: number; minZ: number; maxZ: number }
+  ) {
+    return x > box.minX && x < box.maxX && z > box.minZ && z < box.maxZ;
+  }
+
+  private pushOutOfSolid(box: { minX: number; maxX: number; minZ: number; maxZ: number }) {
+    const x = this.roverPosition.x;
+    const z = this.roverPosition.z;
+    const left = x - box.minX;
+    const right = box.maxX - x;
+    const near = z - box.minZ;
+    const far = box.maxZ - z;
+    const min = Math.min(left, right, near, far);
+    if (min === left) {
+      this.roverPosition.x = box.minX;
+      return { nx: -1, nz: 0 };
+    }
+    if (min === right) {
+      this.roverPosition.x = box.maxX;
+      return { nx: 1, nz: 0 };
+    }
+    if (min === near) {
+      this.roverPosition.z = box.minZ;
+      return { nx: 0, nz: -1 };
+    }
+    this.roverPosition.z = box.maxZ;
+    return { nx: 0, nz: 1 };
+  }
+
+  /** Earliest entry of the movement segment into the box. The normal points outward. */
+  private sweepSolid(
+    x0: number,
+    z0: number,
+    dx: number,
+    dz: number,
+    box: { minX: number; maxX: number; minZ: number; maxZ: number }
+  ) {
+    let tmin = 0;
+    let tmax = 1;
+    let nx = 0;
+    let nz = 0;
+
+    if (Math.abs(dx) < 1e-8) {
+      if (x0 <= box.minX || x0 >= box.maxX) return null;
+    } else {
+      let tNear = (box.minX - x0) / dx;
+      let tFar = (box.maxX - x0) / dx;
+      let enter = -1;
+      if (tNear > tFar) {
+        const swap = tNear;
+        tNear = tFar;
+        tFar = swap;
+        enter = 1;
+      }
+      if (tNear > tmin) {
+        tmin = tNear;
+        nx = enter;
+        nz = 0;
+      }
+      if (tFar < tmax) tmax = tFar;
+      if (tmin > tmax) return null;
+    }
+
+    if (Math.abs(dz) < 1e-8) {
+      if (z0 <= box.minZ || z0 >= box.maxZ) return null;
+    } else {
+      let tNear = (box.minZ - z0) / dz;
+      let tFar = (box.maxZ - z0) / dz;
+      let enter = -1;
+      if (tNear > tFar) {
+        const swap = tNear;
+        tNear = tFar;
+        tFar = swap;
+        enter = 1;
+      }
+      if (tNear > tmin) {
+        tmin = tNear;
+        nx = 0;
+        nz = enter;
+      }
+      if (tFar < tmax) tmax = tFar;
+      if (tmin > tmax) return null;
+    }
+
+    if (tmax <= 1e-4 || tmin > 1) return null;
+    if (tmin < 0) return null;
+    return { t: tmin, nx, nz };
+  }
+
+  /** Drop the part of the speed that points into the solid so the rover can slide along it. */
+  private slideRoverVelocity(forwardX: number, forwardZ: number, nx: number, nz: number) {
+    const vx = forwardX * this.roverVelocity;
+    const vz = forwardZ * this.roverVelocity;
+    const into = vx * nx + vz * nz;
+    if (into >= 0) return;
+    const slideX = vx - into * nx;
+    const slideZ = vz - into * nz;
+    this.roverVelocity = slideX * forwardX + slideZ * forwardZ;
+  }
+
   /** Keep the rover on or inside the circle around the lander. */
   private holdRoverNearLander(forwardX: number, forwardZ: number) {
     const limit = this.roverMaxDistance;
@@ -1218,8 +1391,11 @@ export class ApolloThreeEngine {
     const forwardX = Math.sin(this.roverHeading);
     const forwardZ = Math.cos(this.roverHeading);
 
+    const prevX = this.roverPosition.x;
+    const prevZ = this.roverPosition.z;
     this.roverPosition.x += forwardX * this.roverVelocity * dt;
     this.roverPosition.z += forwardZ * this.roverVelocity * dt;
+    this.holdRoverOutsideSolids(prevX, prevZ, forwardX, forwardZ);
     this.holdRoverNearLander(forwardX, forwardZ);
 
     this.poseRoverOnTerrain(dt);
@@ -1470,16 +1646,38 @@ export class ApolloThreeEngine {
     }
   }
 
-  /** Point the SUN label at the Sun model while it is inside the view. */
-  private projectSunLabel() {
-    const slot = this.sunScreen;
+  /** Point the SUN and EARTH labels at their models while each is inside the view. */
+  private projectSkyLabels() {
     const mode = this.cameraConfig.mode;
-    if (!this.hasSun || mode === 'title' || mode === 'outro' || mode === 'warp') {
+    const hidden = mode === 'title' || mode === 'outro' || mode === 'warp';
+    this.camera.updateMatrixWorld();
+    this.projectBodyLabel(this.hasSun ? this.sunAnchor : null, this.sunScreen, hidden);
+    this.projectBodyLabel(this.earthLaserPos, this.earthScreen, hidden);
+    this.earthScreen.tipLeft = this.earthScreen.visible ? this.earthLimbPixels() : 0;
+  }
+
+  /** Pixels from the Earth's center to a point just left of its silhouette. */
+  private earthLimbPixels() {
+    if (this.earthVisualRadius <= 0) return 0;
+    const dist = this.camera.position.distanceTo(this.earthLaserPos);
+    const inside = dist * dist - this.earthVisualRadius * this.earthVisualRadius;
+    if (inside <= 1) return 0;
+    const fov = (this.camera.fov * Math.PI) / 180;
+    const viewHeight = this.renderer.domElement.getBoundingClientRect().height;
+    const limb = (this.earthVisualRadius / Math.sqrt(inside)) / Math.tan(fov / 2) * (viewHeight / 2);
+    return limb + 8;
+  }
+
+  private projectBodyLabel(
+    world: THREE.Vector3 | null,
+    slot: { x: number; y: number; visible: boolean },
+    hidden: boolean
+  ) {
+    if (!world || hidden) {
       slot.visible = false;
       return;
     }
-    _sunWorld.copy(this.sunAnchor);
-    this.camera.updateMatrixWorld();
+    _sunWorld.copy(world);
     this.camera.getWorldDirection(_sunView);
     const facing =
       (_sunWorld.x - this.camera.position.x) * _sunView.x +

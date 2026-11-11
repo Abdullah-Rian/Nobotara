@@ -2,7 +2,7 @@
   "name": "Nobotara Apollo 11 Offline Voiceovers",
   "version": "1.0.0",
   "targetPath": "/Volumes/KINGSTON/Nobotara/NobotaraGame/public/assets/audio/voiceovers",
-  "description": "Pre-rendered offline audio voiceover clips for Apollo 11 and Voyager 1",
+  "description": "Pre-rendered offline audio voiceover clips for Apollo 11, Voyager 1, and Mars Sample Return",
   "clips": [
     {
       "id": "intro_neil",
@@ -218,6 +218,214 @@
       "filename": "voyager_record_images_science.mp3",
       "size": 148418,
       "text": "The images were encoded on the disc with music and the sounds. The record rides with Voyager. It does not send its contents home.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_approach",
+      "speaker": "Narrator-02",
+      "filename": "mars_approach.mp3",
+      "size": 637848,
+      "text": "We have travelled beyond the boundaries of our familiar world. We have sent machines into the unknown, carrying questions that humanity has yet to answer. But sometimes, the greatest discoveries are not found in the farthest corners of space. Sometimes, they are waiting on a neighbouring world. A world that once may have held rivers, lakes, and conditions suitable for life. Mars. NASA's Mars 2020 mission carried the rover Perseverance. It launched in July 2020 and landed in Jezero Crater in February 2021, to read the rocks a lake left behind and to seal selected samples for a journey home.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
+    },
+    {
+      "id": "mars_arrival",
+      "speaker": "Mission Assistant",
+      "filename": "mars_arrival.mp3",
+      "size": 185198,
+      "text": "Jezero Crater once held a lake. A river carried sediment into that water and built a delta. The lake is gone. What remains is the rock it left behind.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_arrival_narrator",
+      "speaker": "Narrator-02",
+      "filename": "mars_arrival_narrator.mp3",
+      "size": 164718,
+      "text": "Photographs can show the shape of that story. They cannot bring the rocks home. That is why Perseverance cached selected samples on the crater floor.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_igneous_narrator",
+      "speaker": "Narrator-02",
+      "filename": "mars_igneous_narrator.mp3",
+      "size": 135043,
+      "text": "This is a rock from the crater floor. The scan reads it as igneous: stone that cooled from molten material.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_igneous_science",
+      "speaker": "Scientific Voice",
+      "filename": "mars_igneous_science.mp3",
+      "size": 173078,
+      "text": "Its minerals include olivine and pyroxene. An igneous rock can be dated, and a date gives the lake a place in time. That is worth collecting.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_sedimentary_narrator",
+      "speaker": "Narrator-02",
+      "filename": "mars_sedimentary_narrator.mp3",
+      "size": 113727,
+      "text": "This rock is sedimentary. It is made of grains that were carried and laid down, not cooled from magma.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_sedimentary_science",
+      "speaker": "Scientific Voice",
+      "filename": "mars_sedimentary_science.mp3",
+      "size": 141313,
+      "text": "Clays and salts cement the grains. A river brought them into a standing lake. The rock keeps a record of that water.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_mudstone_narrator",
+      "speaker": "Narrator-02",
+      "filename": "mars_mudstone_narrator.mp3",
+      "size": 89486,
+      "text": "This is fine lake sediment, the kind that settles when water is quiet.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_mudstone_science",
+      "speaker": "Scientific Voice",
+      "filename": "mars_mudstone_science.mp3",
+      "size": 189378,
+      "text": "Fine mud can hold chemical traces of an ancient habitable environment. It cannot, by itself, say that life was here. The sealed tubes are ahead, beside Perseverance.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_tubes_assistant",
+      "speaker": "Mission Assistant",
+      "filename": "mars_tubes_assistant.mp3",
+      "size": 139223,
+      "text": "Each tube holds a selected sample. Perseverance chose them for their geology, and for what they might say about ancient habitability.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_tubes_narrator",
+      "speaker": "Narrator-02",
+      "filename": "mars_tubes_narrator.mp3",
+      "size": 124594,
+      "text": "Instruments on Mars cannot finish every story. That is why scientists wanted these samples in laboratories on Earth.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_water_narrator",
+      "speaker": "Narrator-02",
+      "filename": "mars_water_narrator.mp3",
+      "size": 127102,
+      "text": "Ancient water left geological evidence here: a delta, channels, and minerals that form where water lasts.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_water_science",
+      "speaker": "Scientific Voice",
+      "filename": "mars_water_science.mp3",
+      "size": 142567,
+      "text": "That evidence is a history of the environment. It says a lake was here. It does not, by itself, say what lived in it.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+    },
+    {
+      "id": "mars_bio_narrator",
+      "speaker": "Narrator-02",
+      "filename": "mars_bio_narrator.mp3",
+      "size": 140477,
+      "text": "Some rocks preserve potential biosignatures: patterns that can be associated with life, and also with chemistry that is not life.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_bio_science",
+      "speaker": "Scientific Voice",
+      "filename": "mars_bio_science.mp3",
+      "size": 191886,
+      "text": "Habitability is not proof that life existed. A potential biosignature is a reason to look, not a verdict. The archive does not decide yes or no.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_lab_narrator",
+      "speaker": "Narrator-02",
+      "filename": "mars_lab_narrator.mp3",
+      "size": 129610,
+      "text": "A returned sample can be studied with instruments too large, too delicate, or not yet invented to send to Mars.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_lab_science",
+      "speaker": "Scientific Voice",
+      "filename": "mars_lab_science.mp3",
+      "size": 148418,
+      "text": "Earth laboratories can revisit the same grains for decades. The value of the sample is that later questions can still be asked of it.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_question",
+      "speaker": "Mission Assistant",
+      "filename": "mars_question.mp3",
+      "size": 47272,
+      "text": "Did life ever exist on Mars?",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_no_conclusion",
+      "speaker": "Narrator-02",
+      "filename": "mars_no_conclusion.mp3",
+      "size": 133372,
+      "text": "The archive has no conclusion. The samples were chosen so that question could be asked more carefully. They do not answer it.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_sequence",
+      "speaker": "Mission Assistant",
+      "filename": "mars_sequence.mp3",
+      "size": 61901,
+      "text": "Sequence reconstructed. This was the original plan for bringing the tubes home.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_unfinished",
+      "speaker": "Narrator-02",
+      "filename": "mars_unfinished.mp3",
+      "size": 119997,
+      "text": "The original architecture met complexity, cost, and schedule trouble. It was not carried out as first planned.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_meaning",
+      "speaker": "Narrator-02",
+      "filename": "mars_meaning.mp3",
+      "size": 173914,
+      "text": "An unfinished journey is still a record of the question. The samples, and the reasons they were chosen, remain. Follow the scientific legacy.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_unanswered",
+      "speaker": "Mission Assistant",
+      "filename": "mars_unanswered.mp3",
+      "size": 66916,
+      "text": "One unfinished mission does not end discovery.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_legacy",
+      "speaker": "Mission Assistant",
+      "filename": "mars_legacy.mp3",
+      "size": 150090,
+      "text": "Archive completed. The evidence is preserved. The questions are unanswered. Exploration continues.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_closing",
+      "speaker": "Narrator-02",
+      "filename": "mars_closing.mp3",
+      "size": 212366,
+      "text": "Apollo left tools so the Moon could still be studied. Voyager carried a record beyond the planets. Mars keeps a cache of stone, waiting on a question no photograph can close.",
+      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+    },
+    {
+      "id": "mars_closing_final",
+      "speaker": "Narrator-02",
+      "filename": "mars_closing_final.mp3",
+      "size": 132118,
+      "text": "The universe does not owe us an answer. It leaves us the work of asking, and the patience to keep the evidence.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     }
   ]

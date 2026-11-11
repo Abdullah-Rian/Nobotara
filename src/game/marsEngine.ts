@@ -1,5 +1,8 @@
 import * as THREE from 'three';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { buildApolloSceneModels } from './apolloModels';
+import { isSoftwareGl } from './threeEngine';
 import {
   MARS_RANGE,
   MarsSiteId,
@@ -30,6 +33,28 @@ export interface MarsTelemetry {
 }
 
 const DRIVE_SPEED = 7.4;
+/** Jezero, 18.45°N 77.45°E, on the NASA globe after the glTF axis conversion. */
+const JEZERO_DIR = new THREE.Vector3(0.206, 0.317, -0.926).normalize();
+/**
+ * Viewpoint for the opening shot. The camera sits south-west of Jezero so the
+ * crater rests up and to the right of center, on the shoulder of the dark
+ * region, matching the approach photograph. The globe itself does not spin.
+ */
+const APPROACH_DIR = new THREE.Vector3(0.515, 0.0175, -0.857).normalize();
+const MARS_GLOBE_RADIUS = 500;
+const APPROACH_START = 1680;
+const APPROACH_END = 860;
+/** Red fade, the opaque hold, and the fade back to the crater. */
+const APPROACH_FADE = 0.7;
+const APPROACH_TAIL = 1;
+const APPROACH_HOLD = 1;
+const APPROACH_REVEAL = 0.8;
+/** Length of the rendered approach line, used when playback does not report one. */
+const APPROACH_SPEECH = 39.84;
+/** Half-width of the explorer, added to each object's footprint. */
+const ROVER_BODY = 0.95;
+/** Opening-shot turn, marked on the globe. YXZ euler in radians. */
+const GLOBE_EULER = new THREE.Euler(0.08234375, -3.500546875, 0, 'YXZ');
 
 export function marsHeight(x: number, z: number): number {
   const r = Math.hypot(x, z);
@@ -62,6 +87,35 @@ export class MarsEngine {
   private readonly questionExtras: THREE.Group;
   private readonly questionFade: THREE.Material[] = [];
   private readonly trio: THREE.Group;
+  private readonly basin = new THREE.Group();
+  private readonly approachLight: THREE.DirectionalLight;
+  private readonly sun: THREE.DirectionalLight;
+  private globe: THREE.Object3D | null = null;
+  private globeReady = false;
+  private handedOff = false;
+  private introClock = 0;
+  private veil = 0;
+  private approachStarted = false;
+  private speechEnded = false;
+  private fadeAt = Number.POSITIVE_INFINITY;
+  private approachU = 0;
+  private approachOrigin = 0;
+  private paceU = 0;
+  private paceClock = 0;
+  private approachReadyWait: (() => void) | null = null;
+  private approachStars: THREE.Points | null = null;
+  public introSkipped = false;
+  private readonly jezeroPoint = new THREE.Vector3();
+  private readonly ndc = new THREE.Vector3();
+  private readonly viewDir = new THREE.Vector3();
+  private readonly spaceColor = new THREE.Color(0x07060a);
+  private readonly dustColor = new THREE.Color(0x7c5144);
+  private readonly skyColor = new THREE.Color(0x07060a);
+  public readonly jezeroScreen = { x: 0, y: 0, visible: false };
+  public readonly perseveranceLabel = { x: 0, y: 0, visible: false };
+  private perseverance: THREE.Group | null = null;
+  private readonly perseveranceTop = new THREE.Vector3(0, 1.9, 0);
+  private readonly perseverancePoint = new THREE.Vector3();
   private readonly desired = new THREE.Vector3();
   private readonly look = new THREE.Vector3();
   private readonly smoothedLook = new THREE.Vector3();
@@ -86,10 +140,18 @@ export class MarsEngine {
   private near = false;
   private holoFrozen = false;
   private wheelSpin = 0;
+  /** Solid footprints of the things the rover can inspect. Radius is the object, not the rover. */
+  private readonly colliders: { x: number; z: number; radius: number }[] = [];
+  private perseveranceCollider: { x: number; z: number; radius: number } | null = null;
+  private beaconCollider: { x: number; z: number; radius: number } | null = null;
 
   public onTelemetry?: (telemetry: MarsTelemetry) => void;
   public onNear?: (near: boolean) => void;
   public onIntroDone?: () => void;
+
+  public get veilOpacity() {
+    return this.veil;
+  }
 
   private readonly onResize = () => {
     const width = this.container.clientWidth || window.innerWidth;
@@ -104,29 +166,55 @@ export class MarsEngine {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.12;
+    this.renderer.toneMappingExposure = 1.2;
+    if (!isSoftwareGl) {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(this.renderer.domElement);
 
-    this.fog = new THREE.FogExp2(0x6b4036, 0.013);
-    this.scene.background = new THREE.Color(0x6b4036);
+    this.fog = new THREE.FogExp2(this.dustColor, 0);
+    this.scene.background = this.skyColor;
     this.scene.fog = this.fog;
     this.camera = new THREE.PerspectiveCamera(
       56,
       container.clientWidth / Math.max(container.clientHeight, 1),
       0.08,
-      2000
+      6000
     );
-    this.camera.position.set(0, 72, 86);
-    this.smoothedLook.set(0, 1, 8);
+    this.camera.position.copy(APPROACH_DIR).multiplyScalar(APPROACH_START);
+    this.smoothedLook.set(0, 0, 0);
 
-    this.scene.add(new THREE.AmbientLight(0x4a3028, 0.35));
-    this.scene.add(new THREE.HemisphereLight(0xffc7a1, 0x3a221c, 0.7));
-    const sun = new THREE.DirectionalLight(0xffe2c4, 2.15);
-    sun.position.set(28, 46, 16);
-    this.scene.add(sun);
+    this.scene.add(new THREE.AmbientLight(0x5c3c32, 0.5));
+    this.scene.add(new THREE.HemisphereLight(0xffd0ad, 0x4a2c24, 0.9));
+    this.sun = new THREE.DirectionalLight(0xffe2c4, 2.8);
+    this.sun.position.set(32, 36, 18);
+    if (!isSoftwareGl) {
+      this.sun.shadow.mapSize.set(2048, 2048);
+      this.sun.shadow.camera.near = 8;
+      this.sun.shadow.camera.far = 96;
+      const span = 26;
+      this.sun.shadow.camera.left = -span;
+      this.sun.shadow.camera.right = span;
+      this.sun.shadow.camera.top = span;
+      this.sun.shadow.camera.bottom = -span;
+      this.sun.shadow.bias = -0.0002;
+      this.sun.shadow.normalBias = 0.03;
+      this.sun.shadow.radius = 2;
+      this.sun.shadow.intensity = 0.4;
+    }
+    this.scene.add(this.sun);
+    this.scene.add(this.sun.target);
+    this.approachLight = new THREE.DirectionalLight(0xffd7b0, 2.6);
+    this.approachLight.position.copy(APPROACH_DIR);
+    this.scene.add(this.approachLight);
+    this.addApproachStars();
 
+    this.basin.name = 'JezeroBasin';
+    this.basin.visible = false;
+    this.scene.add(this.basin);
     this.addTerrain();
     this.addRangeRing();
     this.addLakeBed();
@@ -141,13 +229,15 @@ export class MarsEngine {
     this.rover = built.roverGroup;
     this.wheels = built.roverWheels;
     this.rover.name = 'Explorer';
-    this.scene.add(this.rover);
+    this.markShadows(this.rover);
+    this.basin.add(this.rover);
     this.beacon = this.addBeacon();
     this.diamond = this.beacon.getObjectByName('BeaconDiamond')!;
     this.holoRing = this.scene.getObjectByName('TerminalRing')!;
     this.holoMat = (this.scene.getObjectByName('TerminalPane') as THREE.Mesh).material as THREE.MeshBasicMaterial;
 
     this.poseRover();
+    this.loadApproachMars();
     window.addEventListener('resize', this.onResize);
     this.frameId = requestAnimationFrame(this.tick);
   }
@@ -167,22 +257,79 @@ export class MarsEngine {
     this.turnInput = turn;
   }
 
-  public beginIntro() {
+  public beginIntro(leadSeconds = 0) {
     this.shot = 'intro';
     this.introT = 0;
+    this.introClock = 0;
     this.introSent = false;
-    this.camera.position.set(0, 72, 86);
-    this.smoothedLook.set(0, 1, 8);
+    this.introSkipped = false;
+    this.handedOff = false;
+    this.approachStarted = true;
+    this.speechEnded = false;
+    this.approachOrigin = performance.now();
+    this.approachU = 0;
+    this.paceU = 0;
+    this.paceClock = 0;
+    const lead = Number.isFinite(leadSeconds) && leadSeconds > 0 ? leadSeconds : 0;
+    this.fadeAt = lead + APPROACH_SPEECH + APPROACH_TAIL;
+    this.veil = 0;
+    if (this.approachStars) this.approachStars.visible = true;
+    this.basin.visible = false;
+    if (this.globe) this.globe.visible = true;
+    this.skyColor.copy(this.spaceColor);
+    this.fog.density = 0;
+    this.camera.far = 6000;
+    this.camera.updateProjectionMatrix();
+    this.camera.position.copy(APPROACH_DIR).multiplyScalar(APPROACH_START);
+    this.smoothedLook.set(0, 0, 0);
     this.camera.lookAt(this.smoothedLook);
   }
 
+  public whenApproachReady(fn: () => void) {
+    if (this.disposed || this.introSkipped) return;
+    if (this.globeReady) fn();
+    else this.approachReadyWait = fn;
+  }
+
+  /** The line’s real length keeps the fade one second after the last word. */
+  public beginApproach(speechSeconds: number) {
+    if (this.shot !== 'intro' || this.introSent || this.introSkipped) return;
+    const speech = Number.isFinite(speechSeconds) && speechSeconds > 0.35 ? speechSeconds : APPROACH_SPEECH;
+    const fadeAt = this.introClock + speech + APPROACH_TAIL;
+    if (!this.approachStarted) {
+      this.approachStarted = true;
+      this.approachOrigin = performance.now();
+      this.fadeAt = fadeAt;
+      return;
+    }
+    if (fadeAt <= this.fadeAt + 0.35) return;
+    this.paceU = this.approachU;
+    this.paceClock = this.introClock;
+    this.fadeAt = fadeAt;
+  }
+
+  /** The fade waits until the line has finished, then one quiet second. A late ending delays that fade. */
+  public noteApproachSpeechEnded() {
+    if (this.shot !== 'intro' || this.introSent || this.introSkipped) return;
+    this.speechEnded = true;
+    if (!this.approachStarted) return;
+    const earliest = this.introClock + APPROACH_TAIL;
+    if (earliest <= this.fadeAt + 0.45) return;
+    this.paceU = this.approachU;
+    this.paceClock = this.introClock;
+    this.fadeAt = earliest;
+  }
+
   public skipIntro() {
+    this.approachReadyWait = null;
+    this.introSkipped = true;
+    this.revealBasin();
+    this.veil = 0;
     if (!this.introSent) {
       this.introSent = true;
       this.onIntroDone?.();
     }
     this.shot = 'drive';
-    this.introT = 1;
   }
 
   public setLive(id: MarsSiteId | null) {
@@ -192,6 +339,10 @@ export class MarsEngine {
     if (!id) return;
     const site = SITES[id];
     this.beacon.position.set(site.x, marsHeight(site.x, site.z), site.z);
+    if (this.beaconCollider) {
+      this.beaconCollider.x = site.x;
+      this.beaconCollider.z = site.z;
+    }
   }
 
   public setFocus(id: MarsSiteId | null) {
@@ -262,7 +413,8 @@ export class MarsEngine {
       new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0.02 })
     );
     mesh.name = 'Jezero';
-    this.scene.add(mesh);
+    mesh.receiveShadow = true;
+    this.basin.add(mesh);
   }
 
   private addRangeRing() {
@@ -273,7 +425,7 @@ export class MarsEngine {
       const z = Math.sin(angle) * MARS_RANGE;
       points.push(new THREE.Vector3(x, marsHeight(x, z) + 0.08, z));
     }
-    this.scene.add(
+    this.basin.add(
       new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(points),
         new THREE.LineBasicMaterial({ color: 0xfbbf24 })
@@ -288,7 +440,8 @@ export class MarsEngine {
     );
     bed.rotation.x = -Math.PI / 2;
     bed.position.y = marsHeight(0, 0) + 0.04;
-    this.scene.add(bed);
+    bed.receiveShadow = true;
+    this.basin.add(bed);
   }
 
   private addRocks() {
@@ -299,10 +452,13 @@ export class MarsEngine {
     (['igneous', 'sedimentary', 'mudstone'] as const).forEach((id, index) => {
       const site = SITES[id];
       const rock = new THREE.Mesh(geo, mats[index]);
-      rock.scale.set(1.1 + index * 0.15, 0.72, 0.95);
+      const scaleX = 1.1 + index * 0.15;
+      rock.scale.set(scaleX, 0.72, 0.95);
       rock.position.set(site.x, marsHeight(site.x, site.z) + 0.28, site.z);
       rock.rotation.y = index;
-      this.scene.add(rock);
+      this.markShadows(rock);
+      this.basin.add(rock);
+      this.colliders.push({ x: site.x, z: site.z, radius: 0.55 * Math.max(scaleX, 0.95) });
     });
 
     const scatterMat = new THREE.MeshStandardMaterial({ color: 0x7c4034, roughness: 0.9 });
@@ -317,7 +473,8 @@ export class MarsEngine {
       stone.position.set(x, marsHeight(x, z) + 0.12, z);
       stone.scale.setScalar(0.6 + (i % 4) * 0.25);
       stone.rotation.set(i, angle, i * 0.2);
-      this.scene.add(stone);
+      this.markShadows(stone);
+      this.basin.add(stone);
     }
   }
 
@@ -347,6 +504,8 @@ export class MarsEngine {
     tray.position.y = 0.05;
     tubes.add(tray);
     this.plant(tubes, 0, 0);
+    this.markShadows(tubes);
+    this.colliders.push({ x: 0, z: 0, radius: 0.9 });
 
     const rover = new THREE.Group();
     rover.name = 'Perseverance';
@@ -374,9 +533,61 @@ export class MarsEngine {
     arm.position.set(0.72, 0.68, 0.28);
     arm.rotation.z = -0.45;
     rover.add(mast, head, arm);
+    // The NASA model's arm sits on local +Z. Aim that end at the sample cache.
     const yaw = Math.atan2(-PERSEVERANCE_SITE.x, -PERSEVERANCE_SITE.z);
     this.plant(rover, PERSEVERANCE_SITE.x, PERSEVERANCE_SITE.z, yaw);
-    this.scene.add(tubes, rover);
+    this.markShadows(rover);
+    this.perseveranceCollider = {
+      x: PERSEVERANCE_SITE.x,
+      z: PERSEVERANCE_SITE.z,
+      radius: 1.15
+    };
+    this.colliders.push(this.perseveranceCollider);
+    this.basin.add(tubes, rover);
+    this.perseverance = rover;
+    this.loadPerseverance(rover);
+  }
+
+  private loadPerseverance(rover: THREE.Group) {
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('/draco/');
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(draco);
+    loader.load('/models/nasa/perseverance-lite.glb?v=upright', (gltf) => {
+      draco.dispose();
+      const model = gltf.scene;
+      model.traverse(child => {
+        const mesh = child as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      });
+      for (const child of [...rover.children]) {
+        rover.remove(child);
+        child.traverse(node => {
+          const mesh = node as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          mesh.geometry.dispose();
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach(material => material.dispose());
+        });
+      }
+      rover.add(model);
+      rover.updateWorldMatrix(true, true);
+      const box = new THREE.Box3().setFromObject(rover);
+      const size = box.getSize(new THREE.Vector3());
+      const radius = Math.max(size.x, size.z) * 0.5;
+      if (this.perseveranceCollider && radius > 0.4 && radius < 4) {
+        this.perseveranceCollider.radius = radius;
+      }
+      const top = new THREE.Vector3(
+        (box.min.x + box.max.x) / 2,
+        box.max.y,
+        (box.min.z + box.max.z) / 2
+      );
+      rover.worldToLocal(top);
+      this.perseveranceTop.copy(top);
+    });
   }
 
   private addTerminal() {
@@ -403,9 +614,11 @@ export class MarsEngine {
     ring.name = 'TerminalRing';
     ring.position.y = 2.55;
     group.add(pedestal, pane, ring);
+    this.markShadows(pedestal);
     const site = SITES.terminal;
     this.plant(group, site.x, site.z);
-    this.scene.add(group);
+    this.colliders.push({ x: site.x, z: site.z, radius: 0.7 });
+    this.basin.add(group);
   }
 
   private addPlanHardware() {
@@ -435,7 +648,7 @@ export class MarsEngine {
     mav.add(rocket, nose);
     group.add(lander, mav);
     this.plant(group, PLAN_SITE.x, PLAN_SITE.z);
-    this.scene.add(group);
+    this.basin.add(group);
     return group;
   }
 
@@ -461,7 +674,8 @@ export class MarsEngine {
     earth.position.set(11, 0.6, -5);
     extras.add(rocket, orbiter, earth);
     group.add(mars, extras);
-    this.scene.add(group);
+    this.markShadows(group);
+    this.basin.add(group);
     return group;
   }
 
@@ -495,7 +709,8 @@ export class MarsEngine {
     voyager.scale.setScalar(1.7);
     voyager.rotation.set(0.35, -0.7, 0.15);
     group.add(moon, mars, voyager);
-    this.scene.add(group);
+    this.markShadows(group);
+    this.basin.add(group);
     return group;
   }
 
@@ -523,15 +738,193 @@ export class MarsEngine {
     diamond.name = 'BeaconDiamond';
     diamond.position.y = 2.5;
     group.add(column, diamond);
+    this.markShadows(group);
     const site = SITES.igneous;
     group.position.set(site.x, marsHeight(site.x, site.z), site.z);
-    this.scene.add(group);
+    this.beaconCollider = { x: site.x, z: site.z, radius: 0.28 };
+    this.colliders.push(this.beaconCollider);
+    this.basin.add(group);
     return group;
+  }
+
+  /** Same white starfield as Mission 2, sized for the approach camera. */
+  private addApproachStars() {
+    const count = 1800;
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const radius = 3200 + Math.random() * 2200;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = radius * Math.cos(phi);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const material = new THREE.PointsMaterial({
+      color: 0xf8fafc,
+      size: 6.5,
+      sizeAttenuation: true,
+      depthWrite: false
+    });
+    const stars = new THREE.Points(geometry, material);
+    stars.name = 'ApproachStars';
+    this.approachStars = stars;
+    this.scene.add(stars);
+  }
+
+  private loadApproachMars() {
+    const loader = new GLTFLoader();
+    loader.load(
+      '/models/nasa/mars-approach.glb',
+      gltf => {
+        const model = gltf.scene;
+        model.name = 'MarsApproach';
+        model.rotation.copy(GLOBE_EULER);
+        model.position.set(0, 0, 0);
+        this.scene.add(model);
+        this.globe = model;
+        model.visible = this.shot === 'intro' && !this.handedOff;
+        this.markGlobeReady();
+      },
+      undefined,
+      () => {
+        this.markGlobeReady();
+      }
+    );
+  }
+
+  private markGlobeReady() {
+    this.globeReady = true;
+    const wait = this.approachReadyWait;
+    this.approachReadyWait = null;
+    if (!this.introSkipped) wait?.();
+  }
+
+  private approachDoneAt() {
+    return this.fadeAt + APPROACH_FADE + APPROACH_HOLD + APPROACH_REVEAL;
+  }
+
+  private advanceApproach() {
+    if (!this.approachStarted) return;
+    const span = Math.max(this.fadeAt + APPROACH_FADE, 0.001);
+    const target = this.paceClock > 0
+      ? this.paceU + (1 - this.paceU) * Math.min(Math.max(this.introClock - this.paceClock, 0) / Math.max(span - this.paceClock, 0.05), 1)
+      : Math.min(this.introClock / span, 1);
+    this.approachU = Math.max(this.approachU, target);
+  }
+
+  private updateApproach() {
+    if (!this.approachStarted) {
+      this.veil = 0;
+      this.approachLight.intensity = this.handedOff ? 0 : 2.6;
+      return;
+    }
+    const fadeStart = this.fadeAt;
+    const holdStart = fadeStart + APPROACH_FADE;
+    const revealStart = holdStart + APPROACH_HOLD;
+    if (this.speechEnded && this.introClock >= holdStart) this.revealBasin();
+    const fading = this.speechEnded && this.introClock >= fadeStart;
+    if (!fading) this.veil = 0;
+    else if (this.introClock < holdStart) this.veil = THREE.MathUtils.smoothstep(this.introClock, fadeStart, holdStart);
+    else if (this.introClock < revealStart) this.veil = 1;
+    else this.veil = 1 - THREE.MathUtils.smoothstep(this.introClock, revealStart, this.approachDoneAt());
+    this.approachLight.intensity = this.handedOff ? 0 : 2.6;
+  }
+
+  private revealBasin() {
+    if (this.handedOff) return;
+    this.handedOff = true;
+    if (this.globe) this.globe.visible = false;
+    if (this.approachStars) this.approachStars.visible = false;
+    this.basin.visible = true;
+    this.skyColor.copy(this.dustColor);
+    this.fog.color.copy(this.dustColor);
+    this.fog.density = 0.013;
+    if (!isSoftwareGl) this.sun.castShadow = true;
+    this.approachLight.intensity = 0;
+    this.camera.far = 2000;
+    this.camera.updateProjectionMatrix();
+  }
+
+  private jezeroWorld(target: THREE.Vector3) {
+    target.copy(JEZERO_DIR).multiplyScalar(MARS_GLOBE_RADIUS);
+    if (this.globe) {
+      this.globe.updateMatrixWorld();
+      target.applyMatrix4(this.globe.matrixWorld);
+    } else {
+      target.applyEuler(GLOBE_EULER);
+    }
+    return target;
+  }
+
+  private projectJezero() {
+    const show = this.shot === 'intro' && !this.handedOff && this.globeReady && this.veil < 0.45;
+    if (!show) {
+      this.jezeroScreen.visible = false;
+      return;
+    }
+    this.jezeroWorld(this.jezeroPoint);
+    this.camera.updateMatrixWorld();
+    this.camera.getWorldDirection(this.viewDir);
+    const facing =
+      (this.jezeroPoint.x - this.camera.position.x) * this.viewDir.x +
+      (this.jezeroPoint.y - this.camera.position.y) * this.viewDir.y +
+      (this.jezeroPoint.z - this.camera.position.z) * this.viewDir.z;
+    this.ndc.copy(this.jezeroPoint).project(this.camera);
+    const bounds = this.renderer.domElement.getBoundingClientRect();
+    this.jezeroScreen.x = bounds.left + (this.ndc.x * 0.5 + 0.5) * bounds.width;
+    this.jezeroScreen.y = bounds.top + (-this.ndc.y * 0.5 + 0.5) * bounds.height;
+    this.jezeroScreen.visible = facing > 0 && this.ndc.z > 0 && this.ndc.z < 1;
+  }
+
+  /** Screen callout for the NASA rover, hidden while the approach globe is up. */
+  private projectPerseverance() {
+    const rover = this.perseverance;
+    if (!rover || !this.basin.visible) {
+      this.perseveranceLabel.visible = false;
+      return;
+    }
+    rover.updateWorldMatrix(true, true);
+    rover.localToWorld(this.perseverancePoint.copy(this.perseveranceTop));
+    this.camera.updateMatrixWorld();
+    this.camera.getWorldDirection(this.viewDir);
+    const facing =
+      (this.perseverancePoint.x - this.camera.position.x) * this.viewDir.x +
+      (this.perseverancePoint.y - this.camera.position.y) * this.viewDir.y +
+      (this.perseverancePoint.z - this.camera.position.z) * this.viewDir.z;
+    this.ndc.copy(this.perseverancePoint).project(this.camera);
+    const bounds = this.renderer.domElement.getBoundingClientRect();
+    this.perseveranceLabel.x = bounds.left + (this.ndc.x * 0.5 + 0.5) * bounds.width;
+    this.perseveranceLabel.y = bounds.top + (-this.ndc.y * 0.5 + 0.5) * bounds.height;
+    this.perseveranceLabel.visible =
+      facing > 0.2 &&
+      this.ndc.z > 0 &&
+      this.ndc.z < 1 &&
+      Math.abs(this.ndc.x) < 0.94 &&
+      Math.abs(this.ndc.y) < 0.94;
   }
 
   private plant(object: THREE.Object3D, x: number, z: number, yaw = 0) {
     object.position.set(x, marsHeight(x, z), z);
     object.rotation.y = yaw;
+  }
+
+  /** Soft contact shadows. The sun only starts casting once the basin is on screen. */
+  private markShadows(object: THREE.Object3D) {
+    object.traverse(node => {
+      const mesh = node as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+  }
+
+  private updateSunShadow() {
+    if (!this.sun.castShadow) return;
+    this.sun.position.set(this.look.x + 32, this.look.y + 36, this.look.z + 18);
+    this.sun.target.position.set(this.look.x, this.look.y, this.look.z);
+    this.sun.target.updateMatrixWorld();
   }
 
   private tick = () => {
@@ -541,9 +934,20 @@ export class MarsEngine {
     this.lastFrame = now;
     this.elapsed += dt;
     if (this.shot === 'intro') {
-      this.introT = Math.min(1, this.introT + dt / 11);
-      if (this.introT >= 1 && !this.introSent) {
+      if (this.approachStarted) {
+        this.introClock = (now - this.approachOrigin) / 1000;
+        this.advanceApproach();
+      }
+      this.updateApproach();
+      if (this.globe) this.globe.rotation.copy(GLOBE_EULER);
+      if (
+        this.approachStarted &&
+        this.speechEnded &&
+        this.introClock >= this.approachDoneAt() &&
+        !this.introSent
+      ) {
         this.introSent = true;
+        this.veil = 0;
         this.shot = 'drive';
         this.onIntroDone?.();
       }
@@ -562,9 +966,21 @@ export class MarsEngine {
     this.beacon.visible = showBeacon;
     this.updateNear();
     this.applyCamera(dt);
+    this.updateSunShadow();
+    this.projectJezero();
+    this.projectPerseverance();
     this.publish();
     this.renderer.render(this.scene, this.camera);
     this.frameId = requestAnimationFrame(this.tick);
+  }
+
+  private blockedAt(x: number, z: number) {
+    return this.colliders.some(collider => {
+      const reach = collider.radius + ROVER_BODY;
+      const dx = x - collider.x;
+      const dz = z - collider.z;
+      return dx * dx + dz * dz < reach * reach;
+    });
   }
 
   private updateRover(dt: number) {
@@ -577,8 +993,18 @@ export class MarsEngine {
       const reverse = this.velocity < -0.1 ? -1 : 1;
       this.heading += this.turnInput * 1.55 * dt * reverse;
     }
-    this.x += fx * this.velocity * dt;
-    this.z += fz * this.velocity * dt;
+    const nx = this.x + fx * this.velocity * dt;
+    const nz = this.z + fz * this.velocity * dt;
+    if (!this.blockedAt(nx, nz)) {
+      this.x = nx;
+      this.z = nz;
+    } else if (!this.blockedAt(nx, this.z)) {
+      this.x = nx;
+    } else if (!this.blockedAt(this.x, nz)) {
+      this.z = nz;
+    } else {
+      this.velocity = 0;
+    }
     const radial = Math.hypot(this.x, this.z);
     if (radial > MARS_RANGE) {
       this.x *= MARS_RANGE / radial;
@@ -642,10 +1068,14 @@ export class MarsEngine {
 
   private applyCamera(dt: number) {
     const glide = 1 - Math.exp(-dt * 3.2);
-    if (this.shot === 'intro') {
-      const t = THREE.MathUtils.smoothstep(this.introT, 0, 1);
-      this.desired.set(0, 72 - t * 66, 86 - t * 48);
-      this.look.set(this.x, marsHeight(this.x, this.z) + 1, this.z);
+    if (this.shot === 'intro' && !this.handedOff) {
+      this.jezeroWorld(this.jezeroPoint);
+      this.desired.copy(APPROACH_DIR).multiplyScalar(APPROACH_START);
+      this.look.copy(this.desired).sub(this.jezeroPoint).multiplyScalar(APPROACH_END / APPROACH_START).add(this.jezeroPoint);
+      this.camera.position.lerpVectors(this.desired, this.look, this.approachU);
+      this.smoothedLook.copy(this.camera.position).addScaledVector(APPROACH_DIR, -1);
+      this.camera.lookAt(this.smoothedLook);
+      return;
     } else if (this.shot === 'focus' && this.focus) {
       const site = SITES[this.focus];
       const y = marsHeight(site.x, site.z);
