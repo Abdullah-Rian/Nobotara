@@ -1,15 +1,69 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { MarsReading } from '../missions/mars/data';
 
 interface MarsInspectProps {
   reading: MarsReading;
   narrationDone: boolean;
   onClose: () => void;
+  read: () => { x: number; y: number; visible: boolean } | undefined;
 }
 
-export const MarsInspect: React.FC<MarsInspectProps> = ({ reading, narrationDone, onClose }) => {
+export const MarsInspect: React.FC<MarsInspectProps> = ({ reading, narrationDone, onClose, read }) => {
+  const panelRef = useRef<HTMLElement>(null);
+  const lineRef = useRef<SVGLineElement>(null);
+  const dotRef = useRef<SVGCircleElement>(null);
+
+  useEffect(() => {
+    let frame = 0;
+    const tick = () => {
+      const point = read();
+      const panel = panelRef.current;
+      const line = lineRef.current;
+      const dot = dotRef.current;
+      if (!panel || !line || !dot || !point?.visible) {
+        if (line) line.style.opacity = '0';
+        if (dot) dot.style.opacity = '0';
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+      const rect = panel.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = point.x - cx;
+      const dy = point.y - cy;
+      const sx = dx !== 0 ? rect.width / 2 / Math.abs(dx) : Infinity;
+      const sy = dy !== 0 ? rect.height / 2 / Math.abs(dy) : Infinity;
+      const scale = Math.min(sx, sy);
+      if (scale >= 1) {
+        line.style.opacity = '0';
+        dot.style.opacity = '0';
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+      line.setAttribute('x1', String(cx + dx * scale));
+      line.setAttribute('y1', String(cy + dy * scale));
+      line.setAttribute('x2', String(point.x));
+      line.setAttribute('y2', String(point.y));
+      dot.setAttribute('cx', String(point.x));
+      dot.setAttribute('cy', String(point.y));
+      line.style.opacity = '1';
+      dot.style.opacity = '1';
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [read]);
+
   return (
-    <aside className="pointer-events-auto absolute right-4 top-1/2 z-30 max-h-[min(32rem,calc(100%-8rem))] w-[min(22rem,40vw)] -translate-y-1/2 overflow-y-auto rounded-2xl border border-slate-700/80 bg-slate-950/92 p-4 text-slate-100 shadow-2xl md:right-8">
+    <>
+      <svg className="pointer-events-none fixed inset-0 z-30 h-full w-full" aria-hidden="true">
+        <line ref={lineRef} stroke="#f8fafc" strokeWidth="1.5" strokeLinecap="round" style={{ opacity: 0 }} />
+        <circle ref={dotRef} r="4.5" fill="#f8fafc" style={{ opacity: 0 }} />
+      </svg>
+      <aside
+        ref={panelRef}
+        className="pointer-events-auto absolute right-4 top-1/2 z-30 max-h-[min(32rem,calc(100%-8rem))] w-[min(22rem,40vw)] -translate-y-1/2 overflow-y-auto rounded-2xl border border-slate-700/80 bg-slate-950/92 p-4 text-slate-100 shadow-2xl md:right-8"
+      >
       <div className="text-[11px] font-mono-num font-bold text-amber-300">{reading.kicker}</div>
       <h2 className="mt-1 text-lg font-bold">{reading.title}</h2>
       <dl className="mt-3 space-y-2">
@@ -31,5 +85,6 @@ export const MarsInspect: React.FC<MarsInspectProps> = ({ reading, narrationDone
         </button>
       )}
     </aside>
+    </>
   );
 };

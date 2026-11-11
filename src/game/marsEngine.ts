@@ -106,12 +106,14 @@ export class MarsEngine {
   private approachStars: THREE.Points | null = null;
   public introSkipped = false;
   private readonly jezeroPoint = new THREE.Vector3();
+  private readonly focusPoint = new THREE.Vector3();
   private readonly ndc = new THREE.Vector3();
   private readonly viewDir = new THREE.Vector3();
   private readonly spaceColor = new THREE.Color(0x07060a);
   private readonly dustColor = new THREE.Color(0x7c5144);
   private readonly skyColor = new THREE.Color(0x07060a);
   public readonly jezeroScreen = { x: 0, y: 0, visible: false };
+  public readonly focusScreen = { x: 0, y: 0, visible: false };
   public readonly perseveranceLabel = { x: 0, y: 0, visible: false };
   private perseverance: THREE.Group | null = null;
   private readonly perseveranceTop = new THREE.Vector3(0, 1.9, 0);
@@ -143,7 +145,7 @@ export class MarsEngine {
   /** Solid footprints of the things the rover can inspect. Radius is the object, not the rover. */
   private readonly colliders: { x: number; z: number; radius: number }[] = [];
   private perseveranceCollider: { x: number; z: number; radius: number } | null = null;
-  private beaconCollider: { x: number; z: number; radius: number } | null = null;
+  private beaconBeam: THREE.MeshBasicMaterial | null = null;
 
   public onTelemetry?: (telemetry: MarsTelemetry) => void;
   public onNear?: (near: boolean) => void;
@@ -339,10 +341,6 @@ export class MarsEngine {
     if (!id) return;
     const site = SITES[id];
     this.beacon.position.set(site.x, marsHeight(site.x, site.z), site.z);
-    if (this.beaconCollider) {
-      this.beaconCollider.x = site.x;
-      this.beaconCollider.z = site.z;
-    }
   }
 
   public setFocus(id: MarsSiteId | null) {
@@ -714,37 +712,74 @@ export class MarsEngine {
     return group;
   }
 
+  /** Same glowing column and floating diamond as a Moon inspection marker. */
   private addBeacon() {
+    const radius = 1.6;
     const group = new THREE.Group();
-    const column = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.07, 0.07, 2.3, 8),
-      new THREE.MeshStandardMaterial({
-        color: 0x00a844,
-        emissive: 0x00a844,
-        emissiveIntensity: 0.28,
-        roughness: 0.4
-      })
-    );
-    column.position.y = 1.15;
+    const beamGeo = new THREE.CylinderGeometry(radius * 0.95, radius * 0.95, 1.8, 32, 1, true);
+    beamGeo.translate(0, 0.9, 0);
+    const beamMat = new THREE.MeshBasicMaterial({
+      map: this.markerBeamTexture(),
+      color: 0x00a844,
+      transparent: true,
+      opacity: 0.5,
+      side: THREE.FrontSide,
+      depthWrite: false
+    });
+    this.beaconBeam = beamMat;
     const diamond = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.2),
+      new THREE.OctahedronGeometry(0.24, 0),
       new THREE.MeshStandardMaterial({
-        color: 0x34d399,
-        emissive: 0x047857,
-        emissiveIntensity: 0.45,
-        roughness: 0.28
+        color: 0x22c55e,
+        emissive: 0x4ade80,
+        emissiveIntensity: 0.85,
+        roughness: 0.2,
+        metalness: 0.8
       })
     );
     diamond.name = 'BeaconDiamond';
-    diamond.position.y = 2.5;
-    group.add(column, diamond);
-    this.markShadows(group);
+    diamond.position.y = 2.2;
+    group.add(new THREE.Mesh(beamGeo, beamMat), diamond);
     const site = SITES.igneous;
     group.position.set(site.x, marsHeight(site.x, site.z), site.z);
-    this.beaconCollider = { x: site.x, z: site.z, radius: 0.28 };
-    this.colliders.push(this.beaconCollider);
     this.basin.add(group);
     return group;
+  }
+
+  private markerBeamTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createLinearGradient(0, 256, 0, 0);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+    grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.55)');
+    grad.addColorStop(0.7, 'rgba(255, 255, 255, 0.2)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 256);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    return tex;
+  }
+
+  /** Bob, tumble, and pulse the waypoint the way a Moon marker does. */
+  private updateBeacon(dt: number) {
+    const diamond = this.diamond as THREE.Mesh;
+    const material = diamond.material as THREE.MeshStandardMaterial;
+    diamond.position.y = 2.2 + Math.sin(this.elapsed * 2.8 + this.beacon.position.x * 0.5) * 0.15;
+    diamond.rotation.y += dt * 2.2;
+    diamond.rotation.x += dt * 0.9;
+    const pulse = Math.sin(this.elapsed * 3.5);
+    const fastPulse = Math.sin(this.elapsed * 7.5);
+    if (this.near) {
+      if (this.beaconBeam) this.beaconBeam.opacity = 0.62 + 0.06 * fastPulse;
+      material.emissiveIntensity = 1.4 + 0.5 * fastPulse;
+    } else {
+      if (this.beaconBeam) this.beaconBeam.opacity = 0.48 + 0.05 * pulse;
+      material.emissiveIntensity = 0.85;
+    }
   }
 
   /** Same white starfield as Mission 2, sized for the approach camera. */
@@ -878,6 +913,27 @@ export class MarsEngine {
     this.jezeroScreen.visible = facing > 0 && this.ndc.z > 0 && this.ndc.z < 1;
   }
 
+  /** Screen point of the site being inspected, so the scan panel can point at it. */
+  private projectFocus() {
+    if (this.shot !== 'focus' || !this.focus) {
+      this.focusScreen.visible = false;
+      return;
+    }
+    const site = SITES[this.focus];
+    this.focusPoint.set(site.x, marsHeight(site.x, site.z) + 0.5, site.z);
+    this.camera.updateMatrixWorld();
+    this.camera.getWorldDirection(this.viewDir);
+    const facing =
+      (this.focusPoint.x - this.camera.position.x) * this.viewDir.x +
+      (this.focusPoint.y - this.camera.position.y) * this.viewDir.y +
+      (this.focusPoint.z - this.camera.position.z) * this.viewDir.z;
+    this.ndc.copy(this.focusPoint).project(this.camera);
+    const bounds = this.renderer.domElement.getBoundingClientRect();
+    this.focusScreen.x = bounds.left + (this.ndc.x * 0.5 + 0.5) * bounds.width;
+    this.focusScreen.y = bounds.top + (-this.ndc.y * 0.5 + 0.5) * bounds.height;
+    this.focusScreen.visible = facing > 0 && this.ndc.z > 0 && this.ndc.z < 1;
+  }
+
   /** Screen callout for the NASA rover, hidden while the approach globe is up. */
   private projectPerseverance() {
     const rover = this.perseverance;
@@ -956,7 +1012,6 @@ export class MarsEngine {
     } else {
       this.velocity = THREE.MathUtils.damp(this.velocity, 0, 4, dt);
     }
-    this.diamond.rotation.y += dt * 1.7;
     if (!this.holoFrozen) {
       this.holoRing.rotation.z += dt * 0.7;
       this.holoRing.rotation.y += dt * 0.4;
@@ -965,10 +1020,12 @@ export class MarsEngine {
     const showBeacon = (this.shot === 'drive' || this.shot === 'focus' || this.shot === 'intro') && this.live !== null;
     this.beacon.visible = showBeacon;
     this.updateNear();
+    this.updateBeacon(dt);
     this.applyCamera(dt);
     this.updateSunShadow();
     this.projectJezero();
     this.projectPerseverance();
+    this.projectFocus();
     this.publish();
     this.renderer.render(this.scene, this.camera);
     this.frameId = requestAnimationFrame(this.tick);

@@ -162,6 +162,7 @@ export default function App() {
     };
   }, []);
   const readMarsVeil = useCallback(() => marsRef.current?.veilOpacity ?? 0, []);
+  const readMarsFocus = useCallback(() => marsRef.current?.focusScreen, []);
   const readPerseverance = useCallback(() => marsRef.current?.perseveranceLabel, []);
   const phaseRef = useRef<GamePhase>('title');
   const roverLockedRef = useRef(true);
@@ -1260,6 +1261,63 @@ export default function App() {
     runMarsShot('closing', 16, () => setMarsCurious(true));
   };
 
+  // Temporary testing control, matching Mission 2. Remove it when objective skips are no longer needed.
+  const skipMarsObjective = () => {
+    const current = marsStepRef.current;
+    clearOutroTimer();
+    apolloAudio.stopSpeaking();
+    marsSpeakRef.current += 1;
+    marsCueRef.current = null;
+    setActiveDialogue(null);
+    marsReadingRef.current = null;
+    setMarsReading(null);
+    setMarsNarrationDone(false);
+    setMarsCurious(false);
+    marsRef.current?.setFocus(null);
+    marsRef.current?.setHologramFrozen(false);
+    if (phaseRef.current === 'intro') marsRef.current?.skipIntro();
+
+    const drive = (step: MarsStep) => {
+      marsStepRef.current = step;
+      setMarsStep(step);
+      setPhase('explore');
+      marsRef.current?.setCinematic('drive', 0);
+    };
+
+    if (current === 'closing') {
+      setOutroProgress(1);
+      marsRef.current?.setCinematic('closing', 1);
+      marsStepRef.current = 'closing';
+      setMarsStep('closing');
+      setPhase('outro');
+      setMarsCurious(true);
+      return;
+    }
+    if (current === 'choice') {
+      beginClosing();
+      return;
+    }
+    if (current === 'question' || current === 'board') {
+      marsStepRef.current = current === 'board' ? 'question' : 'choice';
+      setMarsStep(current === 'board' ? 'question' : 'choice');
+      setPhase(current === 'board' ? 'explore' : 'puzzle');
+      marsRef.current?.setCinematic('drive', 0);
+      return;
+    }
+    if (current === 'sequence' || current === 'reveal') {
+      drive('water');
+      return;
+    }
+    if (current === 'laboratory') {
+      marsStepRef.current = 'board';
+      setMarsStep('board');
+      setPhase('puzzle');
+      return;
+    }
+    const next = NEXT_STEP[current];
+    if (next) drive(next);
+  };
+
   const onMarsTyped = () => {
     const cue = marsCueRef.current;
     if (!cue) return;
@@ -1617,10 +1675,10 @@ export default function App() {
         />
       )}
 
-      {mission === 'voyager' && phase !== 'title' && (
+      {(mission === 'voyager' || mission === 'mars') && phase !== 'title' && (
         <button
           type="button"
-          onClick={skipVoyagerObjective}
+          onClick={mission === 'mars' ? skipMarsObjective : skipVoyagerObjective}
           className="pointer-events-auto absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-md border border-dashed border-amber-300/80 bg-slate-950/90 px-3 py-1.5 text-[11px] font-bold tracking-wide text-amber-200"
         >
           SKIP OBJECTIVE
@@ -1835,7 +1893,12 @@ export default function App() {
       )}
 
       {mission === 'mars' && phase === 'inspect' && marsReading && (
-        <MarsInspect reading={marsReading} narrationDone={marsNarrationDone} onClose={resumeMarsReading} />
+        <MarsInspect
+          reading={marsReading}
+          narrationDone={marsNarrationDone}
+          onClose={resumeMarsReading}
+          read={readMarsFocus}
+        />
       )}
 
       {mission === 'mars' && phase === 'puzzle' && marsStep === 'sequence' && (
