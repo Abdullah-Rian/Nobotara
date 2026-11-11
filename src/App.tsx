@@ -74,6 +74,8 @@ const APOLLO_INTRO_DIALOGUE: DialogueMessage = {
   text: "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn’t just chase a rock in the sky; we went to learn what people can do when they dare."
 };
 const MARS_OPENING_TITLE = 'MARS';
+/** Testing control. Open the game with ?debug in the address to show SKIP OBJECTIVE. */
+const DEBUG_SKIP = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug');
 
 import { MarsInspect } from './components/MarsInspect';
 import { SequencePuzzle } from './components/SequencePuzzle';
@@ -85,6 +87,8 @@ import {
   MARS_APPROACH,
   MARS_ARRIVAL,
   MARS_ARRIVAL_NARRATOR,
+  MARS_BRIEFING,
+  MARS_BRIEFING_NARRATOR,
   MARS_CLOSING,
   MARS_CLOSING_FINAL,
   MARS_LEGACY_LINE,
@@ -95,6 +99,7 @@ import {
   MARS_SEQUENCE_LINE,
   MARS_UNANSWERED,
   MARS_UNFINISHED,
+  MARS_UNFINISHED_NARRATOR,
   NEXT_STEP,
   LEGACY_CHOICES,
   SITES,
@@ -222,6 +227,7 @@ export default function App() {
   const [marsCurious, setMarsCurious] = useState(false);
   const marsCueRef = useRef<string | null>(null);
   const marsSpeakRef = useRef(0);
+  const closingReadyRef = useRef({ shot: false, line: false });
   const revealReadyRef = useRef({ shot: false, line: false });
   const alignHandledRef = useRef(false);
   const crossHandledRef = useRef(false);
@@ -1250,6 +1256,14 @@ export default function App() {
     });
   };
 
+  // The end card waits for the camera and for the last spoken line.
+  const maybeShowCurious = () => {
+    if (!closingReadyRef.current.shot || !closingReadyRef.current.line) return;
+    if (marsStepRef.current !== 'closing') return;
+    setActiveDialogue(null);
+    setMarsCurious(true);
+  };
+
   const beginClosing = () => {
     setMarsNarrationDone(false);
     setMarsCurious(false);
@@ -1258,7 +1272,11 @@ export default function App() {
     setPhase('outro');
     marsCueRef.current = 'closing-a';
     setActiveDialogue(MARS_CLOSING);
-    runMarsShot('closing', 16, () => setMarsCurious(true));
+    closingReadyRef.current = { shot: false, line: false };
+    runMarsShot('closing', 16, () => {
+      closingReadyRef.current.shot = true;
+      maybeShowCurious();
+    });
   };
 
   // Temporary testing control, matching Mission 2. Remove it when objective skips are no longer needed.
@@ -1275,7 +1293,11 @@ export default function App() {
     setMarsCurious(false);
     marsRef.current?.setFocus(null);
     marsRef.current?.setHologramFrozen(false);
-    if (phaseRef.current === 'intro') marsRef.current?.skipIntro();
+    if (phaseRef.current === 'intro') {
+      marsRef.current?.skipIntro();
+      marsCueRef.current = null;
+      setActiveDialogue(null);
+    }
 
     const drive = (step: MarsStep) => {
       marsStepRef.current = step;
@@ -1382,6 +1404,22 @@ export default function App() {
       });
       return;
     }
+    if (cue === 'brief-a') {
+      marsCueRef.current = null;
+      speakMars(MARS_BRIEFING.text, MARS_BRIEFING.speaker, 'mars_brief_assistant', () => {
+        marsCueRef.current = 'brief-b';
+        setActiveDialogue(MARS_BRIEFING_NARRATOR);
+      });
+      return;
+    }
+    if (cue === 'brief-b') {
+      marsCueRef.current = null;
+      speakMars(MARS_BRIEFING_NARRATOR.text, MARS_BRIEFING_NARRATOR.speaker, 'mars_brief_narrator', () => {
+        setActiveDialogue(null);
+        if (marsStepRef.current === 'sequence') setPhase('puzzle');
+      });
+      return;
+    }
     if (cue === 'sequence') {
       marsCueRef.current = null;
       speakMars(MARS_SEQUENCE_LINE.text, MARS_SEQUENCE_LINE.speaker, 'mars_sequence', startReveal);
@@ -1390,6 +1428,14 @@ export default function App() {
     if (cue === 'unfinished') {
       marsCueRef.current = null;
       speakMars(MARS_UNFINISHED.text, MARS_UNFINISHED.speaker, 'mars_unfinished', () => {
+        marsCueRef.current = 'unfinished-narrator';
+        setActiveDialogue(MARS_UNFINISHED_NARRATOR);
+      });
+      return;
+    }
+    if (cue === 'unfinished-narrator') {
+      marsCueRef.current = null;
+      speakMars(MARS_UNFINISHED_NARRATOR.text, MARS_UNFINISHED_NARRATOR.speaker, 'mars_unfinished_narrator', () => {
         marsCueRef.current = 'meaning';
         setActiveDialogue(MARS_MEANING);
       });
@@ -1431,7 +1477,8 @@ export default function App() {
     if (cue === 'closing-b') {
       marsCueRef.current = null;
       speakMars(MARS_CLOSING_FINAL.text, MARS_CLOSING_FINAL.speaker, 'mars_closing_final', () => {
-        setActiveDialogue(null);
+        closingReadyRef.current.line = true;
+        maybeShowCurious();
       });
     }
   };
@@ -1439,9 +1486,13 @@ export default function App() {
   const handleMarsInteract = () => {
     const step = marsStepRef.current;
     if (step === 'sequence') {
+      // The briefing introduces the five machines before the player has to order them.
       marsRef.current?.setFocus('terminal');
       marsRef.current?.setHologramFrozen(false);
-      setPhase('puzzle');
+      marsRef.current?.showPlan();
+      marsCueRef.current = 'brief-a';
+      setActiveDialogue(MARS_BRIEFING);
+      setPhase('outro');
       return;
     }
     const reading = MARS_READINGS[step];
@@ -1529,7 +1580,6 @@ export default function App() {
     engine.onIntroDone = () => {
       if (missionRef.current !== 'mars') return;
       setPhase('explore');
-      if (engine.introSkipped) return;
       marsCueRef.current = 'arrival';
       setActiveDialogue(MARS_ARRIVAL);
     };
@@ -1675,7 +1725,7 @@ export default function App() {
         />
       )}
 
-      {(mission === 'voyager' || mission === 'mars') && phase !== 'title' && (
+      {DEBUG_SKIP && (mission === 'voyager' || mission === 'mars') && phase !== 'title' && (
         <button
           type="button"
           onClick={mission === 'mars' ? skipMarsObjective : skipVoyagerObjective}
@@ -1884,6 +1934,7 @@ export default function App() {
           onDialogueTyped={onMarsTyped}
           showJoystick={phase === 'explore' && !activeDialogue}
           showMap={phase === 'explore'}
+          showStatus={phase === 'explore'}
           showContinue={phase === 'outro' && marsStep === 'choice' && marsNarrationDone}
           onContinue={beginClosing}
           onJoystickMove={(forward, turn) => gameInputs.setVirtualJoystick(forward, turn)}

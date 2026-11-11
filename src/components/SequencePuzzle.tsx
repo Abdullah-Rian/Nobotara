@@ -99,19 +99,19 @@ export const SequencePuzzle: React.FC<SequencePuzzleProps> = ({ onComplete }) =>
       setError(null);
       return;
     }
-    setError('That is not the planned order. The tubes leave Mars only after a lander, a launch, a capture, and a delivery.');
+    setError('Not quite. Think about what has to happen first. The samples cannot leave Mars before a rocket arrives.');
   };
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/85 p-4 pointer-events-auto md:p-8">
-      <div className="max-h-[92vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl md:p-8">
+    <div className="thin-scroll absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-slate-950/85 p-4 pt-[6vh] pointer-events-auto short:pt-3 md:p-8 md:pt-[8vh]">
+      <div className="w-full max-w-xl space-y-5 rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl md:p-8">
         <div className="space-y-2 border-b border-slate-800 pb-5 text-center">
           <div className="text-xs font-mono-num font-bold tracking-wider text-amber-400">
-            RETURN ARCHITECTURE
+            THE PLAN TO COME HOME
           </div>
-          <h2 className="text-xl font-bold text-slate-100 md:text-2xl">Order the original plan</h2>
+          <h2 className="text-xl font-bold text-slate-100 md:text-2xl">Put the plan in order</h2>
           <p className="mx-auto max-w-md text-sm text-slate-400">
-            Five stages were drawn for bringing Jezero’s samples to Earth. Drag them into the planned order. This campaign was not flown as first drawn.
+            Five steps were planned to bring the samples from Jezero to Earth. Drag them into order, from first to last.
           </p>
         </div>
 
@@ -154,17 +154,17 @@ export const SequencePuzzle: React.FC<SequencePuzzleProps> = ({ onComplete }) =>
           <div className="space-y-3 rounded-xl border border-emerald-500/80 bg-emerald-950/40 p-5 text-center">
             <div className="flex items-center justify-center gap-2 text-sm font-mono-num font-bold text-emerald-400">
               <Sparkles className="h-5 w-5" />
-              <span>SEQUENCE RECONSTRUCTED</span>
+              <span>PLAN REBUILT</span>
             </div>
             <p className="text-sm text-slate-300">
-              Perseverance caches the samples, a lander brings the ascent vehicle, the vehicle launches the container, an orbiter carries it toward Earth, and an entry system delivers it.
+              Collect, land a rocket, launch to orbit, catch and fly home, land on Earth. Each step needs the one before it.
             </p>
             <button
               type="button"
               onClick={onComplete}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 text-sm font-bold text-slate-950"
             >
-              WITNESS THE PLAN
+              RUN THE PLAN
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>

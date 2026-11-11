@@ -48,3 +48,19 @@
   animation: coach-bob 1.1s ease-in-out infinite;
   transform-origin: center;
 }
+
+/* Dark, slim scrollbar for panels that sit over the 3D scene. */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 3px;
+}

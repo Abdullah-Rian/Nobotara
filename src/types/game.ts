@@ -36,7 +36,7 @@ export interface ArtifactInfo {
 }
 
 export interface DialogueMessage {
-  speaker: 'Neil Armstrong (Narrator-01)' | 'Scientific Voice' | 'Apollo CAPCOM' | 'Narrator-02' | 'Mission Control' | 'Mission Assistant';
+  speaker: 'Neil Armstrong (Narrator-01)' | 'Scientific Voice' | 'Apollo CAPCOM' | 'Narrator-02' | 'Mission Control' | 'Mission Assistant' | 'Tara · Mission Assistant' | 'Narrator';
   text: string;
   audioDuration?: number;
   historicAudio?: boolean;

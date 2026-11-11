@@ -274,7 +274,7 @@ export function DialoguePanel({
   const shown = message.text.slice(0, count);
 
   return (
-    <div className={`w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 short:max-h-[30vh] short:overflow-y-auto short:p-2 shadow-xl ${className}`}>
+    <div className={`w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 short:max-h-[30vh] thin-scroll short:overflow-y-auto short:p-2 shadow-xl ${className}`}>
       <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <Radio className="w-4 h-4 text-amber-400 animate-pulse" />

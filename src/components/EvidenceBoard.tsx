@@ -12,6 +12,10 @@ export const EvidenceBoard: React.FC<EvidenceBoardProps> = ({ onComplete }) => {
   const [selected, setSelected] = useState<string | null>(EVIDENCE_ITEMS[0].id);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [checked, setChecked] = useState(false);
+
+  const isRight = (itemId: string, reasonId: string | undefined) =>
+    EVIDENCE_REASONS.find(entry => entry.id === reasonId)?.itemId === itemId;
 
   const choose = (reasonId: string) => {
     if (!selected || done) return;
@@ -19,40 +23,52 @@ export const EvidenceBoard: React.FC<EvidenceBoardProps> = ({ onComplete }) => {
     const next = { ...matches, [selected]: reasonId };
     setMatches(next);
     setError(null);
+    setChecked(false);
     const upcoming = EVIDENCE_ITEMS.find(item => !next[item.id]);
     setSelected(upcoming ? upcoming.id : null);
     if (EVIDENCE_ITEMS.every(item => next[item.id])) {
-      const correct = EVIDENCE_ITEMS.every(item => {
-        const reason = EVIDENCE_REASONS.find(entry => entry.id === next[item.id]);
-        return reason?.itemId === item.id;
-      });
-      if (correct) {
+      const wrong = EVIDENCE_ITEMS.filter(item => !isRight(item.id, next[item.id])).length;
+      setChecked(true);
+      if (wrong === 0) {
         apolloAudio.playSuccessChime();
         setDone(true);
       } else {
-        setError('One link is off. Ancient water is geology. A potential biosignature is a search, not proof. The tubes were meant for Earth laboratories.');
+        setError(
+          wrong === 1
+            ? 'One link does not fit. It is marked in red. Press Change on it and try another meaning.'
+            : `${wrong} links do not fit. They are marked in red. Press Change on each and try another meaning.`
+        );
       }
     }
   };
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/85 p-4 pointer-events-auto md:p-8">
-      <div className="max-h-[92vh] w-full max-w-3xl space-y-6 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl md:p-8">
+    <div className="thin-scroll absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-slate-950/85 p-4 pt-[6vh] pointer-events-auto short:pt-3 md:p-8 md:pt-[8vh]">
+      <div className="w-full max-w-3xl space-y-6 rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl md:p-8">
         <div className="space-y-2 border-b border-slate-800 pb-5 text-center">
           <div className="text-xs font-mono-num font-bold tracking-wider text-amber-400">
             EVIDENCE BOARD
           </div>
-          <h2 className="text-xl font-bold text-slate-100 md:text-2xl">What does the cache actually say?</h2>
+          <h2 className="text-xl font-bold text-slate-100 md:text-2xl">What does each clue really tell us?</h2>
           <p className="mx-auto max-w-lg text-sm text-slate-400">
-            Link each piece of the Mars record to the claim it can support. Habitability is not proof that life existed.
+            Pick a clue on the left, then choose what it means on the right.
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-3">
-            <div className="text-xs font-mono-num font-semibold text-slate-400">1. SELECT THE EVIDENCE</div>
+            <div className="text-xs font-mono-num font-semibold text-slate-400">1. PICK A CLUE</div>
             {EVIDENCE_ITEMS.map(item => {
               const reason = EVIDENCE_REASONS.find(entry => entry.id === matches[item.id]);
+              const right = checked && reason ? isRight(item.id, reason.id) : null;
+              const linkedBox =
+                right === true
+                  ? 'border-emerald-600/60 bg-emerald-950/20'
+                  : right === false
+                    ? 'border-rose-600/70 bg-rose-950/25'
+                    : 'border-slate-600 bg-slate-900/60';
+              const linkedText =
+                right === true ? 'text-emerald-300/90' : right === false ? 'text-rose-300' : 'text-slate-300';
               return (
                 <div
                   key={item.id}
@@ -61,17 +77,18 @@ export const EvidenceBoard: React.FC<EvidenceBoardProps> = ({ onComplete }) => {
                     selected === item.id
                       ? 'border-amber-400 bg-amber-500/10 ring-1 ring-amber-400'
                       : reason
-                        ? 'border-emerald-600/60 bg-emerald-950/20'
+                        ? linkedBox
                         : 'border-slate-800 bg-slate-950/60'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-slate-200">{item.text}</span>
-                    {reason && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+                    {right === true && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+                    {right === false && <AlertCircle className="h-4 w-4 text-rose-400" />}
                   </div>
                   {reason && (
-                    <div className="mt-1.5 flex items-center justify-between text-xs text-emerald-300/90">
-                      <span className="truncate pr-2">Linked: {reason.text}</span>
+                    <div className={`mt-1.5 flex items-start justify-between text-xs ${linkedText}`}>
+                      <span className="pr-2 leading-snug">Linked: {reason.text}</span>
                       <button
                         type="button"
                         onClick={event => {
@@ -81,9 +98,10 @@ export const EvidenceBoard: React.FC<EvidenceBoardProps> = ({ onComplete }) => {
                           setMatches(cleared);
                           setSelected(item.id);
                           setDone(false);
+                          setChecked(false);
                           setError(null);
                         }}
-                        className="shrink-0 text-[10px] text-slate-400 underline"
+                        className="shrink-0 rounded border border-slate-600 px-2 py-0.5 text-[11px] text-slate-200"
                       >
                         Change
                       </button>
@@ -95,7 +113,7 @@ export const EvidenceBoard: React.FC<EvidenceBoardProps> = ({ onComplete }) => {
           </div>
 
           <div className="space-y-3">
-            <div className="text-xs font-mono-num font-semibold text-slate-400">2. ASSIGN ITS MEANING</div>
+            <div className="text-xs font-mono-num font-semibold text-slate-400">2. CHOOSE WHAT IT MEANS</div>
             {EVIDENCE_REASONS.map(reason => {
               const used = Object.values(matches).includes(reason.id);
               return (
@@ -130,10 +148,10 @@ export const EvidenceBoard: React.FC<EvidenceBoardProps> = ({ onComplete }) => {
           <div className="space-y-3 rounded-xl border border-emerald-500/80 bg-emerald-950/40 p-5 text-center">
             <div className="flex items-center justify-center gap-2 text-sm font-mono-num font-bold text-emerald-400">
               <Sparkles className="h-5 w-5" />
-              <span>EVIDENCE LINKED</span>
+              <span>CLUES MATCHED</span>
             </div>
             <p className="text-sm text-slate-300">
-              Ancient water is geological history. Potential biosignatures are a search for possible past life, not proof. Returned samples are for Earth-laboratory analysis.
+              The lake could once have held life. The leopard-spot rock is a possible sign of it. The sealed samples could settle the question, in a laboratory on Earth.
             </p>
             <button
               type="button"

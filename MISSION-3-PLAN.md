@@ -2,6 +2,12 @@
 
 Played **11 November 2026** on `http://localhost:3000/`, start to finish, at desktop size and at phone-landscape size (812×375). Compared against the draft script (`NoboTara-71.docx.pdf`, pages 9–17) and the code in `src/missions/mars/data.ts`, `src/game/marsEngine.ts`, `src/App.tsx` and the Mars components.
 
+## Status
+
+- **Phase 0, done (11 Nov 2026).** B1–B7 and B9–B11 fixed. B8 (camera through models) moved to phase 2. The test skip button now needs `?debug` in the address.
+- **Phase 1, done (11 Nov 2026), pending a listen.** Script rewritten in `src/missions/mars/data.ts`; terminal briefing and "was it wasted?" beats wired in; all 29 Mars clips re-rendered. Still open: nobody has listened to the new clips, and no student or teacher has read the wording.
+- **Phase 2, done (11 Nov 2026).** Layered delta front with a river notch and channel, daytime sky with sun and far rim, three distinct rocks, boulder bed, leopard-spot outcrop, lab hologram, ten flat tubes, plan hologram hidden until the terminal opens, chase camera lifts clear of models. Not done: Perseverance is still not inspectable. Not rechecked: question, legacy and closing shots against the new sky; phone layout.
+
 ## Verdict
 
 Mission 3 runs end to end and nothing crashes. The science is careful and mostly right. But it is a first pass, not a finished mission:

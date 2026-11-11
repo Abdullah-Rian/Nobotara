@@ -62,8 +62,9 @@ export const MarsInspect: React.FC<MarsInspectProps> = ({ reading, narrationDone
       </svg>
       <aside
         ref={panelRef}
-        className="pointer-events-auto absolute right-4 top-1/2 z-30 max-h-[min(32rem,calc(100%-8rem))] w-[min(22rem,40vw)] -translate-y-1/2 overflow-y-auto rounded-2xl border border-slate-700/80 bg-slate-950/92 p-4 text-slate-100 shadow-2xl md:right-8"
+        className="pointer-events-auto absolute right-4 top-1/2 z-30 flex max-h-[min(32rem,calc(100%-8rem))] w-[min(22rem,40vw)] -translate-y-1/2 flex-col rounded-2xl border border-slate-700/80 bg-slate-950/92 text-slate-100 shadow-2xl short:top-14 short:max-h-[calc(100%-4.5rem)] short:translate-y-0 md:right-8"
       >
+      <div className="thin-scroll min-h-0 flex-1 overflow-y-auto p-4 short:p-3">
       <div className="text-[11px] font-mono-num font-bold text-amber-300">{reading.kicker}</div>
       <h2 className="mt-1 text-lg font-bold">{reading.title}</h2>
       <dl className="mt-3 space-y-2">
@@ -75,15 +76,24 @@ export const MarsInspect: React.FC<MarsInspectProps> = ({ reading, narrationDone
         ))}
       </dl>
       {reading.caution && <p className="mt-3 text-sm leading-relaxed text-amber-200">{reading.caution}</p>}
-      {narrationDone && (
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-4 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950"
-        >
-          {reading.continueLabel}
-        </button>
-      )}
+      </div>
+      {/* The footer keeps its height, so the panel does not jump when the button arrives. */}
+      <div className="shrink-0 border-t border-slate-800 px-4 py-3 short:px-3 short:py-2">
+        {narrationDone ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950"
+          >
+            {reading.continueLabel}
+          </button>
+        ) : (
+          <div className="flex h-9 items-center gap-2 font-mono-num text-[11px] text-slate-400">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+            <span>LISTENING…</span>
+          </div>
+        )}
+      </div>
     </aside>
     </>
   );

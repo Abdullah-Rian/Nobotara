@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { CURIOUS_QUESTIONS } from '../missions/mars/data';
+import React, { useEffect, useRef, useState } from 'react';
+import { CURIOUS_QUESTIONS, MARS_LAST_WORD } from '../missions/mars/data';
 
 interface CuriousCardProps {
   onMissions: () => void;
@@ -11,6 +11,11 @@ export const CuriousCard: React.FC<CuriousCardProps> = ({ onMissions }) => {
   const [answer, setAnswer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [asked, setAsked] = useState(false);
+  const answerRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (answer) answerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [answer]);
 
   useEffect(() => {
     let alive = true;
@@ -49,9 +54,10 @@ export const CuriousCard: React.FC<CuriousCardProps> = ({ onMissions }) => {
   };
 
   return (
-    <div className="pointer-events-auto mx-auto my-auto max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-700/80 bg-slate-950/95 p-6 text-left shadow-2xl md:p-8">
-      <div className="text-xs font-mono-num font-bold tracking-wider text-amber-300">STILL CURIOUS?</div>
-      <h2 className="mt-2 text-2xl font-extrabold text-slate-100">Three questions this mission can answer</h2>
+    <div className="thin-scroll pointer-events-auto mx-auto my-auto max-h-[86vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-700/80 bg-slate-950/95 p-6 text-left shadow-2xl md:p-8">
+      <p className="border-b border-slate-800 pb-4 text-base italic leading-relaxed text-slate-200">“{MARS_LAST_WORD}”</p>
+      <div className="mt-4 text-xs font-mono-num font-bold tracking-wider text-amber-300">STILL CURIOUS?</div>
+      <h2 className="mt-2 text-2xl font-extrabold text-slate-100">Three questions, answered</h2>
       <div className="mt-4 space-y-4">
         {CURIOUS_QUESTIONS.map(item => (
           <div key={item.q}>
@@ -70,7 +76,7 @@ export const CuriousCard: React.FC<CuriousCardProps> = ({ onMissions }) => {
           }}
         >
           <label className="text-xs font-mono-num text-slate-400" htmlFor="mars-followup">
-            One follow-up, answered only from this mission’s archive
+            Ask one more question about this mission
           </label>
           <textarea
             id="mars-followup"
@@ -89,7 +95,7 @@ export const CuriousCard: React.FC<CuriousCardProps> = ({ onMissions }) => {
           >
             {busy ? 'ASKING THE ARCHIVE' : asked ? 'FOLLOW-UP USED' : 'ASK THE ARCHIVE'}
           </button>
-          {answer && <p className="mt-3 text-sm leading-relaxed text-slate-200">{answer}</p>}
+          {answer && <p ref={answerRef} className="mt-3 text-sm leading-relaxed text-slate-200">{answer}</p>}
         </form>
       )}
 

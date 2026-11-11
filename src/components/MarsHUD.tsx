@@ -28,6 +28,8 @@ interface MarsHUDProps {
   onDialogueTyped?: () => void;
   showJoystick: boolean;
   showMap: boolean;
+  /** Speed, heading and the objective pill only make sense while driving. */
+  showStatus: boolean;
   showContinue: boolean;
   onContinue: () => void;
   onJoystickMove: (forward: number, turn: number) => void;
@@ -53,6 +55,7 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
   onDialogueTyped,
   showJoystick,
   showMap,
+  showStatus,
   showContinue,
   onContinue,
   onJoystickMove,
@@ -73,13 +76,18 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
             </div>
             <div className="flex items-center gap-2 font-mono-num text-xs text-slate-400">
               <span>JEZERO CRATER</span>
-              <span>·</span>
-              <span>VEL: {telemetry.speed.toFixed(1)} m/s</span>
-              <span>·</span>
-              <span>HDG: {Math.round(telemetry.heading)}°</span>
+              {showStatus && (
+                <>
+                  <span>·</span>
+                  <span>VEL: {telemetry.speed.toFixed(1)} m/s</span>
+                  <span>·</span>
+                  <span>HDG: {Math.round(telemetry.heading) % 360}°</span>
+                </>
+              )}
             </div>
           </div>
 
+          {showStatus && (
           <div className="pointer-events-auto absolute left-4 top-1/2 flex items-center gap-4 rounded-full border border-slate-800/80 bg-slate-950/85 px-4 py-1.5 font-mono-num text-xs text-slate-300 short:static short:left-auto short:top-auto short:max-w-full short:-translate-y-0 short:gap-2 short:px-2.5 short:py-1 md:left-6 -translate-y-1/2">
             <div className="flex items-center gap-1.5">
               <Navigation className="h-3.5 w-3.5 animate-bounce text-emerald-400" />
@@ -93,6 +101,7 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
               </span>
             </div>
           </div>
+          )}
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">
