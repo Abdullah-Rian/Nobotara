@@ -36,8 +36,8 @@ export const MOON_DRIVE: DriveWorld = {
   accelRate: 2.2,
   brakeRate: 3.6,
   coastRate: 1.7,
-  springOmega: 5.2,
-  springZeta: 0.28
+  springOmega: 7.5,
+  springZeta: 0.7
 };
 
 export const MARS_DRIVE: DriveWorld = {
@@ -47,8 +47,8 @@ export const MARS_DRIVE: DriveWorld = {
   accelRate: 3.2,
   brakeRate: 5.0,
   coastRate: 2.8,
-  springOmega: 8.0,
-  springZeta: 0.42
+  springOmega: 10,
+  springZeta: 0.85
 };
 
 /** Seconds of gravity along the slope that the speed target gives up (game-tuned). */
@@ -109,23 +109,27 @@ export class BodySpring {
       this.lastGround = ground;
       return 0;
     }
-    // The ground moved under the body: the body stays where it was for this instant.
+    // The ground moved under the body. The tyres and springs soak up most of it; the rest
+    // reaches the body, which then settles back.
     const groundMove = ground - this.lastGround;
     this.lastGround = ground;
-    this.offset -= groundMove;
+    this.offset -= groundMove * 0.4;
     const w = world.springOmega;
     let accel = -w * w * this.offset - 2 * world.springZeta * w * this.speed;
     // Above the ride height the springs hang loose and only gravity brings the body down,
     // scaled up a little for the game: on the Moon this is a slow float, on Mars much shorter.
-    if (this.offset > 0) accel = Math.max(accel, -world.gravity * 3);
+    if (this.offset > 0) accel = Math.max(accel, -world.gravity * 5);
     this.speed += accel * dt;
     this.offset += this.speed * dt;
     // The suspension can only compress so far, and the body never leaves very far.
-    if (this.offset < -0.12) {
-      this.offset = -0.12;
+    if (this.offset < -0.06) {
+      this.offset = -0.06;
       if (this.speed < 0) this.speed = 0;
     }
-    this.offset = Math.min(this.offset, 0.35);
+    if (this.offset > 0.1) {
+      this.offset = 0.1;
+      if (this.speed > 0) this.speed = 0;
+    }
     return this.offset;
   }
 
