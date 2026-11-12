@@ -27,6 +27,8 @@ export interface MissionBrief {
   date: string;
   /** One line under the title. */
   tagline: string;
+  /** The home page's original line about the mission, shown first on the card. */
+  intro: string;
   /** One or two sentences for the home page card. */
   summary: string;
   /** Three short steps for the home page card. */
@@ -66,6 +68,7 @@ export const MISSION_BRIEFS: Record<GameMission, MissionBrief> = {
     title: 'One Giant Leap',
     date: 'JULY 20, 1969',
     tagline: 'The mission that succeeded. The things it left behind.',
+    intro: "Humanity's first lunar landing on July 20, 1969. Explore the historic Sea of Tranquility landing site and Eagle lunar module.",
     summary: "Go back to the first Moon landing site and find out why Apollo 11 left things behind.",
     steps: ["Drive a rover across Tranquility Base", "Inspect what the astronauts left", "Time a laser pulse to the Moon"],
     place: 'Sea of Tranquility, the Moon · 0.674° N, 23.473° E',
@@ -97,6 +100,7 @@ export const MISSION_BRIEFS: Record<GameMission, MissionBrief> = {
     title: 'The Golden Record',
     date: 'LAUNCHED SEPTEMBER 5, 1977',
     tagline: 'The endless journey.',
+    intro: "Humanity's farthest emissary in interstellar space, carrying the Golden Record past the heliopause into the cosmic deep.",
     summary: "Take the controls of the farthest spacecraft ever sent from Earth, now in interstellar space.",
     steps: ["Turn the dish back toward Earth", "Read its last instruments", "Open the Golden Record"],
     get place() {
@@ -134,6 +138,7 @@ export const MISSION_BRIEFS: Record<GameMission, MissionBrief> = {
     title: 'The Lost Dream',
     date: 'PERSEVERANCE LANDED FEBRUARY 18, 2021',
     tagline: 'Jezero Crater. An unfinished journey.',
+    intro: "Humanity's first planned interplanetary sample return: Martian rock cores from Jezero Crater, still waiting for their journey to Earth.",
     summary: "Perseverance sealed pieces of an ancient Martian lake in tubes. They are still waiting to come home.",
     steps: ["Drive Perseverance through Jezero", "Scan rocks from an old lake", "Plan the journey home"],
     place: 'Jezero Crater, Mars · 18.38° N, 77.58° E',

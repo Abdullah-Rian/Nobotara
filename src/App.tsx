@@ -757,6 +757,7 @@ export default function App({ onPlay }: AppProps = {}) {
                   transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <div className="brief-date">{brief.date}</div>
+                  <p className="brief-intro">{brief.intro}</p>
                   <p className="brief-summary">{brief.summary}</p>
                   <ol className="brief-steps">
                     {brief.steps.map((step, i) => (
