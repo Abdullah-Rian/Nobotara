@@ -1,7 +1,7 @@
 /**
  * Renders the 30-second demo video's voice-over (docs/video/Nobotara71 video script v2) with Gemini TTS.
  *
- *   node scripts/render-video-voice.mjs <outDir> <Voice> [<Voice> ...]
+ *   node scripts/render-video-voice.mjs [--part N] <outDir> <Voice> [<Voice> ...]
  *
  * One MP3 per voice, the whole script in one take, so the voices can be compared by ear.
  * The style asks for a warm, brisk, mid-pitched young woman, to sit close to the team lead's own voice.
@@ -31,7 +31,11 @@ const STYLE =
   'Mid-range pitch, natural and friendly. Brisk and energetic, about three and a half words a second, with only short breaths between sentences and paragraphs. ' +
   'Gentle smile in the voice. The last line is slower and heartfelt. Studio recording, no music, no effects.';
 
-const [outDir, ...voices] = process.argv.slice(2);
+const args = process.argv.slice(2);
+// --part N renders only that part of the script (1-6), named ...-partN.mp3.
+const partFlag = args.indexOf('--part');
+const PART = partFlag >= 0 ? Number(args.splice(partFlag, 2)[1]) : 0;
+const [outDir, ...voices] = args;
 if (!outDir || voices.length === 0) {
   console.error('usage: node scripts/render-video-voice.mjs <outDir> <Voice> [<Voice> ...]');
   process.exit(1);
@@ -63,7 +67,7 @@ for (const [index, voice] of voices.entries()) {
     try {
       response = await ai.models.generateContent({
         model: MODEL,
-        contents: [{ role: 'user', parts: [{ text: LINES.join('\n\n'), speechMetadata: { style: STYLE } }] }],
+        contents: [{ role: 'user', parts: [{ text: PART ? LINES[PART - 1] : LINES.join('\n\n'), speechMetadata: { style: STYLE } }] }],
         config: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
       });
       break;
@@ -80,7 +84,7 @@ for (const [index, voice] of voices.entries()) {
   const rate = Number(/rate=(\d+)/i.exec(inline.mimeType || '')?.[1] || 24000);
   const wavPath = path.join(outDir, `${voice}.wav`);
   fs.writeFileSync(wavPath, bytes.subarray(0, 4).toString() === 'RIFF' ? bytes : wav(bytes, rate));
-  const mp3 = path.join(outDir, `video-voice-${voice}.mp3`);
+  const mp3 = path.join(outDir, `video-voice-${voice}${PART ? `-part${PART}` : ''}.mp3`);
   const enc = spawnSync(ffmpeg, ['-v', 'error', '-y', '-i', wavPath, '-ac', '1', '-ar', '44100', '-codec:a', 'libmp3lame', '-b:a', '128k', mp3]);
   if (enc.status !== 0) throw new Error(String(enc.stderr));
   fs.unlinkSync(wavPath);
