@@ -1,0 +1,3 @@
+# Cloudflare Pages. The game's pages are routes of the single-page app.
+/play     /index.html   200
+/play/*   /index.html   200

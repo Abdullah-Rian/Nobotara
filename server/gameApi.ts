@@ -186,8 +186,8 @@ function compressFile(file: string, mtime: number, encoding: 'br' | 'gzip') {
 function cacheControlFor(file: string) {
   const rel = file.replace(/\\/g, '/');
   if (rel.endsWith('/index.html')) return 'no-cache';
-  if (rel.includes('/dist/assets/')) return 'public, max-age=31536000, immutable';
-  if (/\.(glb|gltf|mp3|mp4|bin|jpg|jpeg|png|webp|wasm|svg|ico)$/i.test(rel)) {
+  if (rel.includes('/dist/static/')) return 'public, max-age=31536000, immutable';
+  if (/\.(glb|gltf|mp3|mp4|bin|jpg|jpeg|png|webp|wasm|svg|ico|zip|gz)$/i.test(rel)) {
     return 'public, max-age=86400, stale-while-revalidate=604800';
   }
   return 'public, max-age=3600';

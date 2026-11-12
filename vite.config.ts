@@ -11,6 +11,11 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      // Hashed JS and CSS go to /static, so they can be cached for a year (public/_headers).
+      // /assets stays for the files in public/assets, which keep their names.
+      assetsDir: 'static',
+    },
     server: {
       allowedHosts: true as const,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
