@@ -38,13 +38,6 @@ const RECORD_NEXT: CoachBeat = {
   hand: true
 };
 
-const ARCHIVE: CoachBeat = {
-  id: 'voyager-archive',
-  text: 'Choose the three findings Voyager actually made.',
-  pointAt: 'voyager-archive',
-  hand: false
-};
-
 const SEND: CoachBeat = {
   id: 'voyager-send',
   text: 'Send the telemetry.',
@@ -74,7 +67,8 @@ export function voyagerCoachBeat(input: {
   } else if (input.archiveOpen && input.archivePicked >= 3) {
     beat = SEND;
   } else if (input.archiveOpen) {
-    beat = ARCHIVE;
+    // The archive explains itself (its subtitle says three were Voyager 1's), so no hint here.
+    beat = null;
   } else if (input.showInitiate && input.step === 'plasma') {
     beat = INITIATE;
   } else if (input.showInitiate && input.step === 'magnetic') {
