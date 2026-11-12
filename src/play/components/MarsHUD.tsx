@@ -3,6 +3,7 @@ import { Check, Navigation, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { DialogueMessage } from '../types/game';
 import { DialoguePanel } from './HUD';
 import { DisplayControls } from './DisplayControls';
+import { LeaveMission } from './LeaveMission';
 import { VirtualJoystick } from './VirtualJoystick';
 import { MarsTelemetry } from '../game/marsEngine';
 import { useShortHeight } from '../utils/displayMode';
@@ -71,7 +72,6 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
   onToggleMute
 }) => {
   const short = useShortHeight();
-  const [leaving, setLeaving] = useState(false);
   // A touch screen has no E key to press.
   const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
   return (
@@ -143,40 +143,7 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setLeaving(value => !value)}
-              aria-expanded={leaving}
-              className="rounded-lg border border-slate-800/80 bg-slate-950/80 px-3 py-2 font-mono-num text-xs text-slate-300"
-            >
-              MISSIONS
-            </button>
-            {leaving && (
-              <div className="absolute right-0 top-full z-40 mt-2 w-60 rounded-lg border border-slate-700 bg-slate-950/95 p-3 text-left shadow-2xl">
-                <div className="text-sm font-bold text-slate-100">Leave this mission?</div>
-                <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                  Your progress is not saved. You will start Mission 03 from the beginning next time.
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setLeaving(false)}
-                    className="flex-1 rounded-md bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950"
-                  >
-                    KEEP PLAYING
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onMissions}
-                    className="flex-1 rounded-md border border-slate-600 px-3 py-2 text-xs font-bold text-slate-200"
-                  >
-                    LEAVE
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <LeaveMission missionLabel="Mission 03" onLeave={onMissions} />
           <DisplayControls compact labels="never" />
           <button
             type="button"

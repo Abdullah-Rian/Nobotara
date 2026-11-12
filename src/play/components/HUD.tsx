@@ -6,6 +6,7 @@ import { apolloAudio } from '../audio/apolloAudio';
 import { VirtualJoystick } from './VirtualJoystick';
 import { NavMap } from './NavMap';
 import { DisplayControls } from './DisplayControls';
+import { LeaveMission } from './LeaveMission';
 import { useShortHeight } from '../utils/displayMode';
 
 interface HUDProps {
@@ -19,6 +20,8 @@ interface HUDProps {
   onJoystickMove: (forward: number, turn: number) => void;
   isMuted: boolean;
   onToggleMute: () => void;
+  /** Leave for the home page. */
+  onMissions?: () => void;
   onOpenChallenge: () => void;
   canOpenChallenge: boolean;
   showJoystick?: boolean;
@@ -38,6 +41,7 @@ export const HUD: React.FC<HUDProps> = ({
   onJoystickMove,
   isMuted,
   onToggleMute,
+  onMissions,
   onOpenChallenge,
   canOpenChallenge,
   showJoystick = true,
@@ -155,6 +159,7 @@ export const HUD: React.FC<HUDProps> = ({
             )}
           </div>
 
+          {onMissions && <LeaveMission missionLabel="Mission 01" onLeave={onMissions} />}
           <DisplayControls compact labels="never" />
 
           {/* Audio Mute Button */}

@@ -1,6 +1,6 @@
 /**
- * NoboTara-71: Mission 01 — APOLLO 11
- * Main Game Application Shell
+ * NoboTara-71: the game shell for all three missions.
+ * The site opens it at /play/<mission>; it starts that mission straight away (there is no title screen).
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -24,7 +24,7 @@ import {
   VoyagerStep,
   markerById
 } from './missions/voyager/data';
-import { TitleScreen } from './components/TitleScreen';
+import type { GameMission } from './routes';
 import { HUD } from './components/HUD';
 import { InspectionModal } from './components/InspectionModal';
 import { RangingOverlay } from './components/RangingOverlay';
@@ -148,7 +148,16 @@ const EMPTY_MARS_TELEMETRY: MarsTelemetry = {
   rangeRadius: 44
 };
 
-export default function App() {
+interface PlayAppProps {
+  /** The mission to start as soon as the game opens. */
+  mission: GameMission;
+  /** Leave the game for the home page. */
+  onExit: () => void;
+  /** A mission started (the first one, or the next one from an end screen). */
+  onMissionChange?: (mission: GameMission) => void;
+}
+
+export default function PlayApp({ mission: startMission, onExit, onMissionChange }: PlayAppProps) {
   const canvasMountRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ApolloThreeEngine | null>(null);
   const voyagerRef = useRef<VoyagerEngine | null>(null);
@@ -260,7 +269,8 @@ export default function App() {
   const outroTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const beginVoyagerRef = useRef(() => {});
   const beginMarsRef = useRef(() => {});
-  const [isMuted, setIsMuted] = useState<boolean>(false);
+  // The sound setting outlives one visit to the game (it lives in the audio system).
+  const [isMuted, setIsMuted] = useState<boolean>(() => apolloAudio.getIsMuted());
   const [nearArtifact, setNearArtifact] = useState<MarkerId | null>(null);
   const [objective, setObjective] = useState<ObjectiveStep>('lander');
   const [roverHeld, setRoverHeld] = useState(false);
@@ -342,13 +352,23 @@ export default function App() {
     };
   };
 
-  // Initialize Three.js Engine once on mount
-  useEffect(() => {
-    if (!canvasMountRef.current) return;
-
-    const engine = new ApolloThreeEngine(canvasMountRef.current);
+  /** The Moon scene is built only when Mission 01 is played. */
+  const ensureApolloEngine = () => {
+    const mount = canvasMountRef.current;
+    if (!mount || engineRef.current) return;
+    voyagerRef.current?.dispose();
+    voyagerRef.current = null;
+    marsRef.current?.dispose();
+    marsRef.current = null;
+    const engine = new ApolloThreeEngine(mount);
     engineRef.current = engine;
     wireApolloRef.current(engine);
+  };
+
+  // Input loop on mount. Each mission builds its own scene when it starts.
+  useEffect(() => {
+    if (!canvasMountRef.current) return;
+    if (startMission === 'apollo') ensureApolloEngine();
 
     // Continuous input poll loop connecting gameInputs to the live mission.
     let inputFrameId = 0;
@@ -389,6 +409,9 @@ export default function App() {
     return () => {
       cancelAnimationFrame(inputFrameId);
       if (outroTimerRef.current) clearInterval(outroTimerRef.current);
+      // Leaving the game: silence it and stop it answering keys on the home page.
+      apolloAudio.pause();
+      gameInputs.reset();
       engineRef.current?.dispose();
       voyagerRef.current?.dispose();
       marsRef.current?.dispose();
@@ -459,7 +482,7 @@ export default function App() {
     gameInputs.setCallbacks(
       () => {
         if (phase === 'title') {
-          handleStartMission();
+          return;
         } else if (mission === 'voyager' && phase === 'explore' && voyagerStep === 'record') {
           openRecord();
         } else if (mission === 'voyager') {
@@ -520,6 +543,9 @@ export default function App() {
   // Phase 1: Start Mission & Intro Sequence
   beginMissionRef.current = () => {
     apolloAudio.init();
+    ensureApolloEngine();
+    missionRef.current = 'apollo';
+    setMission('apollo');
     introVoiceRef.current = { cancelled: false };
     setCoachSeen([]);
     setLaserResultReady(false);
@@ -527,8 +553,6 @@ export default function App() {
     gameInputs.setVirtualJoystick(0, 0);
     setActiveDialogue(null);
   };
-
-  const handleStartMission = () => requestStart('apollo');
 
   useEffect(() => {
     return onOrientationChange(() => {
@@ -705,8 +729,10 @@ export default function App() {
     }, 50);
   };
 
-  // Replay Mission
+  // Replay Mission 01 from its opening.
   const handleReplay = () => {
+    clearOutroTimer();
+    apolloAudio.stopSpeaking();
     setArtifactsVisited({
       descent_stage: false,
       retroreflector: false,
@@ -724,6 +750,7 @@ export default function App() {
     setCoachSeen([]);
     setLaserCompleted(false);
     objectiveHoldRef.current = false;
+    requestStart('apollo');
   };
 
   const clearOutroTimer = () => {
@@ -888,6 +915,7 @@ export default function App() {
 
   const requestStart = (which: 'apollo' | 'voyager' | 'mars') => {
     pendingMissionRef.current = which;
+    onMissionChange?.(which);
     if (isPortraitHandheld()) {
       apolloAudio.init();
       pendingStartRef.current = true;
@@ -900,7 +928,13 @@ export default function App() {
     else beginMissionRef.current();
   };
 
-  const speakVoyager = (text: string, speaker: DialogueMessage['speaker'], clipId: string, after: () => void) => {
+  // Start the requested mission as soon as the game opens.
+  useEffect(() => {
+    requestStart(startMission);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const speakVoyager =(text: string, speaker: DialogueMessage['speaker'], clipId: string, after: () => void) => {
     const token = ++voyagerSpeakRef.current;
     apolloAudio.speakDialogue(text, speaker, () => {
       if (token !== voyagerSpeakRef.current) return;
@@ -1181,47 +1215,14 @@ export default function App() {
   };
   beginVoyagerOutroRef.current = beginVoyagerOutro;
 
+  /** Back to the home page. Unmounting the game disposes the scene and silences it. */
   const handleBackToMissions = () => {
     clearOutroTimer();
-    apolloAudio.stopSpeaking();
-    apolloAudio.stopClosingTheme();
-    apolloAudio.stopWind();
     voyagerSpeakRef.current += 1;
     marsSpeakRef.current += 1;
     marsCueRef.current = null;
-    voyagerRef.current?.dispose();
-    voyagerRef.current = null;
-    marsRef.current?.dispose();
-    marsRef.current = null;
-    missionRef.current = 'apollo';
-    setMission('apollo');
-    setActiveDialogue(null);
-    setRecordOpen(false);
-    setVoyagerHeld(false);
-    setVoyagerPanel(null);
-    voyagerPartsOpenRef.current = false;
-    voyagerPartTourRef.current = false;
-    voyagerSpeechInspectRef.current = false;
-    setVoyagerSpeechInspect(false);
-    setVoyagerSticksReady(false);
-    voyagerSignalSentRef.current = false;
-    setVoyagerSignalSent(false);
-    setVoyagerSending(false);
-    setVoyagerPartsOpen(false);
-    setVoyagerPartId(null);
-    setVoyagerPartTour(false);
-    setMarsReading(null);
-    setMarsNarrationDone(false);
-    setMarsChoice(null);
-    setMarsCurious(false);
-    setMarsNear(null);
-    setOutroProgress(0);
-    setPhase('title');
-    if (canvasMountRef.current && !engineRef.current) {
-      const engine = new ApolloThreeEngine(canvasMountRef.current);
-      engineRef.current = engine;
-      wireApolloRef.current(engine);
-    }
+    apolloAudio.pause();
+    onExit();
   };
 
   const speakMars = (text: string, speaker: DialogueMessage['speaker'], clipId: string, after: () => void) => {
@@ -1811,20 +1812,10 @@ export default function App() {
       {/* 3D WebGL Canvas Container */}
       <div ref={canvasMountRef} className="absolute inset-0 z-0 w-full h-full" />
 
-      {/* Title Screen Overlay */}
-      {phase === 'title' && (
-        <TitleScreen
-          onStart={handleStartMission}
-          onStartVoyager={() => requestStart('voyager')}
-          onStartMars={() => requestStart('mars')}
-          isMuted={isMuted}
-          onToggleMute={handleToggleMute}
-        />
-      )}
 
       {/* Intro Skip button */}
       {phase === 'intro' && (
-        <div className={`absolute z-20 pointer-events-auto ${mission === 'voyager' || mission === 'mars' ? 'top-6 left-1/2 -translate-x-1/2' : 'top-6 right-6'}`}>
+        <div className="absolute left-1/2 top-6 short:top-16 z-20 -translate-x-1/2 pointer-events-auto">
           <button
             onClick={handleSkipIntro}
             className="px-4 py-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-xs font-mono-num text-slate-300 rounded-lg transition-colors"
@@ -1851,6 +1842,7 @@ export default function App() {
           onJoystickMove={(f, t) => gameInputs.setVirtualJoystick(f, t)}
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
+          onMissions={handleBackToMissions}
           onOpenChallenge={() => setPhase('puzzle')}
           canOpenChallenge={allVisited}
           showJoystick={phase === 'explore' && !activeDialogue && !roverHeld && !roverBooting}
@@ -1929,6 +1921,7 @@ export default function App() {
           }}
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
+          onMissions={handleBackToMissions}
           lookingAround={(phase === 'intro' || phase === 'explore') && voyagerPartsOpen}
           linkSent={voyagerSignalSent}
           showInspectCraft={

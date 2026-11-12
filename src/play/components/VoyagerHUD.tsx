@@ -4,6 +4,7 @@ import { DialogueMessage } from '../types/game';
 import { VoyagerTelemetry } from '../game/voyagerEngine';
 import { VoyagerStep, VOYAGER_RANGE_LABEL } from '../missions/voyager/data';
 import { DisplayControls } from './DisplayControls';
+import { LeaveMission } from './LeaveMission';
 import { DialoguePanel } from './HUD';
 import { useShortHeight } from '../utils/displayMode';
 
@@ -22,6 +23,8 @@ interface VoyagerHUDProps {
   onInitiate?: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
+  /** Leave for the home page. */
+  onMissions?: () => void;
   showInspectCraft?: boolean;
   onInspectCraft?: () => void;
   inspectCraftDisabled?: boolean;
@@ -79,6 +82,7 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
   onInitiate,
   isMuted,
   onToggleMute,
+  onMissions,
   showInspectCraft = false,
   onInspectCraft,
   inspectCraftDisabled = false,
@@ -186,6 +190,7 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
         </div>
         </div>
         <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+          {onMissions && <LeaveMission missionLabel="Mission 02" onLeave={onMissions} />}
           <DisplayControls compact labels="never" />
           <button
             type="button"

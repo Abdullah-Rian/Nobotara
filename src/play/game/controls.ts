@@ -18,6 +18,18 @@ export class GameInputManager {
     this.setupWindowBlurListener();
   }
 
+  /** Leaving the game: forget held keys and sticks, and stop answering Space, E and Escape. */
+  public reset() {
+    this.keysHeld = {};
+    this.virtualForward = 0;
+    this.virtualTurn = 0;
+    this.virtualPitch = 0;
+    this.virtualYaw = 0;
+    this.virtualThrust = 0;
+    this.onInteractCallback = undefined;
+    this.onEscapeCallback = undefined;
+  }
+
   public setCallbacks(onInteract?: () => void, onEscape?: () => void) {
     this.onInteractCallback = onInteract;
     this.onEscapeCallback = onEscape;

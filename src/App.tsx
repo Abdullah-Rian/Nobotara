@@ -281,7 +281,12 @@ async function renderSfxBuffer(ctx: AudioContext, type: SfxType): Promise<AudioB
   return buffer;
 }
 
-export default function App() {
+interface AppProps {
+  /** Get Started: open the selected mission in the game (handled in main.tsx). */
+  onPlay?: (mission: MissionKey) => void;
+}
+
+export default function App({ onPlay }: AppProps = {}) {
   const initialUrl = parseUrlState();
   const [currentMission, setCurrentMission] = useState<MissionKey>(initialUrl.mission);
   const [navOpen, setNavOpen] = useState(false);
@@ -531,11 +536,11 @@ export default function App() {
     setNavOpen(false);
   };
 
-const handleGetStarted = () => {
-  setNavOpen(false);
-  playSfx('cta');
-  window.location.href = 'https://nobotara-71.netlify.app/';
-};
+  const handleGetStarted = () => {
+    setNavOpen(false);
+    playSfx('cta');
+    onPlay?.(currentMission);
+  };
 
   const handleOpenSpaceAi = () => {
     playSfx('cta');

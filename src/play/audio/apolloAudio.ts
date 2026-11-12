@@ -47,8 +47,15 @@ class ApolloAudioSystem {
     return this.ctx;
   }
 
+  /**
+   * Start audio. Call it inside a click or tap, so the browser allows sound.
+   * After pause() it wakes the audio up again.
+   */
   public init() {
-    if (this.initialized) return;
+    if (this.initialized) {
+      if (this.ctx?.state === 'suspended') void this.ctx.resume();
+      return;
+    }
     try {
       const ctx = this.getContext();
       this.setupRoverHum(ctx);
@@ -57,6 +64,15 @@ class ApolloAudioSystem {
     } catch {
       // AudioContext might require user gesture
     }
+  }
+
+  /** Leaving a mission: stop every voice and sound, and put the audio to sleep until init() runs again. */
+  public pause() {
+    this.stopSpeaking();
+    this.stopClosingTheme();
+    this.stopWind();
+    this.updateRoverSpeed(0);
+    if (this.ctx && this.ctx.state === 'running') void this.ctx.suspend();
   }
 
   public setMuted(muted: boolean) {
