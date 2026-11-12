@@ -24,7 +24,7 @@ const LINES = [
   'So we made their stories playable, because kids remember what they do.',
   "Explore what Apollo eleven left on the Moon. Join Voyager one, now in interstellar space. Follow Mars samples, still waiting for a ride home.",
   'Questions? Ask SpaceAI, our guide built on NASA sources.',
-  'Free for every classroom, with more missions coming. Because every machine left behind still has a story to tell.'
+  'Free and easy to access for everyone. Because every machine left behind still has a story to tell.'
 ];
 const STYLE =
   'A warm, confident young woman in her twenties, the team lead, presenting her team\'s project to judges and to curious kids. ' +
