@@ -99,3 +99,20 @@ export const MATCHING_CHALLENGES: {
     }
   ]
 };
+
+
+/** Short notes for the tappable labels on the Moon surface (the full story is in the inspection). */
+export const APOLLO_PART_NOTES = {
+  descent: {
+    name: 'Eagle Descent Stage',
+    description:
+      'The bottom half of the lunar lander. Its engine slowed the landing. When the astronauts left, it stayed behind and worked as the launch pad for the top half.'
+  },
+  reflector: {
+    name: 'Laser Retroreflector',
+    description:
+      'A panel of 100 small glass prisms that send light straight back to where it came from. Scientists on Earth still aim lasers at it to measure the distance to the Moon.'
+  }
+} as const;
+
+export type ApolloPartId = keyof typeof APOLLO_PART_NOTES;

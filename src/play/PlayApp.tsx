@@ -33,6 +33,7 @@ import { OutroScreen } from './components/OutroScreen';
 import { RotateOverlay } from './components/RotateOverlay';
 import { LoadingBar } from './components/LoadingBar';
 import { LeaveMission } from './components/LeaveMission';
+import { ApolloParts } from './components/ApolloParts';
 import { VoyagerHUD } from './components/VoyagerHUD';
 import { introTitleLeadSeconds, MissionIntroTitle } from './components/VoyagerIntroTitle';
 import { VoyagerParts } from './components/VoyagerParts';
@@ -166,6 +167,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   const marsRef = useRef<MarsEngine | null>(null);
   const missionRef = useRef<'apollo' | 'voyager' | 'mars'>('apollo');
   const wireApolloRef = useRef<(engine: ApolloThreeEngine) => void>(() => {});
+  const readApolloParts = useCallback(() => engineRef.current?.partScreen, []);
   const readPlaquePoint = useCallback(() => engineRef.current?.plaqueScreenPoint, []);
   const readVoyagerParts = useCallback(() => voyagerRef.current?.partFrame, []);
   const readVoyagerSky = useCallback(() => voyagerRef.current?.skyFrame, []);
@@ -1950,6 +1952,10 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
             setVoyagerPartsOpen(true);
           }}
         />
+      )}
+
+      {mission === 'apollo' && phase === 'explore' && !rangingOpen && !activeDialogue && (
+        <ApolloParts readFrame={readApolloParts} clearTop={96} clearBottom={200} />
       )}
 
       {mission === 'apollo' && phase !== 'title' && phase !== 'outro' && phase !== 'puzzle' && (

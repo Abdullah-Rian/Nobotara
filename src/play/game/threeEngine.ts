@@ -145,6 +145,13 @@ export class ApolloThreeEngine {
   private hasSun = false;
   /** Screen positions of the Sun and Earth models, for the same leader labels Mission 2 uses. */
   public readonly sunScreen = { x: 0, y: 0, visible: false };
+  /** Screen positions of the Eagle descent stage and the retroreflector, for the tappable part labels. */
+  public readonly partScreen = {
+    descent: { x: 0, y: 0, visible: false },
+    reflector: { x: 0, y: 0, visible: false }
+  };
+  private readonly partAnchor = { descent: new THREE.Vector3(), reflector: new THREE.Vector3() };
+  private partAnchorKey = '';
   public readonly earthScreen = { x: 0, y: 0, visible: false, tipLeft: 0 };
 
   // Rover Kinematics
@@ -2005,6 +2012,35 @@ export class ApolloThreeEngine {
     this.projectBodyLabel(this.hasSun ? this.sunAnchor : null, this.sunScreen, hidden);
     this.projectBodyLabel(this.earthLaserPos, this.earthScreen, hidden);
     this.earthScreen.tipLeft = this.earthScreen.visible ? this.earthLimbPixels() : 0;
+    this.projectPartLabels(hidden);
+  }
+
+  /** Aim points on the two models: the middle of the lander body, and the top of the reflector. */
+  private projectPartLabels(hidden: boolean) {
+    const descent = this.models?.descentStageGroup;
+    const reflector = this.models?.retroreflectorGroup;
+    if (!descent || !reflector) {
+      this.partScreen.descent.visible = false;
+      this.partScreen.reflector.visible = false;
+      return;
+    }
+    // The models are swapped when the real ones finish loading, so refit when their ids change.
+    const key = `${descent.id}:${reflector.id}:${descent.position.y.toFixed(3)}:${reflector.position.y.toFixed(3)}`;
+    if (key !== this.partAnchorKey) {
+      this.partAnchorKey = key;
+      const box = new THREE.Box3();
+      descent.updateWorldMatrix(true, true);
+      box.setFromObject(descent);
+      if (!box.isEmpty()) box.getCenter(this.partAnchor.descent);
+      reflector.updateWorldMatrix(true, true);
+      box.setFromObject(reflector);
+      if (!box.isEmpty()) {
+        box.getCenter(this.partAnchor.reflector);
+        this.partAnchor.reflector.y = box.max.y;
+      }
+    }
+    this.projectBodyLabel(this.partAnchor.descent, this.partScreen.descent, hidden);
+    this.projectBodyLabel(this.partAnchor.reflector, this.partScreen.reflector, hidden);
   }
 
   /** Pixels from the Earth's center to a point just left of its silhouette. */
