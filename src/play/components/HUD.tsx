@@ -233,11 +233,40 @@ export const HUD: React.FC<HUDProps> = ({
 
 const TYPE_INTERVAL_MS = 12;
 
-/** Names shown on screen. Neil's lines are read by a voice actor, and students should know that. */
-function speakerLabel(speaker: string) {
-  if (speaker === 'Neil Armstrong (Narrator-01)') return 'Neil Armstrong · voiced for the game';
-  if (speaker === 'Narrator-02') return 'Narrator';
-  return speaker;
+/**
+ * Names shown on screen, one scheme for all three missions. Every line in the game is read by an
+ * AI text-to-speech voice (Gemini TTS, or the browser's own voice as a fallback), so every panel
+ * also carries an AI VOICE mark. Neil Armstrong is portrayed: the words are written for the game.
+ */
+export function speakerLabel(speaker: string) {
+  switch (speaker) {
+    case 'Neil Armstrong (Narrator-01)':
+      return 'Neil Armstrong (portrayed)';
+    case 'Scientific Voice':
+      return 'Science Narrator';
+    case 'Narrator-02':
+    case 'Narrator':
+      return 'Narrator';
+    case 'Tara · Mission Assistant':
+    case 'Mission Assistant':
+      return 'Tara · Mission Assistant';
+    case 'Apollo CAPCOM':
+      return 'Mission Control';
+    default:
+      return speaker;
+  }
+}
+
+/** Small mark on every narration panel: the voice is made with AI. */
+export function AiVoiceBadge({ className = '' }: { className?: string }) {
+  return (
+    <span
+      title="This voice was made with AI text-to-speech. It is not a recording of a real person."
+      className={`shrink-0 rounded border border-sky-400/50 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-bold font-mono-num tracking-wider text-sky-200 ${className}`}
+    >
+      AI VOICE
+    </span>
+  );
 }
 
 export function DialoguePanel({
@@ -287,16 +316,14 @@ export function DialoguePanel({
 
   return (
     <div className={`w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 short:max-h-[30vh] thin-scroll short:overflow-y-auto short:p-2 shadow-xl ${className}`}>
-      <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b border-slate-800">
+        <div className="flex min-w-0 items-center gap-2">
           <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
           <span className="text-xs font-bold font-mono-num text-amber-400 uppercase tracking-wider">
             {speakerLabel(message.speaker)}
           </span>
         </div>
-        <span className="text-[10px] text-slate-400 font-mono-num">
-          TRANSMISSION LINK ACTIVE
-        </span>
+        <AiVoiceBadge />
       </div>
       <p className="relative text-sm md:text-base short:text-xs text-slate-100 font-medium leading-relaxed">
         {typewriter ? (

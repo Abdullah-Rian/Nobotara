@@ -115,7 +115,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
             className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs"
           >
             <Volume2 className="w-4 h-4" />
-            {playingHistoricalVoice ? 'PLAYING A READING OF THE LINE…' : "LISTEN: THAT'S ONE SMALL STEP"}
+            {playingHistoricalVoice ? 'PLAYING AN AI READING OF THE LINE…' : "LISTEN: THAT'S ONE SMALL STEP (AI VOICE)"}
           </button>
         </div>
       )}
