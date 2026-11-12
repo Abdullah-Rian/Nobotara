@@ -80,7 +80,7 @@ export const HUD: React.FC<HUDProps> = ({
         : 'MARKER';
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 short:p-2 z-10 overflow-hidden">
+    <div className="hud-safe absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 short:p-2 z-10 overflow-hidden">
       {/* Top Bar: Mission Info & Telemetry Status */}
       <div className="flex justify-between items-start gap-4 pointer-events-auto">
         {/* Mission Cluster */}
@@ -186,7 +186,7 @@ export const HUD: React.FC<HUDProps> = ({
             </div>
           )}
           {showJoystick && (
-            <div data-coach="apollo-stick" className="ml-10 mb-8 short:ml-0 short:mb-0 bg-slate-950/80 border border-slate-800/80 rounded-2xl p-2.5 short:p-1.5">
+            <div data-coach="apollo-stick" className="ml-10 mb-8 short:ml-2 short:mb-1 bg-slate-950/80 border border-slate-800/80 rounded-2xl p-2.5 short:p-1.5">
               <VirtualJoystick onMove={onJoystickMove} />
             </div>
           )}

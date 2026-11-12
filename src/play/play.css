@@ -64,3 +64,26 @@
   background: rgba(148, 163, 184, 0.45);
   border-radius: 3px;
 }
+
+/*
+ * Mission HUDs keep their controls clear of the screen edges, phone notches and rounded corners.
+ * The page uses viewport-fit=cover, so on notched phones the safe-area insets must be added here.
+ * (Unlayered, so these win over the HUDs' p-4 / md:p-6 / short:p-2 utilities.)
+ */
+.play-root .hud-safe {
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, calc(env(safe-area-inset-right) + 0.5rem))
+    max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem)) max(1rem, calc(env(safe-area-inset-left) + 0.5rem));
+}
+@media (min-width: 768px) {
+  .play-root .hud-safe {
+    padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, calc(env(safe-area-inset-right) + 0.5rem))
+      max(1.5rem, calc(env(safe-area-inset-bottom) + 0.5rem)) max(1.5rem, calc(env(safe-area-inset-left) + 0.5rem));
+  }
+}
+/* Phones held sideways: tighter top, but the thumb controls stay well inside the corners. */
+@media (max-height: 500px) {
+  .play-root .hud-safe {
+    padding: max(0.5rem, env(safe-area-inset-top)) max(1.25rem, calc(env(safe-area-inset-right) + 0.75rem))
+      max(0.75rem, calc(env(safe-area-inset-bottom) + 0.5rem)) max(1.25rem, calc(env(safe-area-inset-left) + 0.75rem));
+  }
+}

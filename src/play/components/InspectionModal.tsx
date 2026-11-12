@@ -94,7 +94,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
 
   return (
     <>
-    <div className="absolute left-6 bottom-16 short:left-2 short:bottom-2 z-30 flex flex-col items-start gap-3 pointer-events-none">
+    <div className="absolute left-[max(1.5rem,calc(env(safe-area-inset-left)+1rem))] bottom-16 short:left-[max(1.25rem,calc(env(safe-area-inset-left)+0.75rem))] short:bottom-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.5rem))] z-30 flex flex-col items-start gap-3 pointer-events-none">
       {artifact.id === 'plaque' && readPlaquePoint && <PlaqueCallout readPoint={readPlaquePoint} />}
 
       {dialogue && (
@@ -128,7 +128,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
       <button
         onClick={onClose}
         data-coach="apollo-resume"
-        className={`pointer-events-auto absolute bottom-6 right-6 short:bottom-2 short:right-2 z-30 flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg text-sm ${
+        className={`pointer-events-auto absolute bottom-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))] right-[max(1.5rem,calc(env(safe-area-inset-right)+1rem))] short:bottom-[max(1rem,calc(env(safe-area-inset-bottom)+0.75rem))] short:right-[max(1.5rem,calc(env(safe-area-inset-right)+1rem))] z-30 flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg text-sm ${
           narrationDone
             ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
             : 'border border-slate-600 bg-slate-950/85 text-slate-100 hover:bg-slate-900'

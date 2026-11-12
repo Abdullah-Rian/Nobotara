@@ -75,7 +75,7 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
   // A touch screen has no E key to press.
   const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between p-4 md:p-6 short:p-2">
+    <div className="hud-safe pointer-events-none absolute inset-0 z-20 flex flex-col justify-between p-4 md:p-6 short:p-2">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col items-start gap-2">
           <div className="max-w-sm rounded-lg border border-slate-800/80 bg-slate-950/80 p-3 short:p-2">
@@ -180,7 +180,7 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
             </div>
           )}
           {showJoystick && (
-            <div data-coach="mars-stick" className="mb-8 ml-10 rounded-2xl border border-slate-800/80 bg-slate-950/80 p-2.5 short:mb-0 short:ml-0 short:p-1.5">
+            <div data-coach="mars-stick" className="mb-8 ml-10 rounded-2xl border border-slate-800/80 bg-slate-950/80 p-2.5 short:mb-1 short:ml-2 short:p-1.5">
               <VirtualJoystick onMove={onJoystickMove} />
             </div>
           )}

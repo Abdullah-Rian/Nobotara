@@ -2195,7 +2195,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       <ObjectiveCoach beat={apolloBeat ?? voyagerBeat ?? marsBeat} onDismiss={dismissCoach} />
       {/* HOME on screens where the mission's HUD (which has its own HOME) is hidden. */}
       {phase !== 'title' && !hudHasHome && (
-        <div className="pointer-events-auto absolute right-4 top-4 z-[45] md:right-6 md:top-6">
+        <div className="pointer-events-auto absolute right-[max(1rem,calc(env(safe-area-inset-right)+0.5rem))] top-[max(1rem,env(safe-area-inset-top))] z-[45] md:right-[max(1.5rem,calc(env(safe-area-inset-right)+0.5rem))] md:top-6">
           <LeaveMission
             floating
             missionLabel={mission === 'apollo' ? 'Mission 01' : mission === 'voyager' ? 'Mission 02' : 'Mission 03'}

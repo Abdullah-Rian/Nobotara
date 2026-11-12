@@ -106,7 +106,7 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
           : null;
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4 md:p-6 short:p-2">
+    <div className="hud-safe pointer-events-none absolute inset-0 flex flex-col justify-between p-4 md:p-6 short:p-2">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col items-stretch gap-3">
         <div className="pointer-events-auto rounded-lg border border-slate-800/80 bg-slate-950/80 p-3 short:p-2">
