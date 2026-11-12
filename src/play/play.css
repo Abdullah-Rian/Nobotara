@@ -1,13 +1,13 @@
-@import "tailwindcss";
-
-@custom-variant short (@media (max-height: 500px));
-
+/*
+ * The game's own styles. Tailwind and the `short:` variant come from src/index.css.
+ * Everything is scoped to the game, so the home page keeps its own fonts.
+ */
 @layer base {
-  :root {
+  .play-root {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
 
-  body {
+  body.play-mode {
     user-select: none;
     -webkit-user-select: none;
     touch-action: manipulation;

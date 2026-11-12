@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Short landscape screens (phones turned sideways). Used by the game in src/play. */
+@custom-variant short (@media (max-height: 500px));
+
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;

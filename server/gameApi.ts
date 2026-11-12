@@ -1,104 +1,26 @@
+/**
+ * The game's server pieces, used by the root server.ts:
+ * - /api/narrator: Gemini TTS for a line that has no pre-rendered clip
+ * - /api/mars-archive: Mission 03's "ask the archive" question (rate limited)
+ * - compressed static files with cache headers, for production
+ */
 import express from 'express';
-import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
-import { createServer as createViteServer } from 'vite';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import zlib from 'zlib';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import zlib from 'node:zlib';
 
-dotenv.config();
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const PUBLIC_DIR = path.join(ROOT, 'public');
+export const DIST_DIR = path.join(ROOT, 'dist');
+const isProduction = process.env.NODE_ENV === 'production';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-const PORT = 3000;
-
-app.use(express.json());
-
-// Audio cache to avoid re-generating identical speech lines
-const audioCache = new Map<string, string>();
-
-let ai: GoogleGenAI | null = null;
-if (process.env.GEMINI_API_KEY) {
-  ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
+function gameAi(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') return null;
+  return new GoogleGenAI({ apiKey });
 }
-
-// Endpoint to generate Neil Armstrong / Scientific narration
-app.post('/api/narrator', async (req, res) => {
-  try {
-    const { text, speaker } = req.body;
-    if (!text) {
-      return res.status(400).json({ error: 'Text is required' });
-    }
-
-    if (!ai) {
-      return res.json({ useFallback: true, reason: 'No API key configured' });
-    }
-
-    // Fenrir is the voice used for the opening line, and every line uses it so the narration stays
-    // one clear studio voice. The one exception is Tara, the Mission 03 assistant, who is a young woman.
-    const isTara = /Tara/.test(String(speaker || ''));
-    const voiceName = isTara ? process.env.TARA_VOICE || 'Kore' : 'Fenrir';
-    const cacheKey = `${voiceName}:${text}`;
-
-    if (audioCache.has(cacheKey)) {
-      return res.json({ audioData: audioCache.get(cacheKey), mimeType: 'audio/wav' });
-    }
-
-    const speechStyle = isTara
-      ? "Clear, friendly, natural young woman's voice, warm and bright, with a steady, patient pace, like a helpful guide speaking to a student. Studio recording. No radio filter, no static, no distortion."
-      : 'Calm, clear, natural male voice with a warm full tone and a steady pace. Studio recording, the same voice as the opening narration. No radio filter, no static, no distortion.';
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash-lite-tts',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text,
-              speechMetadata: {
-                style: speechStyle,
-              },
-            },
-          ],
-        },
-      ],
-      config: {
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName },
-          },
-        },
-      },
-    });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (base64Audio) {
-      audioCache.set(cacheKey, base64Audio);
-      return res.json({ audioData: base64Audio, mimeType: 'audio/wav' });
-    }
-
-    return res.json({ useFallback: true, reason: 'No audio generated' });
-  } catch (error) {
-    console.error('Error generating narration:', error);
-    return res.json({ useFallback: true, error: String(error) });
-  }
-});
-
-app.get('/api/mars-archive', (_req, res) => {
-  res.json({ available: Boolean(ai) });
-});
 
 // Each question costs a model call. Cap them per visitor and across the whole server.
 const ARCHIVE_WINDOW_MS = 10 * 60 * 1000;
@@ -123,66 +45,104 @@ function archiveAllowed(visitor: string) {
   return true;
 }
 
-app.post('/api/mars-archive', async (req, res) => {
-  if (!ai) return res.json({ available: false, answer: '' });
-  if (!archiveAllowed(req.ip || 'unknown')) {
-    return res.status(429).json({
-      available: true,
-      answer: 'The archive is busy. Please try again in a few minutes.'
-    });
-  }
-  const question = String(req.body?.question || '').trim().slice(0, 280);
-  if (!question) return res.status(400).json({ error: 'A question is required' });
+/** Adds the game's API routes. Call after express.json(). */
+export function registerGameApi(app: express.Express) {
+  const ai = gameAi();
+  // Audio cache to avoid re-generating identical speech lines
+  const audioCache = new Map<string, string>();
 
-  try {
-    const { MARS_ARCHIVE } = await import('./src/missions/mars/data.ts');
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `You answer one follow-up about the game mission Mars Sample Return. Use only the archive. Write for a 12-year-old, in two or three short sentences. If the archive does not contain the answer, say that this mission's archive does not cover it, and name one thing from the archive that is close to the question. Do not claim life was found on Mars. Do not claim the original sample-return campaign flew. Stay under 80 words.\n\nARCHIVE:\n${MARS_ARCHIVE}\n\nQUESTION:\n${question}`
-            }
-          ]
+  app.post('/api/narrator', async (req, res) => {
+    try {
+      const { text, speaker } = req.body;
+      if (!text) {
+        return res.status(400).json({ error: 'Text is required' });
+      }
+      if (!ai) {
+        return res.json({ useFallback: true, reason: 'No API key configured' });
+      }
+
+      // Fenrir is the voice used for the opening line, and every line uses it so the narration stays
+      // one clear studio voice. The one exception is Tara, the Mission 03 assistant, who is a young woman.
+      const isTara = /Tara/.test(String(speaker || ''));
+      const voiceName = isTara ? process.env.TARA_VOICE || 'Kore' : 'Fenrir';
+      const cacheKey = `${voiceName}:${text}`;
+
+      if (audioCache.has(cacheKey)) {
+        return res.json({ audioData: audioCache.get(cacheKey), mimeType: 'audio/wav' });
+      }
+
+      const speechStyle = isTara
+        ? "Clear, friendly, natural young woman's voice, warm and bright, with a steady, patient pace, like a helpful guide speaking to a student. Studio recording. No radio filter, no static, no distortion."
+        : 'Calm, clear, natural male voice with a warm full tone and a steady pace. Studio recording, the same voice as the opening narration. No radio filter, no static, no distortion.';
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: [{ role: 'user', parts: [{ text, speechMetadata: { style: speechStyle } } as any] }],
+        config: {
+          responseModalities: ['AUDIO'] as any,
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
         }
-      ]
-    });
-    const answer =
-      response.text ||
-      response.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim() ||
-      'The archive does not answer that.';
-    return res.json({ available: true, answer: answer.slice(0, 600) });
-  } catch (error) {
-    console.error('Mars archive question failed');
-    return res.json({ available: true, answer: 'The archive cannot answer that right now.' });
-  }
-});
+      });
 
-let port = Number(process.env.PORT) || 3000;
-const portArgIndex = process.argv.indexOf('--port');
-if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
-  const parsed = Number(process.argv[portArgIndex + 1]);
-  if (!isNaN(parsed) && parsed > 0) port = parsed;
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        audioCache.set(cacheKey, base64Audio);
+        return res.json({ audioData: base64Audio, mimeType: 'audio/wav' });
+      }
+      return res.json({ useFallback: true, reason: 'No audio generated' });
+    } catch (error) {
+      console.error('Error generating narration:', error);
+      return res.json({ useFallback: true, error: String(error) });
+    }
+  });
+
+  app.get('/api/mars-archive', (_req, res) => {
+    res.json({ available: Boolean(ai) });
+  });
+
+  app.post('/api/mars-archive', async (req, res) => {
+    if (!ai) return res.json({ available: false, answer: '' });
+    if (!archiveAllowed(req.ip || 'unknown')) {
+      return res.status(429).json({
+        available: true,
+        answer: 'The archive is busy. Please try again in a few minutes.'
+      });
+    }
+    const question = String(req.body?.question || '').trim().slice(0, 280);
+    if (!question) return res.status(400).json({ error: 'A question is required' });
+
+    try {
+      const { MARS_ARCHIVE } = await import('../src/play/missions/mars/data.ts');
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `You answer one follow-up about the game mission Mars Sample Return. Use only the archive. Write for a 12-year-old, in two or three short sentences. If the archive does not contain the answer, say that this mission's archive does not cover it, and name one thing from the archive that is close to the question. Do not claim life was found on Mars. Do not claim the original sample-return campaign flew. Stay under 80 words.\n\nARCHIVE:\n${MARS_ARCHIVE}\n\nQUESTION:\n${question}`
+              }
+            ]
+          }
+        ]
+      });
+      const answer =
+        response.text ||
+        response.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim() ||
+        'The archive does not answer that.';
+      return res.json({ available: true, answer: answer.slice(0, 600) });
+    } catch {
+      console.error('Mars archive question failed');
+      return res.json({ available: true, answer: 'The archive cannot answer that right now.' });
+    }
+  });
+
+  app.get('/health', (_req, res) => {
+    res.status(200).send('OK');
+  });
 }
 
-let host = '0.0.0.0';
-const hostArgIndex = process.argv.indexOf('--host');
-if (hostArgIndex !== -1 && process.argv[hostArgIndex + 1]) {
-  host = process.argv[hostArgIndex + 1];
-}
-
-// Health check endpoint for container and proxy readiness probes
-app.get('/health', (req, res) => {
-  res.status(200).send('OK');
-});
-
-const isProduction = process.env.NODE_ENV === 'production';
-const PUBLIC_DIR = path.resolve(__dirname, 'public');
-const DIST_DIR = path.resolve(__dirname, 'dist');
-
-/** Types worth compressing. Images, MP3 and zip files are already compressed. */
+/** Types worth compressing. Images, MP3, MP4 and zip files are already compressed. */
 const COMPRESSIBLE = new Set(['.js', '.css', '.html', '.json', '.svg', '.wasm', '.glb', '.gltf', '.txt', '.map', '.bin']);
 const compressed = new Map<string, Promise<Buffer>>();
 
@@ -213,14 +173,14 @@ function compressFile(file: string, mtime: number, encoding: 'br' | 'gzip') {
 
 /**
  * Caching. Files whose names carry a hash never change, so they are kept for a year.
- * Models, audio and images may be replaced under the same name, so they are reused for
+ * Models, audio, video and images may be replaced under the same name, so they are reused for
  * a day and refreshed in the background for a week. The page itself is always rechecked.
  */
 function cacheControlFor(file: string) {
   const rel = file.replace(/\\/g, '/');
   if (rel.endsWith('/index.html')) return 'no-cache';
   if (rel.includes('/dist/assets/')) return 'public, max-age=31536000, immutable';
-  if (/\.(glb|gltf|mp3|bin|jpg|jpeg|png|webp|wasm|svg|ico)$/i.test(rel)) {
+  if (/\.(glb|gltf|mp3|mp4|bin|jpg|jpeg|png|webp|wasm|svg|ico)$/i.test(rel)) {
     return 'public, max-age=86400, stale-while-revalidate=604800';
   }
   return 'public, max-age=3600';
@@ -293,43 +253,16 @@ function warmCompression() {
   })();
 }
 
-// Explicitly serve public assets (models, images, icons)
-app.use(serveCompressed(PUBLIC_DIR));
-app.use(express.static(PUBLIC_DIR, staticOptions));
-
-async function startServer() {
-  const distHtml = path.resolve(__dirname, 'dist', 'index.html');
-  const hasDist = fs.existsSync(distHtml);
-
-  if (process.env.NODE_ENV === 'production' && hasDist) {
-    console.log('Production mode: Serving static files from dist/');
-    app.use(serveCompressed(DIST_DIR));
-    app.use(express.static(DIST_DIR, staticOptions));
-    app.get('*', (req, res) => {
-      // A missing file is a 404, not the game page. Only page routes fall back to index.html.
-      if (path.extname(req.path)) return res.status(404).send('Not found');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.sendFile(distHtml);
-    });
-    warmCompression();
-  } else {
-    console.log('Development mode (or missing dist): Starting Vite middleware...');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  }
-
-  // Fallback error handler
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('Unhandled server error:', err);
-    res.status(500).send('Internal Server Error');
+/** Production: serve dist/ compressed with cache headers; page routes fall back to index.html. */
+export function serveBuiltSite(app: express.Express) {
+  const distHtml = path.join(DIST_DIR, 'index.html');
+  app.use(serveCompressed(DIST_DIR));
+  app.use(express.static(DIST_DIR, staticOptions));
+  app.get('*', (req, res) => {
+    // A missing file is a 404, not the page. Only page routes fall back to index.html.
+    if (path.extname(req.path)) return res.status(404).send('Not found');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(distHtml);
   });
-
-  app.listen(port, host, () => {
-    console.log(`Server running on http://${host}:${port} (NODE_ENV=${process.env.NODE_ENV || 'development'})`);
-  });
+  warmCompression();
 }
-
-startServer();

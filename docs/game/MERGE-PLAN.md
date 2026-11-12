@@ -2,7 +2,7 @@
 
 Goal: the website (`web/Nobotara`, GitHub `aviothicc/Nobotara`) and the game (`NobotaraGame`, GitHub `ferdouseOahid/NobotaraGame`) become one repository and one site. The game's own landing page (TitleScreen) is dropped. On the home page, **Get Started** starts the selected mission directly, and the home page shows the mission details the game's landing page has today.
 
-Out of scope for now: the SpaceAI chat. Its issues are parked in `web/Nobotara/SPACEAI-NOTES.md`. The chat moves into the new repo unchanged.
+Out of scope for now: the SpaceAI chat. Its issues are parked in `docs/SPACEAI-NOTES.md`. The chat moves into the new repo unchanged.
 
 ## What we start from
 
@@ -43,7 +43,7 @@ Decisions 2–5 below follow the recommendation unless you say otherwise.
    - `src/*` → `src/play/` (game code: `App.tsx` becomes `PlayApp.tsx`; `game/`, `components/`, `missions/`, `audio/`, `tutorials/`, `data/`, `utils/`, `types/`)
    - `public/models`, `public/draco`, `public/assets/audio`, `public/assets/images` keep their paths, so no asset URL changes.
    - `scripts/` → `scripts/` (voiceover and terrain builders); `model-sources/` → `model-sources/`
-   - `EXPERIENCE.md`, `MISSION-3-PLAN.md`, `DRAFT-VS-BUILD.md`, this plan → `docs/game/`. `SPACEAI-NOTES.md` → `docs/`.
+   - `EXPERIENCE.md`, `MISSION-3-PLAN.md`, `DRAFT-VS-BUILD.md`, this plan → `docs/game/`. `SPACEAI-NOTES.md` lives in `docs/`.
 2. In the website repo, on `game-merge`: `git merge --allow-unrelated-histories` from that clone. Both histories are kept; `git log --follow` still works on game files.
 3. **The website's files stay where they are.** Teammates are editing them, and moving them would break their open work. The website's `src/App.tsx` gets the `/play/...` route; nothing else in the website moves.
 4. Merge the config files:

@@ -6,13 +6,11 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createViteServer } from 'vite';
+import { registerGameApi, serveBuiltSite } from './server/gameApi';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 const REQUEST_TIMEOUT_MS = 45000;
 
@@ -31,6 +29,9 @@ async function startServer() {
   const server = http.createServer(app);
 
   app.use(express.json({ limit: '20mb' }));
+
+  // The game's routes: /api/narrator, /api/mars-archive, /health
+  registerGameApi(app);
 
   // Helper to get GoogleGenAI client
   function getGenAIClient(): GoogleGenAI | null {
@@ -417,16 +418,15 @@ CRITICAL FORMATTING & BREVITY RULES:
         host: '0.0.0.0',
         port: PORT,
         allowedHosts: true,
+        // Live reload gets its own port next to PORT (24678 for 3000), so two dev servers can run at once.
+        hmr: { port: PORT + 21678 },
       },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
-    });
+    // Compressed files with cache headers (from the game's server)
+    serveBuiltSite(app);
   }
 
   server.listen(PORT, '0.0.0.0', () => {
