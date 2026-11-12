@@ -202,7 +202,7 @@ export class ApolloThreeEngine {
     this.renderer.toneMappingExposure = 1.15;
     this.renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.shadowMap.enabled = !isSoftwareGl;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     // The shadow map only changes when something in the scene moves. The flyby camera does not.
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.setSize(container.clientWidth, container.clientHeight);

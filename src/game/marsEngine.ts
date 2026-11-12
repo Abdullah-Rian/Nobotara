@@ -257,7 +257,7 @@ export class MarsEngine {
     this.renderer.toneMappingExposure = 1.2;
     if (!isSoftwareGl) {
       this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.shadowMap.type = THREE.PCFShadowMap;
     }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
@@ -337,6 +337,24 @@ export class MarsEngine {
     this.disposed = true;
     cancelAnimationFrame(this.frameId);
     window.removeEventListener('resize', this.onResize);
+    // Free everything the scene put on the graphics card, so replays do not pile up.
+    const seen = new Set<THREE.Material>();
+    this.scene.traverse(node => {
+      const mesh = node as THREE.Mesh;
+      mesh.geometry?.dispose();
+      const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      if (!material) return;
+      for (const item of Array.isArray(material) ? material : [material]) {
+        if (seen.has(item)) continue;
+        seen.add(item);
+        for (const value of Object.values(item)) {
+          if (value instanceof THREE.Texture) value.dispose();
+        }
+        item.dispose();
+      }
+    });
+    this.sun.shadow.map?.dispose();
+    this.scene.clear();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {
       this.container.removeChild(this.renderer.domElement);
@@ -464,6 +482,8 @@ export class MarsEngine {
     if (shot !== this.shot) {
       this.shot = shot;
       this.rover.getWorldPosition(this.shotAnchor);
+      // The plan hologram belongs to the terminal scenes only.
+      if (shot !== 'plan' && shot !== 'reveal' && shot !== 'drive' && shot !== 'focus') this.planShown = false;
       this.resetCinema();
     }
     this.shotT = THREE.MathUtils.clamp(progress, 0, 1);

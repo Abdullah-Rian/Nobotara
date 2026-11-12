@@ -1,19 +1,18 @@
-NASA/JPL models from NASA 3D Resources. Free to use with credit. Not loaded by the game.
-
-perseverance.glb
-perseverance.blend
-https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/
+NASA/JPL models from NASA 3D Resources. Free to use with credit.
 
 perseverance-lite.glb
-perseverance-lite.blend
-The same NASA rover, reduced for the game: about 55,000 faces, 512-pixel textures, normal maps kept, Draco compressed.
-The Jezero scene loads perseverance-lite.glb.
+The NASA Perseverance rover, reduced for the game: about 55,000 faces, 512-pixel textures, normal maps kept, Draco compressed.
+The Jezero scene loads it.
+https://science.nasa.gov/3d-resources/mars-2020-perseverance-rover/
 
 mars-approach.glb
 NASA Mars globe shown at the start of Mission 3, with Jezero facing the camera. Hidden once the rover view begins.
 
-sample-tube.stl
-https://science.nasa.gov/3d-resources/mars-2020-sample-tube/
+mars-lite.glb
+A smaller Mars globe, shown beside the Moon and Voyager 1 in the last shot of Mission 3.
+
+The Blender files and full-size originals these were made from are in model-sources/nasa/ at the top of the repository.
+They are kept out of public/ so they are not shipped with the game.
 
 Credit: NASA/Jet Propulsion Laboratory
 Guidelines: https://www.nasa.gov/nasa-brand-center/images-and-media/

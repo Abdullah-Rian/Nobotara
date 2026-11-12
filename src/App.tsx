@@ -74,6 +74,7 @@ const APOLLO_INTRO_DIALOGUE: DialogueMessage = {
   text: "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn’t just chase a rock in the sky; we went to learn what people can do when they dare."
 };
 const MARS_OPENING_TITLE = 'MARS';
+const MARS_OPENING_STATUS = 'Mission 03: Mars Sample Return, Jezero Crater';
 /** Testing control. Open the game with ?debug in the address to show SKIP OBJECTIVE. */
 const DEBUG_SKIP = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug');
 
@@ -84,6 +85,7 @@ import { SequencePuzzle } from './components/SequencePuzzle';
 import { EvidenceBoard } from './components/EvidenceBoard';
 import { LegacyChoice } from './components/LegacyChoice';
 import { CuriousCard } from './components/CuriousCard';
+import { allMissionsDone, markMissionDone } from './utils/progress';
 import {
   MARS_APPROACH,
   MARS_ARRIVAL,
@@ -509,6 +511,10 @@ export default function App() {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
     apolloAudio.setMuted(nextMuted);
+    // Muting stops the wind. Bring it back when sound returns on the crater floor.
+    if (!nextMuted && missionRef.current === 'mars' && (phaseRef.current === 'explore' || phaseRef.current === 'inspect')) {
+      apolloAudio.startWind();
+    }
   };
 
   // Phase 1: Start Mission & Intro Sequence
@@ -659,6 +665,7 @@ export default function App() {
 
   // Phase 3 to Phase 4: Challenge completed -> Outro
   const handleChallengeCompleted = () => {
+    markMissionDone('apollo');
     setPhase('outro');
     setOutroProgress(0);
 
@@ -1159,6 +1166,7 @@ export default function App() {
   };
 
   const beginVoyagerOutro = () => {
+    markMissionDone('voyager');
     setPhase('outro');
     setVoyagerStep('outro');
     setOutroProgress(0);
@@ -1177,6 +1185,7 @@ export default function App() {
     clearOutroTimer();
     apolloAudio.stopSpeaking();
     apolloAudio.stopClosingTheme();
+    apolloAudio.stopWind();
     voyagerSpeakRef.current += 1;
     marsSpeakRef.current += 1;
     marsCueRef.current = null;
@@ -1277,6 +1286,7 @@ export default function App() {
     marsRef.current?.setHologramFrozen(true);
     marsRef.current?.setFocus(null);
     marsCueRef.current = 'unfinished';
+    apolloAudio.playRevealCue();
     setActiveDialogue(MARS_UNFINISHED);
     runMarsShot('reveal', 11, () => {
       revealReadyRef.current.shot = true;
@@ -1315,7 +1325,12 @@ export default function App() {
     marsCueRef.current = 'closing-a';
     setActiveDialogue(MARS_CLOSING);
     closingReadyRef.current = { shot: false, line: false };
+    markMissionDone('mars');
     apolloAudio.playClosingTheme();
+    // The wind belongs to the crater. It fades as the view leaves for space.
+    window.setTimeout(() => {
+      if (marsStepRef.current === 'closing') apolloAudio.stopWind();
+    }, 15000);
     runMarsShot('closing', 32, () => {
       closingReadyRef.current.shot = true;
       maybeShowCurious();
@@ -1653,6 +1668,8 @@ export default function App() {
     voyagerRef.current?.dispose();
     voyagerRef.current = null;
     marsRef.current?.dispose();
+    apolloAudio.stopClosingTheme();
+    apolloAudio.stopWind();
     const engine = new MarsEngine(mount);
     marsRef.current = engine;
     engine.onTelemetry = telemetry => {
@@ -1662,6 +1679,7 @@ export default function App() {
     engine.onNear = setMarsNear;
     engine.onIntroDone = () => {
       if (missionRef.current !== 'mars') return;
+      apolloAudio.startWind();
       setPhase('explore');
       marsCueRef.current = 'arrival';
       setActiveDialogue(MARS_ARRIVAL);
@@ -1684,7 +1702,7 @@ export default function App() {
     setActiveDialogue(null);
     setPhase('intro');
     engine.setLive(STEP_SITES.rocks);
-    engine.beginIntro(introTitleLeadSeconds(MARS_OPENING_TITLE) + MARS_APPROACH.text.length * 0.012);
+    engine.beginIntro(introTitleLeadSeconds(MARS_OPENING_TITLE, MARS_OPENING_STATUS) + MARS_APPROACH.text.length * 0.012);
   };
   beginMarsRef.current = beginMars;
 
@@ -1874,6 +1892,7 @@ export default function App() {
       {mission === 'mars' && phase === 'intro' && (
         <MissionIntroTitle
           line1={MARS_OPENING_TITLE}
+          line2={MARS_OPENING_STATUS}
           onTyped={() => {
             if (marsCueRef.current !== 'approach') return;
             setActiveDialogue(MARS_APPROACH);
@@ -2111,7 +2130,12 @@ export default function App() {
 
       {mission === 'mars' && marsCurious && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/45 p-4">
-          <CuriousCard onMissions={handleBackToMissions} />
+          <CuriousCard
+            onMissions={handleBackToMissions}
+            onReplay={beginMars}
+            legacy={LEGACY_CHOICES.find(choice => choice.id === marsChoice)?.title ?? null}
+            allDone={allMissionsDone()}
+          />
         </div>
       )}
 

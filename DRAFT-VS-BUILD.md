@@ -1,6 +1,6 @@
 # NoboTara-71: draft script vs the game as built
 
-Compared **9 November 2026**.
+Compared **9 November 2026**. Mission 03 was rebuilt after that, and section 4 was rewritten on **12 November 2026**.
 
 - **Draft:** `NoboTara-71.docx.pdf` (17 pages). A game-and-narrative script: one prologue, then Apollo 11, Voyager 1, and Mars Sample Return in that order, ending on an open AI chatbot.
 - **Build:** the Three.js game in this repo (`src/App.tsx` and the Apollo, Voyager, and Mars modules).
@@ -105,57 +105,52 @@ The exit still shrinks the craft, passes a Pale Blue Dot beat, and approaches Ma
 
 ## 4. Mars Sample Return
 
-The scientific argument is the same. The visit is a checklist of named sites instead of two exploration scenes.
+Mission 03 was rebuilt against the draft. Most of what the first build had cut is back. What follows is what still differs.
 
 ### Arrival and the rocks
 
-Draft Scene 01 drops the player into Jezero after a descent that finds Perseverance in the distance. A mission assistant welcomes them and gives the lake an age: more than 3.5 billion years. The player explores, scans formations, finds the sampling system, and opens a holographic record of the rover’s earlier work. A scan can report composition, geology, ancient conditions, and why the rock is worth studying. Then the player finds the sealed tubes.
+Back from the draft: the assistant's welcome with the lake's age (more than 3.5 billion years), and scanning as something the player does. The player now holds a scan button while a ring sweeps the rock and the four facts fill in.
 
-Build: the camera drops onto a basin and the player drives the series rover. Perseverance is a prop beside the cache, not the figure in the opening shot. The welcome and the 3.5-billion-year line are gone. The arrival is two shorter lines: the lake and the delta are gone and the rock remains; photographs cannot bring the rocks home.
+Still different:
 
-There is no operations hologram. The “scan” is four required stops, in order:
-
-1. Igneous crater-floor rock (olivine and pyroxene, a rock that can be dated)
-2. Delta sandstone (clays, salts, river sediment)
-3. Fine lake sediment (quiet water, habitability without a verdict)
-4. The sealed tubes
-
-Those four fact rows (composition, character, ancient environment, why collect it) are the draft’s scan panel, filled in with specific rocks the script never named. The habitability caution starts here, earlier than the draft, which saved it for Scene 04.
+- The draft descends onto Jezero with Perseverance in the distance. The build fades from the approach globe to the rover already on the crater floor.
+- The draft's scanning is open exploration. The build marks three named rocks (volcanic floor rock, delta sandstone, lake-bed mudstone). The player chooses the order, not the rocks.
+- The draft has a holographic record of Perseverance's earlier work. The build has none. Perseverance is a labelled model that cannot be inspected.
+- The assistant has a name, Tara, which the draft does not give.
 
 ### The return plan
 
-The five stages match, including the Sample Retrieval Lander, the Mars Ascent Vehicle, the Earth Return Orbiter, and the Earth Entry System. The build says up front, on the puzzle itself, that this campaign was not flown as first drawn. The draft withholds that until after the puzzle.
+Back from the draft: the briefing before the puzzle (NASA and ESA, several machines, "every step depended on the one before it"), a reconstruction of all five stages, and the reveal that follows the puzzle instead of preceding it.
 
-The draft’s terminal speech is a long assistant briefing (NASA and ESA, several spacecraft, a rocket) and a narration that walks the chain: sample, rocket, orbiter, home, each step depending on the one before. The build’s puzzle is a reorder list. Success is one line: “Sequence reconstructed. This was the original plan for bringing the tubes home.” A holographic lander and ascent vehicle sit at the terminal.
+Still different:
 
-The reveal is shorter too. The draft freezes the hologram, removes the lander, fades the ascent vehicle until only the tubes remain, and asks whether the effort was wasted. The build freezes the hologram and says the architecture met complexity, cost, and schedule trouble, then: “An unfinished journey is still a record of the question.” The “was it meaningless?” questions are not spoken.
+- The draft shows the spacecraft "arranged in their intended sequence". The build plays them: the lander comes down, the rocket launches, the orbiter catches the samples, a capsule falls to Earth, each step captioned.
+- The reveal follows the draft's beats (simulation stops, parts disappear, the ascent vehicle fades last, only the tubes remain, "was it wasted?"). The record line is more specific than the draft's: it says the plan's funding was stopped in 2026.
 
 ### The three investigations
 
-Draft Scene 04 is a hidden archive. The player unlocks three research questions by exploring: water in sedimentary rock and clay, what a potential biosignature is and why habitability is not proof, and why Earth laboratories can do what the rover cannot. A narration about billions of years and evidence that could change our understanding of life plays over that search.
+Back from the draft: the player now finds them by exploring, in any order, and each has something to look at (the layered delta front and its boulders, a spotted outcrop, a laboratory hologram).
 
-The build sends the player to three more marked sites, in order (water, biosignatures, laboratory), each another reading panel. The science is the same, worded more tightly, and the “billions of years” narration is not used. The evidence board that follows is the draft’s board:
+Still different:
 
-- Ancient water → geological history of the lake and the delta
-- Potential biosignatures → a search, not proof
-- Returned samples → Earth-laboratory analysis, so later questions can still be asked
+- There is no "hidden archive". The three are marked on the map as clues.
+- Investigation 2 is built around a real find the draft does not mention: the Cheyava Falls rock and its leopard spots.
+- The draft's narration over this scene ("For billions of years, Mars has preserved clues…") is not used. Its place is taken by "Three clues are waiting in this crater."
 
 ### The question, the choice, and the end
 
-The open question is the same, and the archive still refuses to answer it. The draft’s longer speech (ancient rivers, a world that may have been more like ours, “whether we were ever alone”) is replaced by “The archive has no conclusion” and “One unfinished mission does not end discovery.” A question stage does show Mars with a rocket, an orbiter, and Earth, and those extras can fade. That is the draft’s visualization in a shorter form.
+Back from the draft: the narrator's "we still do not know whether we were ever alone" speech, Earth over the Martian horizon, the planned journey drawn and then erased, a different scene for each legacy choice, a sunset, the "three missions, three legacies" speech, the three objects as a constellation, and the final sentence on screen.
 
-The three choices keep the draft’s titles: **Preserve the evidence**, **Continue asking questions**, **Inspire future explorers**. The draft gives each a different cinematic result (records catalogued, questions sent into the explorer’s archive, a reconstruction left for future researchers) and then the same assistant close. The build plays a different camera for each choice (in on the tubes, around the terminal, up over the plan) and then the same line every time. The choice screen says so: “All three endings keep the same record.” The assistant close matches the draft: evidence preserved, questions unanswered, exploration continues.
+Still different:
 
-The proper ending diverges in the words and in who the camera belongs to.
+- The legacy scenes are the build's own: tags over the tubes, three lights sent up from the terminal, the route to Earth drawn across the sky. The draft describes cataloguing, transmitting, and a displayed reconstruction.
+- There is no player character standing on a ridge. The sunset is seen from the top of the delta, with the rover and Perseverance below.
+- The sunset is blue around the sun, as it is on Mars. The draft does not say so.
+- The spoken ending adds a line the draft does not have: "Someone will go and bring them home. Perhaps it will be you."
 
-- Draft: the player stands on a ridge over Jezero. Sunset, stars, a rise over the crater, then a narration that science sometimes returns a new question instead of an answer. The Moon, Voyager, and Mars form a constellation. The last sentence is “The universe does not run out of mysteries. We simply run out of questions to ask until we discover another.”
-- Build: there is no on-foot character and no ridge. The camera lifts off the basin and frames a Moon, a small Voyager model, and Mars. The narration is new: Apollo left tools, Voyager carried a record, Mars keeps a cache of stone, and “The universe does not owe us an answer. It leaves us the work of asking, and the patience to keep the evidence.”
+### "Still curious?"
 
-### “Still curious?”
-
-The draft ends on an AI assistant that invites any further question about space.
-
-The build shows three written answers (life was not proved, the five-part plan was not flown, why cache samples if instruments are already on Mars). If `/api/mars-archive` is available, the player may ask one follow-up, answered only from this mission’s archive text, and only once. It is not an open chatbot, and it will not leave the Jezero story.
+The draft ends on an open AI chatbot. The build shows three answered questions and lets the player ask the mission archive three questions of their own. It still answers only from this mission's text. The draft's congratulation appears once all three missions have been finished on the same device.
 
 ## 5. Differences that matter most
 
@@ -164,8 +159,8 @@ If the script is the target, these are the breaks that change the game, not the 
 1. **No shared opening.** The archive prologue, the launch, and the forced Apollo-first path are gone. Any mission can start from the title screen.
 2. **Apollo’s laser is a fourth station the player fires**, with observatory numbers, instead of a beam the player triggers at the reflector.
 3. **Voyager does not fly.** The heliopause crossing and the trip to holographic instrument panels were replaced by aiming the dish, then pressing Initiate.
-4. **Mars is a fixed site list**, not open scanning plus a hidden archive. The rover’s operations hologram, the long terminal briefing, and the “was it meaningless?” fade of the ascent vehicle are not in the spoken script.
-5. **Endings were flattened.** Legacy choices differ by camera, not by what the archive does. The ridge monologue and the draft’s last sentence were replaced. The chatbot is one archive-bound follow-up after three fixed answers.
+4. **Mars is marked sites in a free order**, not open scanning plus a hidden archive. The rover’s operations hologram is the one Mars beat that was not built.
+5. **The chatbot is not open.** It answers three questions from the Mars archive only. Apollo and Voyager still end on a card, not on the draft’s automatic handoff.
 6. **The player is coached and can leave.** Untimed objectives, skip-ahead in Voyager, and a menu between missions replace the draft’s short timed scenes and automatic handoffs.
 
 Copy inside a beat (Neil on the descent stage, the five return stages, the power trade-off, the fiction disclaimer on Voyager’s last packet) is close to the script even where the staging around it changed.

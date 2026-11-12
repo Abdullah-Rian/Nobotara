@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Play, Volume2, VolumeX } from 'lucide-react';
 import { DisplayControls } from './DisplayControls';
 
 interface TitleScreenProps {
@@ -21,11 +21,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 md:p-12 short:p-3 z-20">
       {/* Top Header / Audio Toggle & 3D Models */}
       <div className="flex justify-between items-center pointer-events-auto">
-        <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 bg-amber-400 rounded-xs" />
-          <span className="text-xs uppercase tracking-widest text-slate-400 font-mono-num font-semibold">
-            NOBOTARA-71 // HISTORIC SPACE SERIES
-          </span>
+        <div className="flex flex-col items-start gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-2.5 h-2.5 bg-amber-400 rounded-xs" />
+            <span className="text-xs uppercase tracking-widest text-slate-400 font-mono-num font-semibold">
+              NOBOTARA-71 // HISTORIC SPACE SERIES
+            </span>
+          </div>
+          <a
+            href="https://nobotara.pages.dev/"
+            className="flex items-center gap-3 rounded-md border border-slate-600/80 bg-slate-950/80 px-[1.125rem] py-[0.5625rem] text-lg font-semibold tracking-wide text-slate-200 transition-colors hover:bg-slate-800"
+          >
+            <ArrowLeft className="h-[1.3125rem] w-[1.3125rem]" />
+            GO BACK
+          </a>
         </div>
         <div className="flex items-center gap-2">
           <DisplayControls />
@@ -90,8 +99,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             className="rounded-xl border border-orange-400/80 bg-slate-950/90 p-4 text-left text-slate-100 shadow-lg transition-transform hover:-translate-y-0.5"
           >
             <div className="text-[11px] font-mono-num font-bold text-orange-300">MISSION 03</div>
-            <div className="mt-1 whitespace-nowrap text-sm font-bold">MARS — THE UNFINISHED PROMISE</div>
-            <div className="mt-1 text-xs text-slate-400">Jezero Crater</div>
+            <div className="mt-1 whitespace-nowrap text-sm font-bold">Mars Sample Return</div>
+            <div className="mt-1 text-xs text-slate-400">Jezero Crater · An unfinished journey</div>
           </button>
         </div>
         <span className="mt-3 block text-xs text-slate-700 font-mono-num">

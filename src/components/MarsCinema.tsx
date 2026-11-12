@@ -6,7 +6,7 @@ export const PlanCaption: React.FC<{ stage: number }> = ({ stage }) => {
   const step = RETURN_SEQUENCE[stage];
   if (!step) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-20 z-20 flex justify-center px-4 short:top-12">
+    <div className="pointer-events-none absolute inset-x-0 top-20 z-20 flex justify-center px-4 short:top-16">
       <div className="max-w-xl rounded-xl border border-cyan-400/50 bg-slate-950/85 px-5 py-3 text-center shadow-xl">
         <div className="flex items-center justify-center gap-1.5">
           {RETURN_SEQUENCE.map((item, index) => (
@@ -31,7 +31,7 @@ export const QuestionTitle: React.FC<{ progress: number }> = ({ progress }) => {
   const fadeOut = Math.min(1, Math.max(0, (0.99 - progress) / 0.05));
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 top-[16%] z-20 px-6 text-center short:top-[12%]"
+      className="pointer-events-none absolute inset-x-0 top-[16%] z-20 px-6 text-center short:top-[19%]"
       style={{ opacity: Math.min(fadeIn, fadeOut) }}
     >
       <div className="font-mono-num text-xs font-bold tracking-[0.3em] text-amber-300">THE OPEN QUESTION</div>
@@ -92,7 +92,7 @@ export const TrioLabels: React.FC<{ read: () => readonly TrioLabel[] | undefined
 /** The closing sentence, set over the three missions. */
 export const LastWord: React.FC<{ text: string; progress: number }> = ({ text, progress }) => (
   <div
-    className="pointer-events-none absolute inset-x-0 top-[12%] z-20 px-6 text-center short:top-[8%]"
+    className="pointer-events-none absolute inset-x-0 top-[12%] z-20 px-6 text-center short:top-[19%]"
     style={{ opacity: Math.min(1, Math.max(0, (progress - 0.8) / 0.1)) }}
   >
     <p className="mx-auto max-w-2xl text-lg italic leading-relaxed text-slate-100 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] md:text-2xl short:text-base">

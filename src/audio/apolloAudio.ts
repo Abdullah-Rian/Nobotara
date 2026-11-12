@@ -9,6 +9,8 @@ class ApolloAudioSystem {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private themeGain: GainNode | null = null;
+  private windGain: GainNode | null = null;
+  private windNodes: AudioScheduledSourceNode[] = [];
   private roverOsc: OscillatorNode | null = null;
   private roverGain: GainNode | null = null;
   private ambientNoiseNode: AudioNode | null = null;
@@ -66,6 +68,7 @@ class ApolloAudioSystem {
     if (muted) {
       this.stopSpeaking();
       this.stopClosingTheme();
+      this.stopWind();
     }
   }
 
@@ -331,6 +334,104 @@ class ApolloAudioSystem {
           osc.start(start);
           osc.stop(start + hold + 3.6);
         });
+      });
+    } catch {
+      // Audio failure fallback
+    }
+  }
+
+  /** Thin Martian wind: filtered noise that slowly swells and drops. Loops until stopped. */
+  public startWind() {
+    if (this.isMuted || this.windGain) return;
+    try {
+      const ctx = this.getContext();
+      const seconds = 4;
+      const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let last = 0;
+      for (let i = 0; i < data.length; i++) {
+        // Brown-ish noise: each sample leans on the one before it.
+        last = (last + 0.03 * (Math.random() * 2 - 1)) / 1.03;
+        data[i] = last * 3.2;
+      }
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = 420;
+      band.Q.value = 0.6;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 2.5);
+      // A slow gust: the level and the pitch of the wind drift together.
+      const gust = ctx.createOscillator();
+      gust.frequency.value = 0.11;
+      const gustDepth = ctx.createGain();
+      gustDepth.gain.value = 0.025;
+      const pitchDepth = ctx.createGain();
+      pitchDepth.gain.value = 160;
+      gust.connect(gustDepth);
+      gustDepth.connect(gain.gain);
+      gust.connect(pitchDepth);
+      pitchDepth.connect(band.frequency);
+      source.connect(band);
+      band.connect(gain);
+      gain.connect(ctx.destination);
+      source.start();
+      gust.start();
+      this.windGain = gain;
+      this.windNodes = [source, gust];
+    } catch {
+      // Audio failure fallback
+    }
+  }
+
+  public stopWind() {
+    const gain = this.windGain;
+    const nodes = this.windNodes;
+    this.windGain = null;
+    this.windNodes = [];
+    if (!gain || !this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.5);
+      window.setTimeout(() => {
+        for (const node of nodes) {
+          try {
+            node.stop();
+          } catch {
+            // Already stopped.
+          }
+        }
+        gain.disconnect();
+      }, 1700);
+    } catch {
+      // Audio failure fallback
+    }
+  }
+
+  /** The moment the plan goes dark: one low tone that sinks and fades. */
+  public playRevealCue() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.getContext();
+      const now = ctx.currentTime;
+      [110, 164.81].forEach((freq, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = index === 0 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.72, now + 6);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(index === 0 ? 0.07 : 0.04, now + 1.2);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 7);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 7.1);
       });
     } catch {
       // Audio failure fallback

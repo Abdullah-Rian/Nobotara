@@ -97,8 +97,37 @@ app.get('/api/mars-archive', (_req, res) => {
   res.json({ available: Boolean(ai) });
 });
 
+// Each question costs a model call. Cap them per visitor and across the whole server.
+const ARCHIVE_WINDOW_MS = 10 * 60 * 1000;
+const ARCHIVE_PER_VISITOR = 9;
+const ARCHIVE_TOTAL = 300;
+const archiveHits = new Map<string, number[]>();
+let archiveTotal: number[] = [];
+
+function archiveAllowed(visitor: string) {
+  const now = Date.now();
+  const fresh = (stamps: number[]) => stamps.filter(stamp => now - stamp < ARCHIVE_WINDOW_MS);
+  archiveTotal = fresh(archiveTotal);
+  const mine = fresh(archiveHits.get(visitor) ?? []);
+  if (archiveHits.size > 5000) archiveHits.clear();
+  if (mine.length >= ARCHIVE_PER_VISITOR || archiveTotal.length >= ARCHIVE_TOTAL) {
+    archiveHits.set(visitor, mine);
+    return false;
+  }
+  mine.push(now);
+  archiveTotal.push(now);
+  archiveHits.set(visitor, mine);
+  return true;
+}
+
 app.post('/api/mars-archive', async (req, res) => {
   if (!ai) return res.json({ available: false, answer: '' });
+  if (!archiveAllowed(req.ip || 'unknown')) {
+    return res.status(429).json({
+      available: true,
+      answer: 'The archive is busy. Please try again in a few minutes.'
+    });
+  }
   const question = String(req.body?.question || '').trim().slice(0, 280);
   if (!question) return res.status(400).json({ error: 'A question is required' });
 
@@ -111,7 +140,7 @@ app.post('/api/mars-archive', async (req, res) => {
           role: 'user',
           parts: [
             {
-              text: `You answer one follow-up about the game mission Mars Sample Return. Use only the archive. If the archive does not contain the answer, say: The archive does not answer that. Do not claim life was found on Mars. Do not claim the original sample-return campaign flew. Stay under 80 words.\n\nARCHIVE:\n${MARS_ARCHIVE}\n\nQUESTION:\n${question}`
+              text: `You answer one follow-up about the game mission Mars Sample Return. Use only the archive. Write for a 12-year-old, in two or three short sentences. If the archive does not contain the answer, say that this mission's archive does not cover it, and name one thing from the archive that is close to the question. Do not claim life was found on Mars. Do not claim the original sample-return campaign flew. Stay under 80 words.\n\nARCHIVE:\n${MARS_ARCHIVE}\n\nQUESTION:\n${question}`
             }
           ]
         }

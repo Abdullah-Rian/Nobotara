@@ -65,41 +65,49 @@ After the opening line, use the arrow keys or the on-screen arrows. Put the Eart
 
 **Jezero Crater. An unfinished journey.**
 
-The player drives across a reconstructed Jezero Crater, inspects rocks Perseverance would cache, rebuilds the original five-part plan to bring those samples to Earth, and then faces the fact that the plan was not flown. The question of past life stays open.
+The player drives across a small patch of Jezero Crater beside the delta, scans the rocks Perseverance sampled, rebuilds the five-step plan to bring those samples to Earth, and then watches that plan go dark. The plan was never flown. The mission then asks what was left behind, and ends on a question that is still open: did life ever exist on Mars?
+
+Two voices carry it. **Tara**, the mission assistant, states the facts. The **Narrator** carries the story.
 
 ### Objectives
 
-1. **Crater-floor rock.** Inspect an igneous rock that can be dated and can place the ancient lake in time.
-2. **Delta rock.** Inspect sedimentary stone carried by a river into the lake.
-3. **Lake-bed rock.** Inspect fine sediment from quiet water, and the limit of what it can say about life.
-4. **Sealed sample tubes.** Inspect the cache beside Perseverance: selected samples, not a verdict.
-5. **Reconstruct the return.** Put the original plan in order:
-   - Perseverance caches the samples.
-   - A Sample Retrieval Lander brings the Mars Ascent Vehicle.
-   - The ascent vehicle launches the container into Mars orbit.
-   - The Earth Return Orbiter captures it and carries it toward Earth.
-   - The Earth Entry System delivers it for study.
-6. **The plan that was not flown.** Watch the reconstruction stop, and hear that complexity, cost, and schedule kept the original architecture from flying as first drawn.
-7. **Ancient water.** Connect the delta, channels, and water-formed minerals to a geological history, not to proof of life.
-8. **Potential biosignatures.** Learn that a habitable environment and a possible biosignature are reasons to look, not a verdict.
-9. **Earth laboratories.** Learn why some instruments never fly to Mars, and why the same grains can be studied again later.
-10. **Evidence board.** Link ancient water to geological history, potential biosignatures to a search rather than proof, and returned samples to laboratory analysis.
-11. **The open question.** Return to the tubes and hear that “Did life ever exist on Mars?” has no conclusion in this archive.
-12. **Choose a legacy.** Pick one emphasis for the unfinished mission: preserve the evidence, continue asking questions, or inspire future explorers. All three keep the same record.
-13. **Closing.** Watch the camera leave Jezero and frame the Moon, Voyager, and Mars together.
+The mission has seven parts. The HUD shows "PART n/7".
+
+1. **Scan three rocks, in any order.**
+   - Volcanic floor rock: dark igneous rock that a laboratory on Earth could date.
+   - Delta sandstone: layers of sand a river dropped where it met the lake.
+   - Lake-bed mudstone: fine mud that keeps traces of the past.
+2. **Find the sealed sample tubes.** A backup set of ten tubes lies on the ground. Perseverance carries the rest.
+3. **Rebuild the plan.** Tara briefs the player on the NASA and ESA plan, then the player puts five steps in order:
+   - Perseverance collects the samples and seals them in tubes.
+   - A lander arrives on Mars, carrying a small rocket (Sample Retrieval Lander).
+   - The rocket launches the samples into Mars orbit (Mars Ascent Vehicle).
+   - An orbiter from Europe catches them and flies to Earth (Earth Return Orbiter).
+   - A capsule brings the samples down to the ground (Earth Entry System).
+
+   The finished plan plays as a hologram, one captioned step at a time. Then the launch freezes, the plan blinks out piece by piece, and the narrator asks whether it was all wasted.
+4. **Find three clues, in any order.**
+   - Water: the layered delta front and a bed of river boulders.
+   - The leopard-spot rock: the Cheyava Falls find of 2024, a possible sign of ancient life.
+   - Earth laboratories: why a rover's small instruments cannot settle the question.
+5. **Match each clue to what it means** on the evidence board.
+6. **The open question.** Back at the tubes, the sky darkens, Earth rises, and the route home is drawn and erased under the words "Did life ever exist on Mars?"
+7. **Choose a legacy.** Preserve the evidence, continue asking questions, or inspire future explorers. Each choice plays its own short scene.
+
+The ending is a blue Martian sunset over the crater, then the Moon, Voyager 1 and Mars joined as one constellation. The end card shows what the player did, three questions with answers, and, when a Gemini key is configured, lets the player ask the mission archive up to three questions of their own.
 
 ### How to play
 
-Drive with W A S D or the on-screen stick to the active marker, then press **Inspect**. At the terminal, move the five stages until they are in the planned order and confirm. On the evidence board, select an item, then its meaning. At the end, choose one of the three legacy statements. If a Gemini key is configured, one follow-up question can be asked. The answer is limited to this mission’s archive.
+Drive with W A S D or the on-screen stick. Green markers show the open sites, and the map in the corner turns with the rover so "ahead" is always "up". Near a marker, press E or tap the button. At a rock or a clue, hold the scan button (or hold E) until the four facts fill in. A spoken line can be cut short with **Skip line**. In the puzzle, drag a step or use its arrows, then check the order; correct steps lock in green. On the evidence board, pick a clue, then its meaning.
 
 ### What the mission teaches
 
-- Jezero once held a lake and a river delta. The water is gone. The rocks remain.
-- Igneous floor rock, delta sandstone, and fine lake sediment record different parts of that history.
-- Perseverance cached selected samples so Earth laboratories could study them more closely than the instruments on Mars can.
-- The original sample-return campaign was a chain of several spacecraft. It was not carried out as first planned.
-- Habitability is not proof that life existed. A potential biosignature is a reason to investigate, not a yes or a no.
-- An unfinished mission can still leave evidence, a method, and a question worth keeping.
+- Jezero was a lake more than 3.5 billion years ago. A river built a delta there. The water is gone and the rocks remain.
+- Igneous, sedimentary and mudstone rocks record different parts of that history.
+- Perseverance sealed samples so that laboratories on Earth could study them with instruments far larger than a rover can carry, and study them again as new tools are invented.
+- The return plan was a relay of several spacecraft built by NASA and the European Space Agency. It was never flown, and in 2026 its funding was stopped.
+- A habitable place is not proof of life. The leopard-spot rock is a possible sign of life, and only a laboratory on Earth can tell.
+- An unfinished mission still leaves evidence, a method, and a question worth going back for.
 
 ## Technology stack
 
@@ -123,7 +131,7 @@ Versions are the ones installed in `package-lock.json`.
 
 The game is a single-page app. `server.ts` serves it: Vite middleware in development, and the `dist` build in production when `NODE_ENV=production`. The default listen address is `http://0.0.0.0:3000`.
 
-3D scenes are three separate engines (Apollo, Voyager, Mars), each with its own `WebGLRenderer`. Apollo and Voyager load Blender exports from `public/models` (`terrain.glb`, `descent_stage.glb`, `retroreflector.glb`, `earth.glb`, `sun.glb`, `voyager.glb`, and an optional `rover.glb`). Missing optional models fall back to geometry built in code. Mars is built from code. Input is keyboard plus an on-screen stick. Sound effects (rover hum, Quindar tones, laser, UI) are synthesized in the Web Audio API.
+3D scenes are three separate engines (Apollo, Voyager, Mars), each with its own `WebGLRenderer`. Apollo and Voyager load Blender exports from `public/models` (`terrain.glb`, `descent_stage.glb`, `retroreflector.glb`, `earth.glb`, `sun.glb`, `voyager.glb`, and an optional `rover.glb`). Missing optional models fall back to geometry built in code. The Mars terrain, rocks, tubes and holograms are built in code; the Perseverance rover, the approach globe, the small Mars globe, Earth and Voyager in its cinematics are loaded from `public/models`. Input is keyboard plus an on-screen stick. Sound effects (rover hum, Quindar tones, laser, UI, the Martian wind, and the short music pad that closes Mission 03) are synthesized in the Web Audio API.
 
 `motion` 12.43.0 and `autoprefixer` 10.6.2 are declared dependencies. The game source does not import them.
 
@@ -131,7 +139,7 @@ Offline voice clips are encoded with ffmpeg (mono, 44.1 kHz, 128 kbps MP3) by `s
 
 ## Use of AI
 
-AI is used for speech and for one grounded follow-up question. It does not drive the rover, generate the missions, or decide puzzle answers.
+AI is used for speech and for a few grounded follow-up questions. It does not drive the rover, generate the missions, or decide puzzle answers.
 
 The client is `@google/genai` **2.32.0**. Every call needs `GEMINI_API_KEY`. With no key, narration falls through to the browser, and the Mars follow-up box stays hidden.
 
@@ -139,9 +147,9 @@ The client is `@google/genai` **2.32.0**. Every call needs `GEMINI_API_KEY`. Wit
 
 | Use | Model | Where |
 | --- | --- | --- |
-| One follow-up after Mission 03 | **Gemini 2.5 Flash** (`gemini-2.5-flash`) | `POST /api/mars-archive` |
+| Up to three follow-ups after Mission 03 | **Gemini 2.5 Flash** (`gemini-2.5-flash`) | `POST /api/mars-archive` |
 
-The model may answer only from the mission archive text in `src/missions/mars/data.ts`. The prompt tells it to stay under 80 words, to refuse anything the archive does not contain, and to avoid claiming that life was found on Mars or that the original sample-return campaign flew. The player may ask once, up to 280 characters. The reply is cut at 600 characters. `GET /api/mars-archive` only reports whether a key is configured.
+The model may answer only from the mission archive text in `src/missions/mars/data.ts`. The prompt tells it to stay under 80 words, to write for a 12-year-old, to say so when the archive does not cover a question, and to avoid claiming that life was found on Mars or that the original sample-return campaign flew. The player may ask three times, up to 280 characters each. The reply is cut at 600 characters. The server allows 9 questions per visitor and 300 in total every ten minutes. `GET /api/mars-archive` only reports whether a key is configured.
 
 ### Speech models
 
@@ -153,7 +161,7 @@ Playback order for every spoken line:
 2. Live speech from `POST /api/narrator`.
 3. The browser Web Speech API, using an English male voice when the device has one.
 
-Apollo 11 and Voyager 1 ship as local MP3s, so a normal playthrough of those two missions does not call the live speech API. Mars Sample Return has no local clips. Its lines use live speech when a key is set, and the browser voice when it is not.
+All three missions ship as local MP3s, so a normal playthrough does not call the live speech API.
 
 | Use | Model | Voice |
 | --- | --- | --- |
