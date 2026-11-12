@@ -1,5 +1,6 @@
 /**
- * Re-render every voiceover except the opening line with Gemini TTS (Fenrir, and Kore for Tara),
+ * Re-render every voiceover except the opening line with Gemini TTS (Fenrir; Kore for Tara;
+ * Aoede for the Science Narrator),
  * then encode it for the web: mono, 24 kHz, 64 kbps. The text-to-speech output is 24 kHz, so nothing is lost, and the clips are half the size.
  *
  * The opening clip is already the reference and is left untouched.
@@ -32,10 +33,17 @@ const NARRATOR_STYLE =
 const TARA_STYLE =
   'Clear, friendly, natural young woman\'s voice, warm and bright, with a steady, patient pace, like a helpful guide speaking to a student. Studio recording. No radio filter, no static, no distortion.';
 
-const voiceFor = (clip) =>
-  /Tara/.test(clip.speaker || '')
-    ? { name: TARA_VOICE, style: TARA_STYLE }
-    : { name: NARRATOR_VOICE, style: NARRATOR_STYLE };
+/** The Science Narrator (Missions 01 and 02) has her own voice, so she never sounds like Neil. */
+const SCIENCE_VOICE = process.env.SCIENCE_VOICE || 'Aoede';
+const SCIENCE_STYLE =
+  "Clear, calm, natural woman's voice, like a science teacher explaining something exciting to a class. Even pace, precise, warm. Studio recording. No radio filter, no static, no distortion.";
+
+const voiceFor = (clip) => {
+  const speaker = clip.speaker || '';
+  if (/Tara/.test(speaker)) return { name: TARA_VOICE, style: TARA_STYLE };
+  if (/Scientific Voice|Science Narrator/.test(speaker)) return { name: SCIENCE_VOICE, style: SCIENCE_STYLE };
+  return { name: NARRATOR_VOICE, style: NARRATOR_STYLE };
+};
 
 const key = process.env.GEMINI_API_KEY;
 if (!key || key === 'MY_GEMINI_API_KEY') {

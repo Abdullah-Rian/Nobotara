@@ -24,9 +24,9 @@
       "id": "descent_stage_scientific",
       "speaker": "Scientific Voice",
       "filename": "descent_stage_scientific.mp3",
-      "size": 181868,
+      "size": 170540,
       "text": "The Lunar Module was built in two parts. The descent stage held the landing engine, the legs, and the fuel for landing. It also served as a launch pad. Every kilogram counted, so only the light ascent stage lifted off, to meet the command module Columbia in orbit around the Moon. Only Columbia came home to Earth.",
-      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "retroreflector_neil",
@@ -40,9 +40,9 @@
       "id": "retroreflector_scientific",
       "speaker": "Scientific Voice",
       "filename": "retroreflector_scientific.mp3",
-      "size": 155948,
+      "size": 155564,
       "text": "Observatories in New Mexico, Texas, France, and Italy still aim laser pulses at this Apollo 11 reflector. The light takes about two and a half seconds to get there and back. Timing it over many years showed that the Moon is drifting away from Earth by about 3.8 centimetres a year.",
-      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "plaque_neil",
@@ -56,9 +56,9 @@
       "id": "plaque_scientific",
       "speaker": "Scientific Voice",
       "filename": "plaque_scientific.mp3",
-      "size": 138668,
+      "size": 133484,
       "text": "Engraved on stainless steel to withstand cosmic radiation and 300°C temperature swings: 'HERE MEN FROM THE PLANET EARTH FIRST SET FOOT UPON THE MOON JULY 1969 A.D. WE CAME IN PEACE FOR ALL MANKIND.'",
-      "engine": "Gemini TTS (Fenrir)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "puzzle_complete_neil",
@@ -96,9 +96,9 @@
       "id": "voyager_align_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_align_science.mp3",
-      "size": 148460,
+      "size": 132140,
       "text": "Voyager uses a high-gain antenna fixed to the body of the spacecraft. The whole craft has to turn so that dish faces Earth. That link is how its instruments send scientific data home. At this distance a radio message takes many hours to arrive.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "voyager_shell",
@@ -120,9 +120,9 @@
       "id": "voyager_plasma_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_plasma_science.mp3",
-      "size": 117932,
+      "size": 126764,
       "text": "In 2012 and 2013, bursts from the Sun made that gas ring like a bell. The pitch showed the gas was about forty times denser than inside the Sun's bubble. That was the proof Voyager had reached interstellar space.",
-      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "voyager_magnetic_narrator",
@@ -136,9 +136,9 @@
       "id": "voyager_magnetic_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_magnetic_science.mp3",
-      "size": 89516,
+      "size": 95468,
       "text": "Scientists expected the field's direction to change sharply at the edge. It barely changed. That surprise is still being studied, and it shows how much we learn by going to look.",
-      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "voyager_particles_narrator",
@@ -152,9 +152,9 @@
       "id": "voyager_particles_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_particles_science.mp3",
-      "size": 93932,
+      "size": 102380,
       "text": "That swap was the clearest sign that Voyager had left the Sun's bubble. Its particle instruments have since been switched off to save power, the last one in April 2026, but their record remains.",
-      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "voyager_power_narrator",
@@ -168,9 +168,9 @@
       "id": "voyager_power_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_power_science.mp3",
-      "size": 108332,
+      "size": 113900,
       "text": "NASA has switched off Voyager 1 instruments one by one to save power. Today only two still work: the plasma-wave instrument and the magnetometer. It is a careful trade-off, not a sudden failure.",
-      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "voyager_record_sounds",
@@ -184,9 +184,9 @@
       "id": "voyager_record_sounds_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_record_sounds_science.mp3",
-      "size": 81644,
+      "size": 79724,
       "text": "The Golden Record is real. Its sound essay was chosen to represent Earth. The record is not a device that transmits those sounds back to Earth.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "voyager_record_greetings",
@@ -200,9 +200,9 @@
       "id": "voyager_record_greetings_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_record_greetings_science.mp3",
-      "size": 80684,
+      "size": 84908,
       "text": "The greetings were recorded in dozens of languages. They are a message to whoever might one day find the spacecraft. They are not a live broadcast.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "voyager_record_images",
@@ -216,9 +216,9 @@
       "id": "voyager_record_images_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_record_images_science.mp3",
-      "size": 74348,
+      "size": 77228,
       "text": "The images were encoded on the disc with music and the sounds. The record rides with Voyager. It does not send its contents home.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Aoede, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "mars_approach",

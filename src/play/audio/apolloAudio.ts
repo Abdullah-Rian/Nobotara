@@ -785,8 +785,8 @@ class ApolloAudioSystem {
       utterance.rate = 0.95;
     }
 
-    // Tara is a woman. Everyone else keeps the male English voice.
-    if (/Tara/.test(speaker)) {
+    // Tara and the Science Narrator are women. Everyone else keeps the male English voice.
+    if (/Tara|Scientific Voice|Science Narrator/.test(speaker)) {
       utterance.pitch = 1.08;
       const femaleVoice = this.getBestFemaleVoice();
       if (femaleVoice) utterance.voice = femaleVoice;

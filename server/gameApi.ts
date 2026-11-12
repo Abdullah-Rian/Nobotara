@@ -64,14 +64,21 @@ export function registerGameApi(app: express.Express) {
       // Fenrir is the voice used for the opening line, and every line uses it so the narration stays
       // one clear studio voice. The one exception is Tara, the Mission 03 assistant, who is a young woman.
       const isTara = /Tara/.test(String(speaker || ''));
-      const voiceName = isTara ? process.env.TARA_VOICE || 'Kore' : 'Fenrir';
+      const isScience = /Scientific Voice|Science Narrator/.test(String(speaker || ''));
+      const voiceName = isTara
+        ? process.env.TARA_VOICE || 'Kore'
+        : isScience
+          ? process.env.SCIENCE_VOICE || 'Aoede'
+          : 'Fenrir';
       const cacheKey = `${voiceName}:${text}`;
 
       if (audioCache.has(cacheKey)) {
         return res.json({ audioData: audioCache.get(cacheKey), mimeType: 'audio/wav' });
       }
 
-      const speechStyle = isTara
+      const speechStyle = isScience
+        ? "Clear, calm, natural woman's voice, like a science teacher explaining something exciting to a class. Even pace, precise, warm. Studio recording. No radio filter, no static, no distortion."
+        : isTara
         ? "Clear, friendly, natural young woman's voice, warm and bright, with a steady, patient pace, like a helpful guide speaking to a student. Studio recording. No radio filter, no static, no distortion."
         : 'Calm, clear, natural male voice with a warm full tone and a steady pace. Studio recording, the same voice as the opening narration. No radio filter, no static, no distortion.';
 
