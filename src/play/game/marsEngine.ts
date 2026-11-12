@@ -173,6 +173,7 @@ export class MarsEngine {
     { name: 'Mars · Sample Return', x: 0, y: 0, visible: false }
   ];
   private readonly trio: THREE.Group;
+  private loadTrioModels: (() => void) | null = null;
   private readonly basin = new THREE.Group();
   private readonly approachLight: THREE.DirectionalLight;
   private readonly sun: THREE.DirectionalLight;
@@ -461,7 +462,15 @@ export class MarsEngine {
     this.holoMat.opacity = frozen ? 0.55 : 0.32;
   }
 
+  /** Fetch the closing scene's Voyager and Mars models. Runs once. */
+  public preloadClosing() {
+    const load = this.loadTrioModels;
+    this.loadTrioModels = null;
+    load?.();
+  }
+
   public setCinematic(shot: MarsShot, progress: number) {
+    if (shot !== 'intro' && shot !== 'drive' && shot !== 'focus') this.preloadClosing();
     if (shot !== this.shot) {
       this.shot = shot;
       this.rover.getWorldPosition(this.shotAnchor);
@@ -1349,19 +1358,25 @@ export class MarsEngine {
       });
       return holder;
     };
-    const loader = new GLTFLoader();
-    loader.load('/models/voyager.glb', gltf => {
-      const holder = fit(gltf.scene, 6.5);
-      if (!holder) return;
-      voyager.remove(dish, boom);
-      voyager.add(holder);
-    });
-    loader.load('/models/nasa/mars-lite.glb', gltf => {
-      const holder = fit(gltf.scene, 5.4);
-      if (!holder) return;
-      mars.remove(marsBall);
-      mars.add(holder);
-    });
+    // The real models replace the simple stand-ins only for the closing scene, so they are
+    // fetched when the story gets near it (preloadClosing), not while Mars first loads.
+    this.loadTrioModels = () => {
+      const loader = new GLTFLoader();
+      loader.load('/models/voyager.glb', gltf => {
+        if (this.disposed) return;
+        const holder = fit(gltf.scene, 6.5);
+        if (!holder) return;
+        voyager.remove(dish, boom);
+        voyager.add(holder);
+      });
+      loader.load('/models/nasa/mars-lite.glb', gltf => {
+        if (this.disposed) return;
+        const holder = fit(gltf.scene, 5.4);
+        if (!holder) return;
+        mars.remove(marsBall);
+        mars.add(holder);
+      });
+    };
 
     const lines = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([spots[0], spots[1], spots[2], spots[0]]),

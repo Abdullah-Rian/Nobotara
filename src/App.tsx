@@ -3,10 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import SpaceAIChat from './SpaceAIChat';
+import { heroVideoSrc, isFastConnection, isSlowConnection, whenIdle } from './utils/network';
+import { prefetchGameCode, prefetchMissionFiles } from './play/prefetch';
+
+// The chat (and the 3D and Markdown code it uses) loads only when SpaceAI is opened.
+const SpaceAIChat = lazy(() => import('./SpaceAIChat'));
 import { PolicyModal } from './components/PolicyModal';
 import { TeamModal } from './components/TeamModal';
 import { FaqModal } from './components/FaqModal';
@@ -362,47 +366,73 @@ export default function App({ onPlay }: AppProps = {}) {
 
   // On-demand metadata warming when hovering/focusing a mission tab
   const warmVideo = (planet: MissionKey) => {
+    if (isSlowConnection()) return;
     const vid = videoRefs.current[planet];
     if (vid && !vid.getAttribute('src') && vid.dataset.src) {
       vid.setAttribute('preload', 'metadata');
-      vid.setAttribute('src', vid.dataset.src);
+      vid.setAttribute('src', heroVideoSrc(vid.dataset.src));
     }
   };
 
-  // Eagerly preload and decode all mission dock icons and background stills on mount
+  // The dock icons are tiny and load at once. The other missions' background stills wait
+  // until the page is idle, and are skipped on a slow connection (they load when picked).
   useEffect(() => {
-    DOCK_ORDER.forEach((key) => {
-      const { cutout, still } = MISSIONS[key];
-      [cutout, still].forEach((url) => {
-        const img = new Image();
-        img.decoding = 'sync';
-        img.src = url;
-        img.decode?.().catch(() => {});
-      });
+    const load = (url: string) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = url;
+    };
+    DOCK_ORDER.forEach((key) => load(MISSIONS[key].cutout));
+    if (isSlowConnection()) return;
+    return whenIdle(() => {
+      DOCK_ORDER.forEach((key) => load(MISSIONS[key].still));
     });
   }, []);
 
-  // Sync active background video playback without eager multi-stream preloading
+  // Background video: only the selected mission's, and only once the page is idle, so the
+  // still image, text and buttons come first. On a slow connection or with data saver
+  // on, the still image stays and no video is downloaded.
   useEffect(() => {
+    const slow = isSlowConnection();
     DOCK_ORDER.forEach((key) => {
       const vid = videoRefs.current[key];
-      if (!vid) return;
-      if (key === currentMission) {
-        vid.setAttribute('preload', 'auto');
-        if (!vid.getAttribute('src') && vid.dataset.src) {
-          vid.setAttribute('src', vid.dataset.src);
-          vid.load();
-        }
-        vid.classList.add('is-active');
-        const p = vid.play();
-        if (p !== undefined) {
-          p.catch(() => {});
-        }
-      } else {
+      if (vid && key !== currentMission) {
         vid.classList.remove('is-active');
         vid.pause();
       }
     });
+    if (slow) return;
+    return whenIdle(() => {
+      const vid = videoRefs.current[currentMission];
+      if (!vid) return;
+      vid.setAttribute('preload', 'auto');
+      if (!vid.getAttribute('src') && vid.dataset.src) {
+        vid.setAttribute('src', heroVideoSrc(vid.dataset.src));
+        vid.load();
+      }
+      vid.classList.add('is-active');
+      vid.play()?.catch(() => {});
+    });
+  }, [currentMission]);
+
+  // Warm the game up. Its code comes once the page is idle (not on a slow connection).
+  // On a measured fast connection, the selected mission's first models follow once the
+  // choice has settled for a few seconds.
+  useEffect(() => {
+    if (isSlowConnection()) return;
+    return whenIdle(prefetchGameCode, 4000);
+  }, []);
+
+  useEffect(() => {
+    if (!isFastConnection()) return;
+    let cancelIdle = () => {};
+    const timer = window.setTimeout(() => {
+      cancelIdle = whenIdle(() => prefetchMissionFiles(gameMissionFor(currentMission)));
+    }, 3000);
+    return () => {
+      window.clearTimeout(timer);
+      cancelIdle();
+    };
   }, [currentMission]);
 
   // Synchronize URL query parameters & browser history (Back/Forward support)
@@ -526,14 +556,11 @@ export default function App({ onPlay }: AppProps = {}) {
               videoRefs.current.apollo11 = el;
             }}
             data-planet="apollo11"
-            className={currentMission === 'apollo11' ? 'is-active' : ''}
-            autoPlay
             muted
             loop
             playsInline
-            preload="auto"
-            src={MISSIONS.apollo11.video}
-            poster={MISSIONS.apollo11.still}
+            preload="none"
+            data-src={MISSIONS.apollo11.video}
             aria-hidden="true"
           />
           <video
@@ -541,13 +568,11 @@ export default function App({ onPlay }: AppProps = {}) {
               videoRefs.current.voyager1 = el;
             }}
             data-planet="voyager1"
-            className={currentMission === 'voyager1' ? 'is-active' : ''}
             muted
             loop
             playsInline
             preload="none"
             data-src={MISSIONS.voyager1.video}
-            poster={MISSIONS.voyager1.still}
             aria-hidden="true"
           />
           <video
@@ -555,13 +580,11 @@ export default function App({ onPlay }: AppProps = {}) {
               videoRefs.current.msr = el;
             }}
             data-planet="msr"
-            className={currentMission === 'msr' ? 'is-active' : ''}
             muted
             loop
             playsInline
             preload="none"
             data-src={MISSIONS.msr.video}
-            poster={MISSIONS.msr.still}
             aria-hidden="true"
           />
         </div>
@@ -754,6 +777,8 @@ export default function App({ onPlay }: AppProps = {}) {
               id="get-started-btn"
               className="cta-glow-btn"
               onClick={handleGetStarted}
+              onPointerEnter={prefetchGameCode}
+              onFocus={prefetchGameCode}
             >
               GET STARTED
             </button>
@@ -1000,11 +1025,13 @@ export default function App({ onPlay }: AppProps = {}) {
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className="fixed inset-0 z-[100]"
         >
-          <SpaceAIChat
-            onBack={() => setView('home')}
-            activeMissionLabel={mission.dockLabel}
-            onPlaySfx={() => playSfx('menu')}
-          />
+          <Suspense fallback={<div className="fixed inset-0 bg-[#03070e]" />}>
+            <SpaceAIChat
+              onBack={() => setView('home')}
+              activeMissionLabel={mission.dockLabel}
+              onPlaySfx={() => playSfx('menu')}
+            />
+          </Suspense>
         </motion.div>
       )}
     </AnimatePresence>

@@ -821,6 +821,11 @@ export class ApolloThreeEngine {
    * The download starts once a mission begins. If it is not there by the closing shot, the
    * built-in stand-in is shown instead.
    */
+  /** Start the Voyager download early, once the ending is near, so it is ready in time. */
+  public preloadVoyager() {
+    this.loadVoyagerModel();
+  }
+
   private loadVoyagerModel() {
     if (this.voyagerRequested || this.isDisposed) return;
     this.voyagerRequested = true;
@@ -1126,14 +1131,14 @@ export class ApolloThreeEngine {
   public setCameraMode(config: CameraStateConfig) {
     if (config.mode !== 'intro' && this.introActive) this.cancelIntroFlyby();
     this.cameraConfig = config;
-    if (config.mode !== 'title') this.loadVoyagerModel();
+    // Voyager is only seen in the ending. Load it then at the latest (preloadVoyager() usually came first).
+    if (config.mode === 'outro' || config.mode === 'warp') this.loadVoyagerModel();
   }
 
   /** The opening move runs on the render clock and eases to a stop before the boot. */
   public beginIntroFlyby() {
     if (this.introActive) return;
     this.introActive = true;
-    this.loadVoyagerModel();
     this.introStartedAt = performance.now();
     this.introHoldUntil = 0;
     this.cameraConfig = { mode: 'intro', introProgress: 0 };

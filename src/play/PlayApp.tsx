@@ -31,6 +31,7 @@ import { RangingOverlay } from './components/RangingOverlay';
 import { MatchingPuzzle } from './components/MatchingPuzzle';
 import { OutroScreen } from './components/OutroScreen';
 import { RotateOverlay } from './components/RotateOverlay';
+import { LoadingBar } from './components/LoadingBar';
 import { VoyagerHUD } from './components/VoyagerHUD';
 import { introTitleLeadSeconds, MissionIntroTitle } from './components/VoyagerIntroTitle';
 import { VoyagerParts } from './components/VoyagerParts';
@@ -1708,6 +1709,14 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   beginMarsRef.current = beginMars;
 
   const allVisited = Object.values(artifactsVisited).filter(Boolean).length === 3;
+
+  // The ending shows Voyager 1. Start its download once the ending is near (the last laser
+  // run, or all three objects seen), not at the start, where it would slow the Moon down.
+  useEffect(() => {
+    if (mission === 'apollo' && (allVisited || objective === 'laser' || objective === 'plaque' || objective === 'free')) {
+      engineRef.current?.preloadVoyager();
+    }
+  }, [mission, allVisited, objective]);
   const apolloCanDrive =
     mission === 'apollo' &&
     phase === 'explore' &&
@@ -2136,6 +2145,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       )}
 
       <ObjectiveCoach beat={apolloBeat ?? voyagerBeat ?? marsBeat} onDismiss={dismissCoach} />
+      <LoadingBar label={mission === 'apollo' ? 'Loading the Moon' : mission === 'voyager' ? 'Loading Voyager 1' : 'Loading Mars'} />
       {orientationHold && <RotateOverlay />}
     </div>
   );
