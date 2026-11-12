@@ -40,6 +40,13 @@ export const TEAM_MEMBERS: TeamMember[] = [
     avatarUrl: '/team/Ferdouse_PP_1254.png',
 
   },
+  {
+    name: 'Sagar Karmakar',
+    role: 'Multimedia Editor & Research Associate',
+    tag: 'MEDIA',
+    initials: 'SK',
+    // No photo yet: the card shows the initials. Add /team/sagar_karmakar.jpg and set avatarUrl.
+  },
 
 ];
 
