@@ -45,7 +45,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     role: 'Multimedia Editor & Research Associate',
     tag: 'MEDIA',
     initials: 'SK',
-    // No photo yet: the card shows the initials. Add /team/sagar_karmakar.jpg and set avatarUrl.
+    avatarUrl: '/team/sagar_karmakar.jpg',
   },
 
 ];
