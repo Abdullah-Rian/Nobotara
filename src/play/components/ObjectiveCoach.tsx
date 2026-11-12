@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type CoachBeat = {
   id: string;
@@ -63,6 +63,8 @@ export function ObjectiveCoach({
   onDismiss: (id: string) => void;
 }) {
   const [rect, setRect] = useState<DOMRect | null>(null);
+  /** Height of the caption as last drawn, so it can be kept clear of its target. */
+  const captionHeightRef = useRef(0);
   const [viewport, setViewport] = useState({ w: window.innerWidth, h: window.innerHeight });
 
   useEffect(() => {
@@ -149,7 +151,29 @@ export function ObjectiveCoach({
   let captionLeft = side === 'left' ? handLeft - captionWidth - GAP : handLeft + hand + GAP;
   if (captionLeft + captionWidth > viewport.w - MARGIN) captionLeft = handLeft - captionWidth - GAP;
   captionLeft = clamp(captionLeft, MARGIN, viewport.w - captionWidth - MARGIN);
-  const captionTop = clamp(handTop + (hand - (short ? 36 : 52)) / 2, MARGIN, viewport.h - (short ? 40 : 56));
+  let captionTop = clamp(handTop + (hand - (short ? 36 : 52)) / 2, MARGIN, viewport.h - (short ? 40 : 56));
+
+  // The text must never cover what it points at (or the hand). If it would, move it
+  // above the target, or below it when there is no room above.
+  const captionHeight = captionHeightRef.current || (short ? 32 : 40);
+  const overlaps = (x: number, y: number, w: number, h: number) =>
+    captionLeft < x + w + 4 && captionLeft + captionWidth > x - 4 && captionTop < y + h + 4 && captionTop + captionHeight > y - 4;
+  if (overlaps(rect.left, rect.top, rect.width, rect.height) || overlaps(handLeft, handTop, hand, hand)) {
+    // 1. Beside the target on the side away from the hand, on the same row.
+    const rowTop = clamp(rect.top + rect.height / 2 - captionHeight / 2, MARGIN, viewport.h - captionHeight - MARGIN);
+    const handOnRight = handLeft >= rect.left + rect.width / 2;
+    const besideLeft = handOnRight ? rect.left - captionWidth - GAP : rect.right + GAP;
+    if (besideLeft >= MARGIN && besideLeft + captionWidth <= viewport.w - MARGIN) {
+      captionLeft = besideLeft;
+      captionTop = rowTop;
+    } else {
+      // 2. Above the target, or 3. below it.
+      captionLeft = clamp(rect.left + rect.width / 2 - captionWidth / 2, MARGIN, viewport.w - captionWidth - MARGIN);
+      const above = Math.min(rect.top, handTop) - captionHeight - GAP;
+      const below = Math.max(rect.bottom, handTop + hand) + GAP;
+      captionTop = above >= MARGIN ? above : clamp(below, MARGIN, viewport.h - captionHeight - MARGIN);
+    }
+  }
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[70]">
@@ -182,6 +206,9 @@ export function ObjectiveCoach({
       </div>
       <p
         role="status"
+        ref={element => {
+          if (element) captionHeightRef.current = element.offsetHeight;
+        }}
         className={captionClass}
         style={{ left: captionLeft, top: captionTop, width: captionWidth }}
       >
