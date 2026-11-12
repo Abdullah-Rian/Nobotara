@@ -6,7 +6,7 @@ NoboTara-71 loads these glTF binary files from this folder on startup. They were
 | :--- | :--- | :--- |
 | **Lunar ground** | `public/models/terrain-heights.bin` | Tranquility Base terrain, stored as a grid of heights (about 0.3 MB). The game builds the ground mesh from it at start-up and drives on the same heights. Made from `model-sources/terrain.glb` with `node scripts/build-terrain-heightmap.mjs`. To change the ground, edit that model and run the script again. |
 | **Eagle Descent Stage** | `public/models/descent_stage.glb` | Apollo 11 lunar module base, including the commemorative plaque. Sits at the origin. |
-| **Laser Retroreflector** | `public/models/retroreflector.glb` | LRRR kept at its Blender location, about `(-2.12, ground, 21.53)`. |
+| **Laser Retroreflector** | `public/models/retroreflector.glb` | LRRR kept at its Blender location, about `(-2.12, ground, 21.53)`. Built by `scripts/build-retroreflector.py` (run it with Blender in the background; the first version is kept in `model-sources/retroreflector-v1.glb`). |
 | **Earth** | `public/models/earth.glb` | Earth and atmosphere, about 20 km from the landing site. |
 | **Sun** | `public/models/sun.glb` | Visible solar disc opposite Earth. Scene lighting stays a directional light aimed from the same direction. |
 | **Footprints** | `public/models/footprints.glb` | Exported astronaut footprints. Not loaded; the trail stays hidden. |
