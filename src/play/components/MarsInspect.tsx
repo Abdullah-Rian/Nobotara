@@ -181,7 +181,7 @@ export const MarsInspect: React.FC<MarsInspectProps> = ({
               {holding ? `SCANNING ${Math.round(progress * 100)}%` : progress > 0 ? 'KEEP HOLDING TO SCAN' : 'HOLD TO SCAN'}
             </span>
           </button>
-        ) : reading.scan || narrationDone ? (
+        ) : narrationDone ? (
           <button
             type="button"
             onClick={onClose}

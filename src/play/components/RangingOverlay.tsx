@@ -6,12 +6,15 @@ interface RangingOverlayProps {
   onFire: () => void;
   onContinue: () => void;
   onResult?: () => void;
+  /** The laser was already fired once in this run: the player may leave without firing again. */
+  canSkip?: boolean;
 }
 
 export const RangingOverlay: React.FC<RangingOverlayProps> = ({
   isLaserFiring,
   onFire,
   onContinue,
+  canSkip = false,
   onResult
 }) => {
   const [fired, setFired] = useState(false);
@@ -83,6 +86,14 @@ export const RangingOverlay: React.FC<RangingOverlayProps> = ({
           >
             <Zap className="w-4 h-4" />
             <span>{isLaserFiring ? 'TRANSMITTING...' : 'FIRE LASER'}</span>
+          </button>
+        )}
+        {canSkip && !showResult && (
+          <button
+            onClick={onContinue}
+            className="ml-2 flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-950/85 px-4 py-2.5 text-sm font-bold text-slate-100 hover:bg-slate-900"
+          >
+            <span>SKIP</span>
           </button>
         )}
       </div>

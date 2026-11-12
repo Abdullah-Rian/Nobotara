@@ -88,7 +88,7 @@ import { SequencePuzzle } from './components/SequencePuzzle';
 import { EvidenceBoard } from './components/EvidenceBoard';
 import { LegacyChoice } from './components/LegacyChoice';
 import { CuriousCard } from './components/CuriousCard';
-import { allMissionsDone, markMissionDone } from './utils/progress';
+import { allMissionsDone, introSeen, markIntroSeen, markMissionDone, missionDone } from './utils/progress';
 import {
   MARS_APPROACH,
   MARS_ARRIVAL,
@@ -275,6 +275,21 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   const beginMarsRef = useRef(() => {});
   // The sound setting outlives one visit to the game (it lives in the audio system).
   const [isMuted, setIsMuted] = useState<boolean>(() => apolloAudio.getIsMuted());
+  /**
+   * Skipping is earned: on a first play the opening cinematic (and, in Mission 03, the narration)
+   * cannot be skipped. Once a mission's opening has been watched, or the mission finished, it can.
+   * ?debug always allows it, for testing.
+   */
+  const [introSkippable, setIntroSkippable] = useState(false);
+  const [linesSkippable, setLinesSkippable] = useState(false);
+  const introSkippableRef = useRef(false);
+  introSkippableRef.current = introSkippable;
+  const unlockSkipsFor = (id: 'apollo' | 'voyager' | 'mars') => {
+    setIntroSkippable(DEBUG_SKIP || introSeen(id));
+    setLinesSkippable(DEBUG_SKIP || missionDone(id));
+  };
+  /** Mission 01: an inspection opened again after all four objectives can be skipped. */
+  const [inspectSkippable, setInspectSkippable] = useState(false);
   const [nearArtifact, setNearArtifact] = useState<MarkerId | null>(null);
   const [objective, setObjective] = useState<ObjectiveStep>('lander');
   const [roverHeld, setRoverHeld] = useState(false);
@@ -319,7 +334,8 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   });
 
   /** A scanned site can be left as soon as the scan is complete. Other readings wait for the voice. */
-  const marsCanContinue = marsReading?.scan ? marsScanDone : marsNarrationDone;
+  /** A reading can be left once its narration has finished; a scanned one also needs the scan done. */
+  const marsCanContinue = marsReading?.scan ? marsScanDone && marsNarrationDone : marsNarrationDone;
 
   // Dynamic dialogue & subtitles
   const [activeDialogue, setActiveDialogue] = useState<DialogueMessage | null>(null);
@@ -350,6 +366,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     };
     engine.onRoverBootComplete = () => setRoverBooting(false);
     engine.onIntroCameraSettled = () => {
+      markIntroSeen('apollo');
       engine.beginRoverBoot();
       setRoverBooting(engine.isRoverBooting());
       setPhase('explore');
@@ -502,11 +519,11 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       },
       () => {
         if (mission === 'mars' && phase === 'intro') {
-          handleSkipIntro();
+          if (introSkippableRef.current) handleSkipIntro();
         } else if (mission === 'mars' && phase === 'inspect' && marsCanContinue) {
           resumeMarsReading();
         } else if (mission === 'voyager' && phase === 'intro') {
-          handleSkipIntro();
+          if (introSkippableRef.current) handleSkipIntro();
         } else if (mission === 'voyager' && recordOpen) {
           finishRecord();
         } else if (mission === 'voyager' && phase === 'inspect') {
@@ -547,6 +564,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   // Phase 1: Start Mission & Intro Sequence
   beginMissionRef.current = () => {
     apolloAudio.init();
+    unlockSkipsFor('apollo');
     ensureApolloEngine();
     missionRef.current = 'apollo';
     setMission('apollo');
@@ -619,6 +637,8 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
 
   // Phase 2: Inspection of Artifacts
   const handleInspect = (artId: ArtifactId) => {
+    // After all four objectives, opening an object again can be skipped.
+    setInspectSkippable(objective === 'free' && artifactsVisited[artId]);
     setActiveInspectArtifact(artId);
     setPhase('inspect');
 
@@ -823,6 +843,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       }
     };
     engine.onIntroSettled = () => {
+      markIntroSeen('voyager');
       voyagerCameraReadyRef.current = true;
       roverLockedRef.current = false;
       setVoyagerHeld(false);
@@ -852,6 +873,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     voyagerRef.current = null;
     marsRef.current?.dispose();
     marsRef.current = null;
+    unlockSkipsFor('voyager');
     const engine = new VoyagerEngine(mount);
     voyagerRef.current = engine;
     attachVoyager(engine);
@@ -1675,6 +1697,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     marsRef.current?.dispose();
     apolloAudio.stopClosingTheme();
     apolloAudio.stopWind();
+    unlockSkipsFor('mars');
     const engine = new MarsEngine(mount);
     marsRef.current = engine;
     engine.onTelemetry = telemetry => {
@@ -1684,6 +1707,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     engine.onNear = setMarsNear;
     engine.onIntroDone = () => {
       if (missionRef.current !== 'mars') return;
+      markIntroSeen('mars');
       apolloAudio.startWind();
       setPhase('explore');
       marsCueRef.current = 'arrival';
@@ -1793,7 +1817,8 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       plan: finishSequence,
       question: beginQuestionShot,
       legacy: chooseLegacy,
-      closing: beginClosing
+      closing: beginClosing,
+      engine: () => marsRef.current
     };
   }
 
@@ -1830,8 +1855,8 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       <div ref={canvasMountRef} className="absolute inset-0 z-0 w-full h-full" />
 
 
-      {/* Intro Skip button */}
-      {phase === 'intro' && (
+      {/* Intro Skip button: only once this mission's opening has been watched (or with ?debug). */}
+      {phase === 'intro' && introSkippable && (
         <div className="absolute left-1/2 top-6 short:top-16 z-20 -translate-x-1/2 pointer-events-auto">
           <button
             onClick={handleSkipIntro}
@@ -2033,6 +2058,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
           narrationDone={inspectNarrationDone}
           onTyped={handleInspectTyped}
           onClose={handleCloseInspect}
+          canSkip={inspectSkippable}
           readPlaquePoint={activeInspectArtifact === 'plaque' ? readPlaquePoint : undefined}
         />
       )}
@@ -2043,6 +2069,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
           onFire={handleFireLaser}
           onContinue={finishRanging}
           onResult={markLaserResult}
+          canSkip={laserCompleted && objective === 'free'}
         />
       )}
 
@@ -2100,7 +2127,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
           pulseCache={marsStep === 'question' && marsTelemetry.distanceToTarget > 16}
           near={phase === 'explore' && marsNear !== null}
           interactLabel={interactLabel(marsStep, marsNear)}
-          onSkipLine={marsSpeaking && phase !== 'intro' ? skipMarsLine : undefined}
+          onSkipLine={marsSpeaking && phase !== 'intro' && linesSkippable ? skipMarsLine : undefined}
           onInteract={handleMarsInteract}
           onMissions={handleBackToMissions}
           dialogue={activeDialogue}

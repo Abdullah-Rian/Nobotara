@@ -16,6 +16,8 @@ interface InspectionModalProps {
   narrationDone: boolean;
   onTyped: () => void;
   onClose: () => void;
+  /** A second visit after all objectives: the player may leave before the narration ends. */
+  canSkip?: boolean;
   readPlaquePoint?: () => PlaqueScreenPoint | undefined;
 }
 
@@ -76,6 +78,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
   narrationDone,
   onTyped,
   onClose,
+  canSkip = false,
   readPlaquePoint
 }) => {
   const [playingHistoricalVoice, setPlayingHistoricalVoice] = useState(false);
@@ -121,13 +124,17 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
       )}
 
     </div>
-    {narrationDone && (
+    {(narrationDone || canSkip) && (
       <button
         onClick={onClose}
         data-coach="apollo-resume"
-        className="pointer-events-auto absolute bottom-6 right-6 short:bottom-2 short:right-2 z-30 flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm"
+        className={`pointer-events-auto absolute bottom-6 right-6 short:bottom-2 short:right-2 z-30 flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg text-sm ${
+          narrationDone
+            ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+            : 'border border-slate-600 bg-slate-950/85 text-slate-100 hover:bg-slate-900'
+        }`}
       >
-        <span>RESUME EXPLORATION</span>
+        <span>{narrationDone ? 'RESUME EXPLORATION' : 'SKIP'}</span>
         <ArrowRight className="w-4 h-4" />
       </button>
     )}
