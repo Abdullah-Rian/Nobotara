@@ -63,6 +63,8 @@ export function ObjectiveCoach({
   onDismiss: (id: string) => void;
 }) {
   const [rect, setRect] = useState<DOMRect | null>(null);
+  /** Things the hint text must not cover, such as the narration panel (data-coach-avoid). */
+  const [avoid, setAvoid] = useState<DOMRect[]>([]);
   /** Height of the caption as last drawn, so it can be kept clear of its target. */
   const captionHeightRef = useRef(0);
   const [viewport, setViewport] = useState({ w: window.innerWidth, h: window.innerHeight });
@@ -73,6 +75,11 @@ export function ObjectiveCoach({
     const tick = () => {
       const element = coachElement(beat.pointAt);
       setRect(element ? element.getBoundingClientRect() : null);
+      setAvoid(
+        [...document.querySelectorAll('[data-coach-avoid]')]
+          .map(node => node.getBoundingClientRect())
+          .filter(box => box.width > 0 && box.height > 0)
+      );
       setViewport({ w: window.innerWidth, h: window.innerHeight });
       frame = requestAnimationFrame(tick);
     };
@@ -153,27 +160,47 @@ export function ObjectiveCoach({
   captionLeft = clamp(captionLeft, MARGIN, viewport.w - captionWidth - MARGIN);
   let captionTop = clamp(handTop + (hand - (short ? 36 : 52)) / 2, MARGIN, viewport.h - (short ? 40 : 56));
 
-  // The text must never cover what it points at (or the hand). If it would, move it
-  // above the target, or below it when there is no room above.
+  // The text must never cover what it points at, the hand, or anything marked data-coach-avoid
+  // (the narration panel). Try a few places in order and take the first that is clear;
+  // if none is, take the one that covers least.
   const captionHeight = captionHeightRef.current || (short ? 32 : 40);
-  const overlaps = (x: number, y: number, w: number, h: number) =>
-    captionLeft < x + w + 4 && captionLeft + captionWidth > x - 4 && captionTop < y + h + 4 && captionTop + captionHeight > y - 4;
-  if (overlaps(rect.left, rect.top, rect.width, rect.height) || overlaps(handLeft, handTop, hand, hand)) {
-    // 1. Beside the target on the side away from the hand, on the same row.
-    const rowTop = clamp(rect.top + rect.height / 2 - captionHeight / 2, MARGIN, viewport.h - captionHeight - MARGIN);
-    const handOnRight = handLeft >= rect.left + rect.width / 2;
-    const besideLeft = handOnRight ? rect.left - captionWidth - GAP : rect.right + GAP;
-    if (besideLeft >= MARGIN && besideLeft + captionWidth <= viewport.w - MARGIN) {
-      captionLeft = besideLeft;
-      captionTop = rowTop;
-    } else {
-      // 2. Above the target, or 3. below it.
-      captionLeft = clamp(rect.left + rect.width / 2 - captionWidth / 2, MARGIN, viewport.w - captionWidth - MARGIN);
-      const above = Math.min(rect.top, handTop) - captionHeight - GAP;
-      const below = Math.max(rect.bottom, handTop + hand) + GAP;
-      captionTop = above >= MARGIN ? above : clamp(below, MARGIN, viewport.h - captionHeight - MARGIN);
+  const blockers = [
+    { x: rect.left, y: rect.top, w: rect.width, h: rect.height },
+    { x: handLeft, y: handTop, w: hand, h: hand },
+    ...avoid.map(box => ({ x: box.left, y: box.top, w: box.width, h: box.height }))
+  ];
+  const coverage = (left: number, top: number) =>
+    blockers.reduce((sum, b) => {
+      const w = Math.min(left + captionWidth, b.x + b.w + 4) - Math.max(left, b.x - 4);
+      const h = Math.min(top + captionHeight, b.y + b.h + 4) - Math.max(top, b.y - 4);
+      return w > 0 && h > 0 ? sum + w * h : sum;
+    }, 0);
+  const fitX = (x: number) => clamp(x, MARGIN, viewport.w - captionWidth - MARGIN);
+  const fitY = (y: number) => clamp(y, MARGIN, viewport.h - captionHeight - MARGIN);
+  const handOnRight = handLeft >= rect.left + rect.width / 2;
+  const centredX = fitX(rect.left + rect.width / 2 - captionWidth / 2);
+  const candidates: Array<[number, number]> = [
+    [captionLeft, captionTop],
+    // beside the target, on the side away from the hand
+    [fitX(handOnRight ? rect.left - captionWidth - GAP : rect.right + GAP), fitY(rect.top + rect.height / 2 - captionHeight / 2)],
+    // above the target and hand
+    [centredX, fitY(Math.min(rect.top, handTop) - captionHeight - GAP)],
+    // above, lined up with the target's far edge
+    [fitX(handOnRight ? rect.right - captionWidth : rect.left), fitY(Math.min(rect.top, handTop) - captionHeight - GAP)],
+    // below the target and hand
+    [centredX, fitY(Math.max(rect.bottom, handTop + hand) + GAP)]
+  ];
+  let best = candidates[0];
+  let bestCover = coverage(best[0], best[1]);
+  for (const candidate of candidates) {
+    if (bestCover === 0) break;
+    const cover = coverage(candidate[0], candidate[1]);
+    if (cover < bestCover) {
+      best = candidate;
+      bestCover = cover;
     }
   }
+  [captionLeft, captionTop] = best;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[70]">
