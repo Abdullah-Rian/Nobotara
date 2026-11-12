@@ -109,7 +109,7 @@ Decisions 2–5 below follow the recommendation unless you say otherwise.
    | MSR "Sample Tubes 43" | — | — | 43 tubes were carried, not all filled; say which |
    | Apollo "25 seconds of fuel" | — | the game has a fuel note | later analysis put it nearer 45 seconds; use the same wording as the game |
 
-4. Clean up the mission alerts on the home page:
+4. *(Moved to the chat work: the alerts are shown only inside SpaceAI, which is parked. See docs/SPACEAI-NOTES.md.)* Clean up the mission alerts:
    - Artemis II: launched 2026-04-01, splashed down 2026-04-10.
    - Voyager numbers: work them out from the date.
    - Thumbnails: copy them into `public/` instead of hot-linking someone else's cloudfront account.

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Play } from 'lucide-react';
 import PlayApp from './PlayApp';
 import { apolloAudio } from './audio/apolloAudio';
-import { GameMission, MISSION_NAMES } from './routes';
+import type { GameMission } from './routes';
+import { MISSION_BRIEFS } from '../missions/catalog';
 import './play.css';
 
 const GAME_VIEWPORT = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
@@ -49,7 +50,7 @@ export default function PlayRoute({ mission, autostart, onExit, onMissionChange 
     setStarted(true);
   };
 
-  const names = MISSION_NAMES[mission];
+  const names = MISSION_BRIEFS[mission];
 
   return (
     <div className="play-root">

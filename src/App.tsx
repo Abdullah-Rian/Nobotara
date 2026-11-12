@@ -10,6 +10,8 @@ import SpaceAIChat from './SpaceAIChat';
 import { PolicyModal } from './components/PolicyModal';
 import { TeamModal } from './components/TeamModal';
 import { FaqModal } from './components/FaqModal';
+import { MISSION_BRIEFS } from './missions/catalog';
+import { gameMissionFor } from './play/routes';
 
 type MissionKey = 'apollo11' | 'voyager1' | 'msr';
 type ModalView = null | 'dossier' | 'purpose' | 'policy' | 'team' | 'faq';
@@ -39,12 +41,6 @@ function parseUrlState(): {
   };
 }
 
-interface MissionTelemetry {
-  label: string;
-  value: string;
-  unit?: string;
-}
-
 interface MissionData {
   name: string;
   eyebrow: string;
@@ -54,8 +50,6 @@ interface MissionData {
   video: string;
   still: string;
   cutout: string;
-  telemetry: MissionTelemetry[];
-  highlights: string[];
 }
 
 const MISSIONS: Record<MissionKey, MissionData> = {
@@ -69,61 +63,28 @@ const MISSIONS: Record<MissionKey, MissionData> = {
     video: '/manus-storage/apollo11-moon-3d.mp4',
     still: '/manus-storage/apollo11-moon-still.jpg',
     cutout: '/manus-storage/apollo11-moon-button.png',
-    telemetry: [
-      { label: 'Lunar Landing', value: '20:17:40', unit: 'UTC' },
-      { label: 'Surface Stay', value: '21.6', unit: 'HOURS' },
-      { label: 'Lunar Coordinates', value: '0.674° N', unit: '23.473° E' },
-      { label: 'Samples Recovered', value: '21.55', unit: 'KG' },
-    ],
-    highlights: [
-      'Touchdown at Mare Tranquillitatis (Sea of Tranquility) with 25 seconds of fuel remaining.',
-      'First human footsteps imprinted on the lunar regolith by Neil Armstrong and Buzz Aldrin.',
-      'Successful lunar module ascent stage rendezvous with Command Module Columbia in lunar orbit.',
-    ],
   },
   msr: {
     name: 'Mars Sample Return',
     eyebrow: 'MISSION: MARS SAMPLE RETURN',
     titleLines: ['THE LOST', 'DREAM'],
     description:
-      "Humanity's first interplanetary sample return, retrieving Martian rock cores from Jezero Crater and following them to Earth.",
+      "Perseverance has sealed rock from an ancient Martian lake in titanium tubes. Follow the plan to bring them to Earth, a journey that has not flown yet.",
     dockLabel: 'MSR',
     video: '/manus-storage/msr-mars-3d.mp4',
     still: '/manus-storage/msr-mars-still.jpg',
     cutout: '/manus-storage/msr-button.png',
-    telemetry: [
-      { label: 'Target Site', value: 'JEZERO', unit: 'CRATER' },
-      { label: 'Coordinates', value: '18.38° N', unit: '77.58° E' },
-      { label: 'Sample Tubes', value: '43', unit: 'TITANIUM' },
-      { label: 'Transit Distance', value: '1.524', unit: 'AU' },
-    ],
-    highlights: [
-      'Perseverance rover cached hermetically sealed titanium tubes of ancient Martian river delta rock and regolith at Three Forks.',
-      'Designed around a Mars Ascent Vehicle (MAV) to perform the first rocket launch from the surface of another planet.',
-      'Earth Return Orbiter rendezvous in Martian orbit to capture and return pristine samples for astrobiological analysis.',
-    ],
   },
   voyager1: {
     name: 'Voyager 1',
     eyebrow: 'MISSION: VOYAGER 1',
-    titleLines: ['THE GOLDEN', 'DISK'],
+    titleLines: ['THE GOLDEN', 'RECORD'],
     description:
-      "Humanity's farthest emissary in interstellar space, carrying the Golden Record past the heliopause into the cosmic deep.",
+      "The farthest spacecraft from Earth, in interstellar space since 2012, still carrying the Golden Record and still sending data home.",
     dockLabel: 'VOYAGER 1',
     video: '/manus-storage/voyager-1-loop-4k_bf38cfe9.mp4',
     still: '/manus-storage/voyager1-space-still.jpg',
     cutout: '/manus-storage/voyager-1-button_0ba1923d.png',
-    telemetry: [
-      { label: 'Heliocentric Distance', value: '165.2', unit: 'AU' },
-      { label: 'Escape Velocity', value: '17.0', unit: 'KM/S' },
-      { label: 'Signal One-Way Time', value: '22.9', unit: 'HOURS' },
-      { label: 'Golden Record', value: '115', unit: 'IMAGES' },
-    ],
-    highlights: [
-      'Crossed the heliopause into interstellar space on August 25, 2012 — 121 AU from the Sun.',
-      'Carries the 12-inch gold-plated copper phonograph record encoded with Earth sounds, greetings, and diagrams.',
-      'Continuous telemetry returned via the Deep Space Network across a distance exceeding 24 billion kilometers.',
-    ],
   },
 };
 
@@ -549,6 +510,7 @@ export default function App({ onPlay }: AppProps = {}) {
   };
 
   const mission = MISSIONS[currentMission];
+  const brief = MISSION_BRIEFS[gameMissionFor(currentMission)];
 
   return (
     <>
@@ -760,7 +722,7 @@ export default function App({ onPlay }: AppProps = {}) {
 
           {/* Hero Typography & Frosted Description Card */}
           <div className="hero-header-block">
-            <div className="mission-eyebrow">{mission.eyebrow}</div>
+            <div className="mission-eyebrow">{brief.number} · {brief.name}</div>
             <h1 className="mission-title">
               {mission.titleLines.join(' ')}
             </h1>
@@ -792,11 +754,22 @@ export default function App({ onPlay }: AppProps = {}) {
               id="get-started-btn"
               className="cta-glow-btn"
               onClick={handleGetStarted}
+            >
+              GET STARTED
+            </button>
+            <button
+              type="button"
+              className="briefing-link"
+              onClick={() => {
+                playSfx('menu');
+                setNavOpen(false);
+                setActiveModal('dossier');
+              }}
               aria-haspopup="dialog"
               aria-expanded={activeModal === 'dossier'}
               aria-controls="mission-dossier-modal"
             >
-              GET STARTED
+              Mission briefing
             </button>
 
             {/* Bottom Segmented Capsule Dock */}
@@ -892,17 +865,18 @@ export default function App({ onPlay }: AppProps = {}) {
                 exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.16, ease: 'easeIn' } }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
+                <div className="flex items-start justify-between gap-3 pb-3 mb-4 border-b border-white/10">
                   <div>
                     <div className="text-[11px] font-bold tracking-widest uppercase text-[#00E5FF]">
-                      {mission.eyebrow}
+                      {brief.number} · {brief.date}
                     </div>
                     <h2
                       id="modal-sheet-title"
                       className="text-xl font-extrabold tracking-tight text-white mt-0.5"
                     >
-                      {`${mission.titleLines[0]} ${mission.titleLines[1]}`}
+                      {brief.name}: {brief.title}
                     </h2>
+                    <p className="mt-1 text-sm text-slate-300">{brief.tagline}</p>
                   </div>
                   <button
                     ref={modalCloseBtnRef}
@@ -911,60 +885,95 @@ export default function App({ onPlay }: AppProps = {}) {
                       playSfx('menu');
                       setActiveModal(null);
                     }}
-                    className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-[#00E5FF] text-white flex items-center justify-center text-sm font-bold cursor-pointer transition-colors"
-                    aria-label="Close modal"
+                    className="shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-[#00E5FF] text-white flex items-center justify-center text-sm font-bold cursor-pointer transition-colors"
+                    aria-label="Close mission briefing"
                   >
                     ✕
                   </button>
                 </div>
 
                 {activeModal === 'dossier' && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {mission.telemetry.map((t) => (
-                        <div
-                          key={t.label}
-                          className="p-3 rounded-xl bg-white/5 border border-white/10"
-                        >
-                          <div className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
-                            {t.label}
-                          </div>
-                          <div className="text-base font-extrabold font-mono text-white mt-1">
-                            {t.value}
-                            {t.unit && (
-                              <span className="text-[11px] font-mono text-[#00E5FF] ml-1">
-                                {t.unit}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="space-y-5 pr-1">
+                    <section className="space-y-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">In this mission you will</h3>
+                      <ol className="space-y-1.5">
+                        {brief.youWill.map((step, i) => (
+                          <li key={step} className="flex gap-2.5 text-sm leading-snug text-slate-200">
+                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#00E5FF]/15 text-[11px] font-bold text-[#00E5FF]">
+                              {i + 1}
+                            </span>
+                            <span>{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                      <p className="text-xs text-slate-400">{brief.place}</p>
+                    </section>
 
-                    <div className="space-y-2 pt-1">
-                      <div className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                        Mission Log & Milestones
+                    <section className="space-y-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Controls</h3>
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        {(
+                          [
+                            ['Keyboard', brief.controls.keyboard],
+                            ['Phone or tablet', brief.controls.touch],
+                          ] as const
+                        ).map(([label, lines]) => (
+                          <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
+                            <ul className="mt-1.5 space-y-1 text-xs leading-snug text-slate-200">
+                              {lines.map((line) => (
+                                <li key={line}>{line}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
                       </div>
-                      {mission.highlights.map((h, i) => (
-                        <p
-                          key={i}
-                          className="text-xs leading-relaxed text-slate-300 bg-white/5 rounded-xl p-3 border border-white/5"
-                        >
+                      <p className="text-xs text-slate-400">Turn your sound on: the mission is narrated. Phones play it sideways.</p>
+                    </section>
+
+                    <section className="space-y-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">The real mission</h3>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {brief.facts.map((t) => (
+                          <div key={t.label} className="p-3 rounded-xl bg-white/5 border border-white/10">
+                            <div className="text-[10px] font-bold tracking-wider uppercase text-slate-400">{t.label}</div>
+                            <div className="text-base font-extrabold font-mono text-white mt-1">
+                              {t.value}
+                              {t.unit && <span className="text-[11px] font-mono text-[#00E5FF] ml-1">{t.unit}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {brief.highlights.map((h) => (
+                        <p key={h} className="text-xs leading-relaxed text-slate-300 bg-white/5 rounded-xl p-3 border border-white/5">
                           {h}
                         </p>
                       ))}
-                    </div>
+                    </section>
+                  </div>
+                )}
 
-                    <div className="pt-2 flex items-center gap-2">
+                {activeModal === 'dossier' && (
+                  <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4">
+                    <button
+                      type="button"
+                      onClick={handleGetStarted}
+                      className="w-full rounded-full bg-[#00E5FF] py-3 text-sm font-extrabold uppercase tracking-wide text-[#030914] shadow-[0_0_24px_rgba(0,229,255,0.55)]"
+                    >
+                      Start {brief.name}
+                    </button>
+                    <div className="flex items-center gap-2" role="tablist" aria-label="Choose a mission">
                       {DOCK_ORDER.map((k) => (
                         <button
                           key={k}
                           type="button"
+                          role="tab"
+                          aria-selected={k === currentMission}
                           onClick={() => handleSelectMission(k)}
-                          className={`flex-1 py-2.5 px-3 rounded-full text-xs font-extrabold uppercase cursor-pointer transition-colors ${
+                          className={`flex-1 py-2 px-3 rounded-full text-[11px] font-extrabold uppercase cursor-pointer transition-colors ${
                             k === currentMission
-                              ? 'bg-[#00E5FF] text-[#030914]'
-                              : 'bg-white/10 text-slate-300 hover:bg-white/15'
+                              ? 'bg-white/20 text-white'
+                              : 'bg-white/5 text-slate-400 hover:bg-white/10'
                           }`}
                         >
                           {MISSIONS[k].dockLabel}

@@ -391,6 +391,31 @@ html, body, #root {
   transform: scale(0.985);
 }
 
+/* Secondary link under Get Started: opens the mission briefing */
+.briefing-link {
+  margin-top: calc(-1 * clamp(6px, 1vh, 10px));
+  background: transparent;
+  border: none;
+  color: #CBD5E1;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 229, 255, 0.55);
+  text-underline-offset: 5px;
+  padding: 6px 10px;
+  cursor: pointer;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+.briefing-link:hover,
+.briefing-link:focus-visible {
+  color: #ffffff;
+  text-decoration-color: var(--cyan);
+}
+
 /* Bottom Segmented Capsule Dock */
 .bottom-dock {
   margin-top: 12px;

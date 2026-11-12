@@ -19,12 +19,6 @@ const SLUGS: Record<GameMission, string> = {
 const FROM_SITE: Record<SiteMission, GameMission> = { apollo11: 'apollo', voyager1: 'voyager', msr: 'mars' };
 const TO_SITE: Record<GameMission, SiteMission> = { apollo: 'apollo11', voyager: 'voyager1', mars: 'msr' };
 
-export const MISSION_NAMES: Record<GameMission, { number: string; name: string }> = {
-  apollo: { number: 'MISSION 01', name: 'Apollo 11' },
-  voyager: { number: 'MISSION 02', name: 'Voyager 1' },
-  mars: { number: 'MISSION 03', name: 'Mars Sample Return' }
-};
-
 export const gameMissionFor = (site: SiteMission): GameMission => FROM_SITE[site];
 export const siteMissionFor = (game: GameMission): SiteMission => TO_SITE[game];
 
