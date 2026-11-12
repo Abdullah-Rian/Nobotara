@@ -6,7 +6,6 @@ import type { GameMission } from './routes';
 import { MISSION_BRIEFS } from '../missions/catalog';
 import './play.css';
 
-const GAME_VIEWPORT = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
 const GAME_FONTS =
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap';
 
@@ -20,16 +19,13 @@ interface PlayRouteProps {
 
 /**
  * The game, as the site shows it under /play/<mission>.
- * While it is open the page uses the game's viewport (no pinch zoom, full bleed) and its fonts.
+ * While it is open the page uses the game's fonts. (Zoom is off for the whole site, in main.tsx.)
  * Opened from a link with no click yet, it first asks for one tap, which lets the browser play sound.
  */
 export default function PlayRoute({ mission, autostart, onExit, onMissionChange }: PlayRouteProps) {
   const [started, setStarted] = useState(autostart);
 
   useEffect(() => {
-    const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-    const previousViewport = viewport?.content;
-    if (viewport) viewport.content = GAME_VIEWPORT;
     document.body.classList.add('play-mode');
 
     if (!document.querySelector(`link[href="${GAME_FONTS}"]`)) {
@@ -40,7 +36,6 @@ export default function PlayRoute({ mission, autostart, onExit, onMissionChange 
     }
 
     return () => {
-      if (viewport && previousViewport) viewport.content = previousViewport;
       document.body.classList.remove('play-mode');
     };
   }, []);

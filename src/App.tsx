@@ -18,11 +18,11 @@ import { MISSION_BRIEFS } from './missions/catalog';
 import { gameMissionFor } from './play/routes';
 
 type MissionKey = 'apollo11' | 'voyager1' | 'msr';
-type ModalView = null | 'dossier' | 'purpose' | 'policy' | 'team' | 'faq';
+type ModalView = null | 'purpose' | 'policy' | 'team' | 'faq';
 type SfxType = 'switch' | 'cta' | 'menu';
 
 const VALID_MISSIONS: MissionKey[] = ['apollo11', 'voyager1', 'msr'];
-const VALID_MODALS: Exclude<ModalView, null>[] = ['dossier', 'purpose', 'policy', 'team', 'faq'];
+const VALID_MODALS: Exclude<ModalView, null>[] = ['purpose', 'policy', 'team', 'faq'];
 
 function parseUrlState(): {
   mission: MissionKey;
@@ -47,9 +47,7 @@ function parseUrlState(): {
 
 interface MissionData {
   name: string;
-  eyebrow: string;
   titleLines: [string, string];
-  description: string;
   dockLabel: string;
   video: string;
   still: string;
@@ -59,10 +57,7 @@ interface MissionData {
 const MISSIONS: Record<MissionKey, MissionData> = {
   apollo11: {
     name: 'Apollo 11',
-    eyebrow: 'MISSION: APOLLO 11',
     titleLines: ['ONE GIANT', 'LEAP'],
-    description:
-      "Humanity's first lunar landing on July 20, 1969. Explore the historic Sea of Tranquility landing site and Eagle lunar module.",
     dockLabel: 'APOLLO 11',
     video: '/manus-storage/apollo11-moon-3d.mp4',
     still: '/manus-storage/apollo11-moon-still.jpg',
@@ -70,10 +65,7 @@ const MISSIONS: Record<MissionKey, MissionData> = {
   },
   msr: {
     name: 'Mars Sample Return',
-    eyebrow: 'MISSION: MARS SAMPLE RETURN',
     titleLines: ['THE LOST', 'DREAM'],
-    description:
-      "Perseverance has sealed rock from an ancient Martian lake in titanium tubes. Follow the plan to bring them to Earth, a journey that has not flown yet.",
     dockLabel: 'MSR',
     video: '/manus-storage/msr-mars-3d.mp4',
     still: '/manus-storage/msr-mars-still.jpg',
@@ -81,10 +73,7 @@ const MISSIONS: Record<MissionKey, MissionData> = {
   },
   voyager1: {
     name: 'Voyager 1',
-    eyebrow: 'MISSION: VOYAGER 1',
     titleLines: ['THE GOLDEN', 'RECORD'],
-    description:
-      "The farthest spacecraft from Earth, in interstellar space since 2012, still carrying the Golden Record and still sending data home.",
     dockLabel: 'VOYAGER 1',
     video: '/manus-storage/voyager-1-loop-4k_bf38cfe9.mp4',
     still: '/manus-storage/voyager1-space-still.jpg',
@@ -527,6 +516,7 @@ export default function App({ onPlay }: AppProps = {}) {
     setNavOpen(false);
   };
 
+  /** Start Mission: open the selected mission in the game. */
   const handleGetStarted = () => {
     setNavOpen(false);
     playSfx('cta');
@@ -743,60 +733,56 @@ export default function App({ onPlay }: AppProps = {}) {
             )}
           </AnimatePresence>
 
-          {/* Hero Typography & Frosted Description Card */}
+          {/* Hero: mission name and its brief, with Start Mission. The dock below swaps it. */}
           <div className="hero-header-block">
             <div className="mission-eyebrow">{brief.number} · {brief.name}</div>
             <h1 className="mission-title">
               {mission.titleLines.join(' ')}
             </h1>
-            <motion.div
+            <motion.section
               layout
-              className="description-card"
+              className="description-card brief-card"
+              aria-live="polite"
+              aria-label={`${brief.name} mission brief`}
               transition={{
                 layout: { duration: 0.32, ease: [0.16, 1, 0.3, 1] },
               }}
             >
               <AnimatePresence mode="wait" initial={false}>
-                <motion.p
+                <motion.div
                   key={currentMission}
-                  initial={{ opacity: 0, y: 7 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -7 }}
-                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  {mission.description}
-                </motion.p>
+                  <div className="brief-date">{brief.date}</div>
+                  <p className="brief-summary">{brief.summary}</p>
+                  <ol className="brief-steps">
+                    {brief.steps.map((step, i) => (
+                      <li key={step}>
+                        <span className="brief-step-num" aria-hidden="true">{i + 1}</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </motion.div>
               </AnimatePresence>
-            </motion.div>
+              <button
+                type="button"
+                id="start-mission-btn"
+                className="cta-glow-btn brief-start"
+                onClick={handleGetStarted}
+                onPointerEnter={prefetchGameCode}
+                onFocus={prefetchGameCode}
+              >
+                START MISSION
+              </button>
+            </motion.section>
           </div>
 
-          {/* Lower Stack: Glowing CTA + Bottom Segmented Dock */}
+          {/* Lower Stack: mission dock */}
           <div className="lower-stack">
-            <button
-              type="button"
-              id="get-started-btn"
-              className="cta-glow-btn"
-              onClick={handleGetStarted}
-              onPointerEnter={prefetchGameCode}
-              onFocus={prefetchGameCode}
-            >
-              GET STARTED
-            </button>
-            <button
-              type="button"
-              className="briefing-link"
-              onClick={() => {
-                playSfx('menu');
-                setNavOpen(false);
-                setActiveModal('dossier');
-              }}
-              aria-haspopup="dialog"
-              aria-expanded={activeModal === 'dossier'}
-              aria-controls="mission-dossier-modal"
-            >
-              Mission briefing
-            </button>
-
             {/* Bottom Segmented Capsule Dock */}
             <div className="bottom-dock" role="tablist" aria-label="Select Mission">
               {DOCK_ORDER.map((key) => {
@@ -866,151 +852,6 @@ export default function App({ onPlay }: AppProps = {}) {
           onPlaySfx={() => playSfx('menu')}
         />
 
-        <AnimatePresence>
-          {activeModal && activeModal !== 'policy' && activeModal !== 'team' && activeModal !== 'faq' && activeModal !== 'purpose' && (
-            <motion.div
-              className="modal-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              onClick={() => {
-                playSfx('menu');
-                setActiveModal(null);
-              }}
-            >
-              <motion.div
-                key={activeModal}
-                ref={modalSheetRef}
-                id="mission-dossier-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="modal-sheet-title"
-                className="modal-sheet"
-                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.16, ease: 'easeIn' } }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-start justify-between gap-3 pb-3 mb-4 border-b border-white/10">
-                  <div>
-                    <div className="text-[11px] font-bold tracking-widest uppercase text-[#00E5FF]">
-                      {brief.number} · {brief.date}
-                    </div>
-                    <h2
-                      id="modal-sheet-title"
-                      className="text-xl font-extrabold tracking-tight text-white mt-0.5"
-                    >
-                      {brief.name}: {brief.title}
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-300">{brief.tagline}</p>
-                  </div>
-                  <button
-                    ref={modalCloseBtnRef}
-                    type="button"
-                    onClick={() => {
-                      playSfx('menu');
-                      setActiveModal(null);
-                    }}
-                    className="shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-[#00E5FF] text-white flex items-center justify-center text-sm font-bold cursor-pointer transition-colors"
-                    aria-label="Close mission briefing"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {activeModal === 'dossier' && (
-                  <div className="space-y-5 pr-1">
-                    <section className="space-y-2">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">In this mission you will</h3>
-                      <ol className="space-y-1.5">
-                        {brief.youWill.map((step, i) => (
-                          <li key={step} className="flex gap-2.5 text-sm leading-snug text-slate-200">
-                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#00E5FF]/15 text-[11px] font-bold text-[#00E5FF]">
-                              {i + 1}
-                            </span>
-                            <span>{step}</span>
-                          </li>
-                        ))}
-                      </ol>
-                      <p className="text-xs text-slate-400">{brief.place}</p>
-                    </section>
-
-                    <section className="space-y-2">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Controls</h3>
-                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                        {(
-                          [
-                            ['Keyboard', brief.controls.keyboard],
-                            ['Phone or tablet', brief.controls.touch],
-                          ] as const
-                        ).map(([label, lines]) => (
-                          <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
-                            <ul className="mt-1.5 space-y-1 text-xs leading-snug text-slate-200">
-                              {lines.map((line) => (
-                                <li key={line}>{line}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-xs text-slate-400">Turn your sound on: the mission is narrated. Phones play it sideways.</p>
-                    </section>
-
-                    <section className="space-y-2">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">The real mission</h3>
-                      <div className="grid grid-cols-2 gap-2.5">
-                        {brief.facts.map((t) => (
-                          <div key={t.label} className="p-3 rounded-xl bg-white/5 border border-white/10">
-                            <div className="text-[10px] font-bold tracking-wider uppercase text-slate-400">{t.label}</div>
-                            <div className="text-base font-extrabold font-mono text-white mt-1">
-                              {t.value}
-                              {t.unit && <span className="text-[11px] font-mono text-[#00E5FF] ml-1">{t.unit}</span>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      {brief.highlights.map((h) => (
-                        <p key={h} className="text-xs leading-relaxed text-slate-300 bg-white/5 rounded-xl p-3 border border-white/5">
-                          {h}
-                        </p>
-                      ))}
-                    </section>
-                  </div>
-                )}
-
-                {activeModal === 'dossier' && (
-                  <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4">
-                    <button
-                      type="button"
-                      onClick={handleGetStarted}
-                      className="w-full rounded-full bg-[#00E5FF] py-3 text-sm font-extrabold uppercase tracking-wide text-[#030914] shadow-[0_0_24px_rgba(0,229,255,0.55)]"
-                    >
-                      Start {brief.name}
-                    </button>
-                    <div className="flex items-center gap-2" role="tablist" aria-label="Choose a mission">
-                      {DOCK_ORDER.map((k) => (
-                        <button
-                          key={k}
-                          type="button"
-                          role="tab"
-                          aria-selected={k === currentMission}
-                          onClick={() => handleSelectMission(k)}
-                          className={`flex-1 py-2 px-3 rounded-full text-[11px] font-extrabold uppercase cursor-pointer transition-colors ${
-                            k === currentMission
-                              ? 'bg-white/20 text-white'
-                              : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                          }`}
-                        >
-                          {MISSIONS[k].dockLabel}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
 

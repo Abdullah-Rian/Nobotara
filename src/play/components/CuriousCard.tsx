@@ -175,7 +175,7 @@ export const CuriousCard: React.FC<CuriousCardProps> = ({ onMissions, onReplay, 
           onClick={onMissions}
           className="rounded-lg bg-slate-100 px-4 py-3 text-sm font-bold text-slate-950"
         >
-          BACK TO MISSIONS
+          BACK TO HOME
         </button>
       </div>
     </div>

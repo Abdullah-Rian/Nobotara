@@ -87,4 +87,34 @@ function Root() {
   return <App onPlay={play} />;
 }
 
+/**
+ * No zooming anywhere: the site and the game are laid out to fit the screen.
+ * The viewport tag stops pinch zoom on Android; iOS Safari ignores it, so its pinch
+ * gesture is cancelled here. Double-tap zoom is off through touch-action in the CSS.
+ * On desktops, Ctrl/Cmd + wheel, + and - and 0 are cancelled too.
+ */
+function blockZoom() {
+  const stop = (event: Event) => event.preventDefault();
+  document.addEventListener('gesturestart', stop, { passive: false });
+  document.addEventListener('gesturechange', stop, { passive: false });
+  document.addEventListener(
+    'touchmove',
+    (event) => {
+      if (event.touches.length > 1) event.preventDefault();
+    },
+    { passive: false }
+  );
+  window.addEventListener(
+    'wheel',
+    (event) => {
+      if (event.ctrlKey || event.metaKey) event.preventDefault();
+    },
+    { passive: false }
+  );
+  window.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && ['+', '=', '-', '_', '0'].includes(event.key)) event.preventDefault();
+  });
+}
+blockZoom();
+
 createRoot(document.getElementById('root')!).render(<Root />);

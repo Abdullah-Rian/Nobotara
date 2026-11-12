@@ -32,6 +32,7 @@ import { MatchingPuzzle } from './components/MatchingPuzzle';
 import { OutroScreen } from './components/OutroScreen';
 import { RotateOverlay } from './components/RotateOverlay';
 import { LoadingBar } from './components/LoadingBar';
+import { LeaveMission } from './components/LeaveMission';
 import { VoyagerHUD } from './components/VoyagerHUD';
 import { introTitleLeadSeconds, MissionIntroTitle } from './components/VoyagerIntroTitle';
 import { VoyagerParts } from './components/VoyagerParts';
@@ -1709,6 +1710,11 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   beginMarsRef.current = beginMars;
 
   const allVisited = Object.values(artifactsVisited).filter(Boolean).length === 3;
+  /** The HUD on screen carries a HOME button. Mirrors the HUD render conditions below. */
+  const hudHasHome =
+    (mission === 'apollo' && (phase === 'explore' || phase === 'intro')) ||
+    (mission === 'voyager' && (phase === 'explore' || phase === 'intro' || (phase === 'inspect' && !recordOpen))) ||
+    (mission === 'mars' && !marsCurious && phase !== 'puzzle');
 
   // The ending shows Voyager 1. Start its download once the ending is near (the last laser
   // run, or all three objects seen), not at the start, where it would slow the Moon down.
@@ -2145,6 +2151,16 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       )}
 
       <ObjectiveCoach beat={apolloBeat ?? voyagerBeat ?? marsBeat} onDismiss={dismissCoach} />
+      {/* HOME on screens where the mission's HUD (which has its own HOME) is hidden. */}
+      {phase !== 'title' && !hudHasHome && (
+        <div className="pointer-events-auto absolute right-4 top-4 z-[45] md:right-6 md:top-6">
+          <LeaveMission
+            floating
+            missionLabel={mission === 'apollo' ? 'Mission 01' : mission === 'voyager' ? 'Mission 02' : 'Mission 03'}
+            onLeave={handleBackToMissions}
+          />
+        </div>
+      )}
       <LoadingBar label={mission === 'apollo' ? 'Loading the Moon' : mission === 'voyager' ? 'Loading Voyager 1' : 'Loading Mars'} />
       {orientationHold && <RotateOverlay />}
     </div>

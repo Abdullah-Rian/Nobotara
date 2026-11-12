@@ -40,7 +40,7 @@ export const VoyagerOutro: React.FC<VoyagerOutroProps> = ({ progress, onContinue
             onClick={onMissions}
             className="mt-3 block w-full rounded-lg border border-slate-600 bg-slate-800 px-5 py-3 text-sm font-bold text-slate-100"
           >
-            BACK TO MISSIONS
+            BACK TO HOME
           </button>
         </div>
       )}

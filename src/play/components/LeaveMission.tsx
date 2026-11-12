@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
+import { Home } from 'lucide-react';
 
 interface LeaveMissionProps {
   /** "Mission 01", shown in the warning. */
   missionLabel: string;
   onLeave: () => void;
+  /** Darker, stand-alone look for screens without a HUD around it. */
+  floating?: boolean;
 }
 
-/** MISSIONS button in a mission's top bar. Asks first, because progress is not saved. */
-export const LeaveMission: React.FC<LeaveMissionProps> = ({ missionLabel, onLeave }) => {
+/** HOME button for a mission. Asks first, because progress is not saved. */
+export const LeaveMission: React.FC<LeaveMissionProps> = ({ missionLabel, onLeave, floating = false }) => {
   const [leaving, setLeaving] = useState(false);
   return (
     <div className="relative">
@@ -15,13 +18,17 @@ export const LeaveMission: React.FC<LeaveMissionProps> = ({ missionLabel, onLeav
         type="button"
         onClick={() => setLeaving(value => !value)}
         aria-expanded={leaving}
-        className="rounded-lg border border-slate-800/80 bg-slate-950/80 px-3 py-2 font-mono-num text-xs text-slate-300"
+        aria-label="Back to home"
+        className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 font-mono-num text-xs text-slate-200 ${
+          floating ? 'border-slate-600 bg-slate-950/90 shadow-lg' : 'border-slate-800/80 bg-slate-950/80'
+        }`}
       >
-        MISSIONS
+        <Home className="h-3.5 w-3.5" aria-hidden="true" />
+        HOME
       </button>
       {leaving && (
-        <div className="absolute right-0 top-full z-40 mt-2 w-60 rounded-lg border border-slate-700 bg-slate-950/95 p-3 text-left shadow-2xl">
-          <div className="text-sm font-bold text-slate-100">Leave this mission?</div>
+        <div className="absolute right-0 top-full z-50 mt-2 w-60 rounded-lg border border-slate-700 bg-slate-950/95 p-3 text-left shadow-2xl">
+          <div className="text-sm font-bold text-slate-100">Back to the home page?</div>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
             Your progress is not saved. You will start {missionLabel} from the beginning next time.
           </p>
@@ -38,7 +45,7 @@ export const LeaveMission: React.FC<LeaveMissionProps> = ({ missionLabel, onLeav
               onClick={onLeave}
               className="flex-1 rounded-md border border-slate-600 px-3 py-2 text-xs font-bold text-slate-200"
             >
-              LEAVE
+              GO HOME
             </button>
           </div>
         </div>

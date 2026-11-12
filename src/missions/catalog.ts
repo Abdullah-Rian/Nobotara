@@ -27,6 +27,10 @@ export interface MissionBrief {
   date: string;
   /** One line under the title. */
   tagline: string;
+  /** One or two sentences for the home page card. */
+  summary: string;
+  /** Three short steps for the home page card. */
+  steps: [string, string, string];
   /** Where the mission takes you. */
   place: string;
   /** What the player does, in order. */
@@ -62,6 +66,8 @@ export const MISSION_BRIEFS: Record<GameMission, MissionBrief> = {
     title: 'One Giant Leap',
     date: 'JULY 20, 1969',
     tagline: 'The mission that succeeded. The things it left behind.',
+    summary: "Go back to the first Moon landing site and find out why Apollo 11 left things behind.",
+    steps: ["Drive a rover across Tranquility Base", "Inspect what the astronauts left", "Time a laser pulse to the Moon"],
     place: 'Sea of Tranquility, the Moon · 0.674° N, 23.473° E',
     youWill: [
       'Drive an explorer rover across the Apollo 11 landing site.',
@@ -91,6 +97,8 @@ export const MISSION_BRIEFS: Record<GameMission, MissionBrief> = {
     title: 'The Golden Record',
     date: 'LAUNCHED SEPTEMBER 5, 1977',
     tagline: 'The endless journey.',
+    summary: "Take the controls of the farthest spacecraft ever sent from Earth, now in interstellar space.",
+    steps: ["Turn the dish back toward Earth", "Read its last instruments", "Open the Golden Record"],
     get place() {
       return `Interstellar space · about ${voyagerBillionKm()} billion km from Earth`;
     },
@@ -126,6 +134,8 @@ export const MISSION_BRIEFS: Record<GameMission, MissionBrief> = {
     title: 'The Lost Dream',
     date: 'PERSEVERANCE LANDED FEBRUARY 18, 2021',
     tagline: 'Jezero Crater. An unfinished journey.',
+    summary: "Perseverance sealed pieces of an ancient Martian lake in tubes. They are still waiting to come home.",
+    steps: ["Drive Perseverance through Jezero", "Scan rocks from an old lake", "Plan the journey home"],
     place: 'Jezero Crater, Mars · 18.38° N, 77.58° E',
     youWill: [
       'Drive Perseverance across an old lake bed and river delta.',
