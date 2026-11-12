@@ -2075,7 +2075,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
 
       {/* Phase 3: Logic Matching Puzzle */}
       {phase === 'puzzle' && mission === 'apollo' && (
-        <MatchingPuzzle onComplete={handleChallengeCompleted} />
+        <MatchingPuzzle onComplete={handleChallengeCompleted} onStarted={() => dismissCoach('apollo-match')} />
       )}
 
       {mission === 'voyager' && phase === 'explore' && voyagerPanel && (
