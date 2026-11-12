@@ -482,6 +482,8 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     setRoverHeld(true);
     gameInputs.setVirtualJoystick(0, 0);
     engineRef.current?.setRoverInputs(0, 0);
+    // With low-gravity grip the rover would coast several metres; a stop belongs here.
+    engineRef.current?.haltRover();
   };
 
   const beginRanging = () => {
@@ -1588,6 +1590,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     const site = marsNearRef.current;
     if (!site) return;
     dismissCoach(`mars-near-${marsStepRef.current}`);
+    marsRef.current?.halt();
     const readingId = readingIdFor(step, site);
     if (!readingId) return;
     const reading = MARS_READINGS[readingId];

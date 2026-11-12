@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BodySpring, MOON_DRIVE, driveStep } from './roverDynamics';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { buildApolloSceneModels, RoverRig, SceneModels } from './apolloModels';
 import { ArtifactId, MarkerId, RoverTelemetry } from '../types/game';
@@ -156,6 +157,12 @@ export class ApolloThreeEngine {
 
   // Rover Kinematics
   private roverVelocity: number = 0;
+  /** -1..1 throttle and smoothed steering for the drive model (roverDynamics.ts). */
+  private roverThrottle = 0;
+  private roverSteer = 0;
+  private readonly roverSpring = new BodySpring();
+  /** Wall-clock time of the last frame, so the simulation runs at real speed on any screen. */
+  private lastTickAt = 0;
   /** The rover starts facing the first marker, so the first push forward goes the right way. */
   private roverHeading: number = Math.atan2(
     ARTIFACTS.descent_stage.markerPosition[0] - 8,
@@ -1128,7 +1135,8 @@ export class ApolloThreeEngine {
    * Set inputs from keyboard or touch joystick
    */
   public setRoverInputs(forwardInput: number, turnInput: number) {
-    this.roverTargetSpeed = forwardInput * 10.4; // max speed 10.4 m/s
+    this.roverThrottle = forwardInput;
+    this.roverTargetSpeed = forwardInput * MOON_DRIVE.topSpeed;
     this.roverTurnInput = turnInput;
   }
 
@@ -1178,7 +1186,11 @@ export class ApolloThreeEngine {
   private tick() {
     if (this.isDisposed) return;
 
-    const dt = 0.016; // Stable ~60fps step
+    // Real time since the last frame, capped so a stalled tab does not jump. It used to be a fixed
+    // 1/60 s, which ran the whole Moon at double speed on 120 Hz screens and half speed at 30 fps.
+    const now = performance.now();
+    const dt = this.lastTickAt ? Math.min(Math.max((now - this.lastTickAt) / 1000, 0), 0.05) : 1 / 60;
+    this.lastTickAt = now;
 
     // 1. Update Rover Kinematics
     this.updateRover(dt);
@@ -1194,7 +1206,7 @@ export class ApolloThreeEngine {
 
     // 5. Slowly rotate the distant Earth in place
     const earthNode = this.models.earthMesh.getObjectByName('Earth') ?? this.models.earthMesh;
-    earthNode.rotation.y += 0.0003;
+    earthNode.rotation.y += 0.018 * dt;
 
     this.projectSkyLabels();
 
@@ -1291,6 +1303,8 @@ export class ApolloThreeEngine {
     this.roverRoll = THREE.MathUtils.damp(this.roverRoll, targetRoll, 6, dt);
 
     group.position.copy(this.roverPosition);
+    // The body rides on a soft spring: over a crest in low gravity it floats, then settles.
+    group.position.y += this.roverSpring.step(this.roverPosition.y, MOON_DRIVE, dt);
     group.rotation.set(this.roverRoll, yaw, this.roverPitch);
     group.updateMatrix();
     const e = group.matrix.elements;
@@ -1730,20 +1744,19 @@ export class ApolloThreeEngine {
   }
 
   private updateRover(dt: number) {
-    // Smooth acceleration & deceleration. At the range edge, ignore throttle that points farther out.
+    // Lunar driving (roverDynamics.ts): gentle grip in a sixth of Earth's gravity, hills by their
+    // slope, softer steering at a standstill. At the range edge, throttle that points farther out is ignored.
     const heldAtRange = this.roverHeldAtRange();
-    this.roverVelocity = THREE.MathUtils.damp(
-      this.roverVelocity,
-      heldAtRange ? 0 : this.roverTargetSpeed,
-      4.0,
-      dt
-    );
-
-    // Turn rate scales with speed & reverse steering
-    if (Math.abs(this.roverTurnInput) > 0.05) {
-      const turnMultiplier = this.roverVelocity < -0.1 ? -1 : 1;
-      this.roverHeading += this.roverTurnInput * 1.8 * dt * turnMultiplier;
-    }
+    const aheadX = Math.sin(this.roverHeading);
+    const aheadZ = Math.cos(this.roverHeading);
+    const grade =
+      (this.getLunarHeight(this.roverPosition.x + aheadX * 1.2, this.roverPosition.z + aheadZ * 1.2) -
+        this.getLunarHeight(this.roverPosition.x - aheadX * 1.2, this.roverPosition.z - aheadZ * 1.2)) /
+      2.4;
+    const drive = { velocity: this.roverVelocity, steer: this.roverSteer };
+    this.roverHeading += driveStep(drive, this.roverThrottle, this.roverTurnInput, grade, MOON_DRIVE, dt, heldAtRange);
+    this.roverVelocity = drive.velocity;
+    this.roverSteer = drive.steer;
 
     // Move rover forward
     const forwardX = Math.sin(this.roverHeading);
@@ -1771,6 +1784,14 @@ export class ApolloThreeEngine {
     // Check proximity to glowing green surface area markers
     this.checkArtifactProximity();
     this.applyRoverPose();
+  }
+
+  /** Stop at once (an inspection or dialogue takes over), instead of coasting on. */
+  public haltRover() {
+    this.roverVelocity = 0;
+    this.roverSteer = 0;
+    this.roverThrottle = 0;
+    this.roverTargetSpeed = 0;
   }
 
   public beginRoverBoot() {
@@ -2161,7 +2182,7 @@ export class ApolloThreeEngine {
 
         // Position camera in front of Voyager 1 in deep space
         this.models.voyagerGroup.position.set(0, 100, -320);
-        this.models.voyagerGroup.rotation.y += 0.005;
+        this.models.voyagerGroup.rotation.y += 0.3 * dt;
 
         this.camera.position.set(0, 100, -305);
         this.cameraTarget.set(0, 100, -320);

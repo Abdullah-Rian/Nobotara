@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { buildApolloSceneModels } from './apolloModels';
 import { isSoftwareGl } from './threeEngine';
 import { disposeScene } from './disposeScene';
+import { BodySpring, MARS_DRIVE, driveStep } from './roverDynamics';
 import {
   MARS_RANGE,
   MarsSiteId,
@@ -37,7 +38,6 @@ export interface MarsTelemetry {
   rangeRadius: number;
 }
 
-const DRIVE_SPEED = 7.4;
 /** Jezero, 18.45°N 77.45°E, on the NASA globe after the glTF axis conversion. */
 const JEZERO_DIR = new THREE.Vector3(0.206, 0.317, -0.926).normalize();
 /**
@@ -58,6 +58,7 @@ const APPROACH_REVEAL = 0.8;
 const APPROACH_SPEECH = 39.84;
 /** Half-width of the explorer, added to each object's footprint. */
 const ROVER_BODY = 0.95;
+const _wheelHub = new THREE.Vector3();
 /** Opening-shot turn, marked on the globe. YXZ euler in radians. */
 const GLOBE_EULER = new THREE.Euler(0.08234375, -3.500546875, 0, 'YXZ');
 
@@ -220,6 +221,13 @@ export class MarsEngine {
   private velocity = 0;
   private forwardInput = 0;
   private turnInput = 0;
+  /** Smoothed steering and body pose for the drive model (roverDynamics.ts). */
+  private steer = 0;
+  private bodyPitch = 0;
+  private bodyRoll = 0;
+  private readonly spring = new BodySpring();
+  /** Radius of the driven rover's wheels, for wheel spin that matches the ground speed. */
+  private wheelRadius = 0.2;
   private shot: MarsShot = 'intro';
   private introT = 0;
   private introSent = false;
@@ -321,6 +329,13 @@ export class MarsEngine {
     const built = buildApolloSceneModels(this.renderer);
     this.rover = built.roverGroup;
     this.wheels = built.roverWheels;
+    const wheelGeo = this.wheels[0]?.geometry;
+    if (wheelGeo) {
+      wheelGeo.computeBoundingBox();
+      const box = wheelGeo.boundingBox!;
+      const r = Math.max(box.max.y - box.min.y, box.max.z - box.min.z) / 2;
+      if (r > 0.05 && r < 1) this.wheelRadius = r;
+    }
     this.rover.name = 'Explorer';
     this.markShadows(this.rover);
     this.basin.add(this.rover);
@@ -1917,15 +1932,18 @@ export class MarsEngine {
   }
 
   private updateRover(dt: number) {
+    const leaving = this.wouldLeave(Math.sin(this.heading), Math.cos(this.heading));
+    // Martian driving (roverDynamics.ts): better grip than the Moon in 3.71 m/s² gravity,
+    // hills by their slope, softer steering at a standstill.
+    const ax = Math.sin(this.heading);
+    const az = Math.cos(this.heading);
+    const grade = (marsHeight(this.x + ax * 1.1, this.z + az * 1.1) - marsHeight(this.x - ax * 1.1, this.z - az * 1.1)) / 2.2;
+    const drive = { velocity: this.velocity, steer: this.steer };
+    this.heading += driveStep(drive, this.forwardInput, this.turnInput, grade, MARS_DRIVE, dt, leaving);
+    this.velocity = drive.velocity;
+    this.steer = drive.steer;
     const fx = Math.sin(this.heading);
     const fz = Math.cos(this.heading);
-    const leaving = this.wouldLeave(fx, fz);
-    const target = leaving ? 0 : this.forwardInput * DRIVE_SPEED;
-    this.velocity = THREE.MathUtils.damp(this.velocity, target, 4, dt);
-    if (Math.abs(this.turnInput) > 0.05) {
-      const reverse = this.velocity < -0.1 ? -1 : 1;
-      this.heading += this.turnInput * 1.55 * dt * reverse;
-    }
     const nx = this.x + fx * this.velocity * dt;
     const nz = this.z + fz * this.velocity * dt;
     if (!this.blockedAt(nx, nz)) {
@@ -1940,8 +1958,8 @@ export class MarsEngine {
       this.z *= MARS_RANGE / radial;
       this.velocity = 0;
     }
-    this.poseRover();
-    this.wheelSpin += (this.velocity * dt) / 0.24;
+    this.poseRover(dt);
+    this.wheelSpin += (this.velocity * dt) / this.wheelRadius;
     for (const wheel of this.wheels) wheel.rotation.z = -this.wheelSpin;
   }
 
@@ -1991,7 +2009,8 @@ export class MarsEngine {
     }
     this.x = px;
     this.z = pz;
-    this.velocity *= 0.985;
+    // Rubbing along an obstacle costs a little speed (per second, not per frame).
+    this.velocity *= Math.pow(0.4, dt);
   }
 
   private wouldLeave(fx: number, fz: number) {
@@ -2002,29 +2021,52 @@ export class MarsEngine {
     return dir > 0 ? outward > 0 : outward < 0;
   }
 
-  private poseRover() {
-    const y = marsHeight(this.x, this.z);
-    const ahead = marsHeight(this.x + Math.sin(this.heading) * 1.1, this.z + Math.cos(this.heading) * 1.1);
-    const behind = marsHeight(this.x - Math.sin(this.heading) * 1.1, this.z - Math.cos(this.heading) * 1.1);
-    const right = marsHeight(this.x + Math.cos(this.heading) * 0.8, this.z - Math.sin(this.heading) * 0.8);
-    const left = marsHeight(this.x - Math.cos(this.heading) * 0.8, this.z + Math.sin(this.heading) * 0.8);
+  /**
+   * Sit the rover on the ground under its wheels. Tilt and height follow the ground smoothly
+   * (they used to snap), and the body rides on the low-gravity spring.
+   */
+  private poseRover(dt = 0) {
+    const h = this.heading;
+    const center = marsHeight(this.x, this.z);
+    const ahead = marsHeight(this.x + Math.sin(h) * 1.1, this.z + Math.cos(h) * 1.1);
+    const behind = marsHeight(this.x - Math.sin(h) * 1.1, this.z - Math.cos(h) * 1.1);
+    const right = marsHeight(this.x + Math.cos(h) * 0.8, this.z - Math.sin(h) * 0.8);
+    const left = marsHeight(this.x - Math.cos(h) * 0.8, this.z + Math.sin(h) * 0.8);
+    const pitch = THREE.MathUtils.clamp(Math.atan2(behind - ahead, 2.2), -0.3, 0.3);
+    const roll = THREE.MathUtils.clamp(Math.atan2(left - right, 1.6), -0.3, 0.3);
+    // Height from the whole footprint, not one point, so the rover neither floats nor sinks on bumps.
+    const ground = (center * 2 + ahead + behind + left + right) / 6;
+    if (dt > 0) {
+      this.bodyPitch = THREE.MathUtils.damp(this.bodyPitch, pitch, 8, dt);
+      this.bodyRoll = THREE.MathUtils.damp(this.bodyRoll, roll, 8, dt);
+    } else {
+      this.bodyPitch = pitch;
+      this.bodyRoll = roll;
+    }
+    const lift = dt > 0 ? this.spring.step(ground, MARS_DRIVE, dt) : 0;
     this.rover.rotation.order = 'YXZ';
-    this.rover.rotation.x = THREE.MathUtils.clamp(Math.atan2(behind - ahead, 2.2), -0.16, 0.16);
-    this.rover.rotation.y = this.heading - Math.PI / 2;
-    this.rover.rotation.z = THREE.MathUtils.clamp(Math.atan2(left - right, 1.6), -0.16, 0.16);
-    this.rover.position.set(this.x, y, this.z);
+    this.rover.rotation.x = this.bodyPitch;
+    this.rover.rotation.y = h - Math.PI / 2;
+    this.rover.rotation.z = this.bodyRoll;
+    this.rover.position.set(this.x, ground + lift, this.z);
 
-    const theta = this.heading - Math.PI / 2;
-    const cos = Math.cos(theta);
-    const sin = Math.sin(theta);
+    // Each wheel drops or rises so it meets the ground under it, wherever the tilted,
+    // sprung body has put its hub.
+    this.rover.updateMatrixWorld(true);
     for (const wheel of this.wheels) {
       const rest = wheel.userData.suspensionRest as THREE.Vector3 | undefined;
       if (!rest) continue;
-      const wx = this.x + rest.x * cos + rest.z * sin;
-      const wz = this.z - rest.x * sin + rest.z * cos;
-      const delta = marsHeight(wx, wz) - y;
-      wheel.position.y = rest.y + THREE.MathUtils.clamp(delta, -0.16, 0.16);
+      _wheelHub.copy(rest);
+      this.rover.localToWorld(_wheelHub);
+      const delta = marsHeight(_wheelHub.x, _wheelHub.z) + rest.y - _wheelHub.y;
+      wheel.position.y = rest.y + THREE.MathUtils.clamp(delta, -0.2, 0.2);
     }
+  }
+
+  /** Stop at once (a reading takes over), instead of rolling on. */
+  public halt() {
+    this.velocity = 0;
+    this.steer = 0;
   }
 
   private nearestLive() {
