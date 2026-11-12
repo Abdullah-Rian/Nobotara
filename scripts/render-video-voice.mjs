@@ -19,16 +19,16 @@ dotenv.config({ path: path.join(root, '.env'), quiet: true });
 
 const MODEL = process.env.TTS_MODEL || 'gemini-3.8-flash-lite-tts';
 const LINES = [
-  "We're Team Nobotara Seventy-One.",
-  'NASA left machines on the Moon, Mars and beyond. Few kids know their stories.',
-  'So we made them playable. Kids remember what they do.',
-  "Apollo eleven's lander on the Moon. Voyager one, still flying. Mars samples, still waiting.",
-  'Ask SpaceAI, built on NASA sources.',
-  'Free for every classroom. Abandoned, never forgotten.'
+  "Hi! We're Team Nobotara Seventy-One.",
+  'NASA left machines and signs of human beings on the Moon, Mars and beyond. Left behind, but not forgotten. Yet few kids know their stories.',
+  'So we made their stories playable, because kids remember what they do.',
+  "Explore what Apollo eleven left on the Moon. Join Voyager one, now in interstellar space. Follow Mars samples, still waiting for a ride home.",
+  'Questions? Ask SpaceAI, our guide built on NASA sources.',
+  'Free for every classroom, with more missions coming. Because every machine left behind still has a story to tell.'
 ];
 const STYLE =
   'A warm, confident young woman in her twenties, the team lead, presenting her team\'s project to judges and to curious kids. ' +
-  'Mid-range pitch, natural and friendly, brisk but clear, with a short pause between sentences and a slightly longer pause between paragraphs. ' +
+  'Mid-range pitch, natural and friendly. Brisk and energetic, about three and a half words a second, with only short breaths between sentences and paragraphs. ' +
   'Gentle smile in the voice. The last line is slower and heartfelt. Studio recording, no music, no effects.';
 
 const [outDir, ...voices] = process.argv.slice(2);
