@@ -19,7 +19,7 @@ export const LeaveMission: React.FC<LeaveMissionProps> = ({ missionLabel, onLeav
         onClick={() => setLeaving(value => !value)}
         aria-expanded={leaving}
         aria-label="Back to home"
-        className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 font-mono-num text-xs text-slate-200 ${
+        className={`flex min-w-[6.5rem] items-center justify-center gap-2 rounded-lg border px-5 py-2 font-mono-num text-xs text-slate-200 ${
           floating ? 'border-slate-600 bg-slate-950/90 shadow-lg' : 'border-slate-800/80 bg-slate-950/80'
         }`}
       >
