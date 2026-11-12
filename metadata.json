@@ -1,7 +1,0 @@
-{
-  "name": "NoboTara-71: Mission 01 — Apollo 11",
-  "description": "An interactive, factually accurate 3D lunar exploration game simulating Apollo 11's landing site at the Sea of Tranquility and the historical artifacts left behind.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
-
