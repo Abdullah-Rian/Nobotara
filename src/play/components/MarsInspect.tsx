@@ -184,6 +184,7 @@ export const MarsInspect: React.FC<MarsInspectProps> = ({
         ) : narrationDone ? (
           <button
             type="button"
+            data-coach="mars-continue"
             onClick={onClose}
             className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950"
           >

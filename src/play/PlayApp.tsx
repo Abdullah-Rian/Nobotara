@@ -1344,6 +1344,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   };
 
   const beginClosing = () => {
+    dismissCoach('mars-leave');
     setMarsNarrationDone(false);
     setMarsCurious(false);
     marsStepRef.current = 'closing';
@@ -1586,7 +1587,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     }
     const site = marsNearRef.current;
     if (!site) return;
-    dismissCoach('mars-interact');
+    dismissCoach(`mars-near-${marsStepRef.current}`);
     const readingId = readingIdFor(step, site);
     if (!readingId) return;
     const reading = MARS_READINGS[readingId];
@@ -1603,6 +1604,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   };
 
   const resumeMarsReading = () => {
+    dismissCoach('mars-continue');
     const step = marsStepRef.current;
     if (step === 'question') {
       beginQuestionShot();
@@ -1837,9 +1839,13 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     phase,
     step: marsStep,
     near: marsNear !== null,
-    firstSite: marsDone.length === 0,
-    linePlaying: activeDialogue !== null,
+    interactLabel: interactLabel(marsStep, marsNear),
+    doneInStep: marsDone.length,
+    linePlaying: activeDialogue !== null || marsSpeaking,
+    speaking: marsSpeaking,
     scanning: phase === 'inspect' && Boolean(marsReading?.scan) && !marsScanDone,
+    readingDone: phase === 'inspect' && Boolean(marsReading) && marsCanContinue,
+    canLeave: phase === 'outro' && marsStep === 'choice' && marsNarrationDone,
     orientationHold: orientationHold !== null,
     seen: coachSeen
   });

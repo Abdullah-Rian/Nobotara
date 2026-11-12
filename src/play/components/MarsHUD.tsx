@@ -190,6 +190,7 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
           {showContinue && (
             <button
               type="button"
+              data-coach="mars-leave"
               onClick={onContinue}
               className="rounded-lg bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950"
             >
@@ -221,12 +222,14 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
             </div>
           )}
           {showMap && (
+            <div data-coach="mars-map">
             <MarsMap
               telemetry={telemetry}
               targets={targets}
               pulseCache={pulseCache}
               size={short ? 104 : DEFAULT_SIZE}
             />
+            </div>
           )}
         </div>
       </div>
