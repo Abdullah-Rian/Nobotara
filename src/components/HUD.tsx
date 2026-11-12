@@ -228,6 +228,13 @@ export const HUD: React.FC<HUDProps> = ({
 
 const TYPE_INTERVAL_MS = 12;
 
+/** Names shown on screen. Neil's lines are read by a voice actor, and students should know that. */
+function speakerLabel(speaker: string) {
+  if (speaker === 'Neil Armstrong (Narrator-01)') return 'Neil Armstrong · voiced for the game';
+  if (speaker === 'Narrator-02') return 'Narrator';
+  return speaker;
+}
+
 export function DialoguePanel({
   message,
   typewriter,
@@ -279,7 +286,7 @@ export function DialoguePanel({
         <div className="flex items-center gap-2">
           <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
           <span className="text-xs font-bold font-mono-num text-amber-400 uppercase tracking-wider">
-            {message.speaker}
+            {speakerLabel(message.speaker)}
           </span>
         </div>
         <span className="text-[10px] text-slate-400 font-mono-num">

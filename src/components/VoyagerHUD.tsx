@@ -2,7 +2,7 @@ import React from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { DialogueMessage } from '../types/game';
 import { VoyagerTelemetry } from '../game/voyagerEngine';
-import { VoyagerStep } from '../missions/voyager/data';
+import { VoyagerStep, VOYAGER_RANGE_LABEL } from '../missions/voyager/data';
 import { DisplayControls } from './DisplayControls';
 import { DialoguePanel } from './HUD';
 import { useShortHeight } from '../utils/displayMode';
@@ -35,12 +35,26 @@ const OBJECTIVES: { id: VoyagerStep; label: string }[] = [
   { id: 'align', label: 'Point the dish at Earth' },
   { id: 'plasma', label: 'Read the plasma waves' },
   { id: 'magnetic', label: 'Read the magnetic field' },
-  { id: 'particles', label: 'Count the charged particles' },
+  { id: 'particles', label: 'Read the charged particles' },
   { id: 'power', label: 'Face the power limit' },
   { id: 'record', label: 'Open the Golden Record' },
   { id: 'archive', label: 'Complete the final archive' },
   { id: 'outro', label: 'Send the last transmission' }
 ];
+
+/**
+ * Where to draw Earth on the dish dial: the dot sits on the side of the key that turns toward it.
+ * A positive yaw error is fixed with the left arrow, so it draws on the left; a positive pitch
+ * error is fixed with the up arrow, so it draws above. Distance from the centre is how far off the dish is.
+ */
+function steerBlip(yaw: number, pitch: number, radius: number) {
+  const reach = Math.min(radius - 8, (Math.acos(Math.max(-1, Math.min(1, Math.cos(pitch) * Math.cos(yaw)))) / (Math.PI / 2)) * (radius - 8));
+  const dx = -Math.sin(yaw) * Math.cos(pitch);
+  const dy = Math.sin(pitch);
+  const length = Math.hypot(dx, dy);
+  if (length < 1e-6) return { x: 0, y: -reach };
+  return { x: (dx / length) * reach, y: -(dy / length) * reach };
+}
 
 function blip(yaw: number, pitch: number, radius: number) {
   const reach = Math.min(radius - 8, (Math.acos(Math.max(-1, Math.min(1, Math.cos(pitch) * Math.cos(yaw)))) / (Math.PI / 2)) * (radius - 8));
@@ -73,9 +87,12 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
 }) => {
   const short = useShortHeight();
   const dialRadius = short ? 35 : 52;
-  const earth = blip(telemetry.yawError, telemetry.pitchError, dialRadius);
+  const earth = steerBlip(telemetry.yawError, telemetry.pitchError, dialRadius);
   const marker = blip(telemetry.markerYaw, telemetry.markerPitch, dialRadius);
-  const currentIndex = Math.max(0, OBJECTIVES.findIndex(item => item.id === step));
+  // Once the telemetry is sent, the archive and the send are both done.
+  const currentIndex = linkSent || step === 'outro'
+    ? OBJECTIVES.length
+    : Math.max(0, OBJECTIVES.findIndex(item => item.id === step));
   const completed = currentIndex;
   const objectiveNote =
     step === 'align' && telemetry.aligned
@@ -94,7 +111,7 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
             SIGNAL {Math.round(telemetry.signal * 100)}% · EARTH {telemetry.headingErrorDeg.toFixed(0)}°
           </div>
           <div className="mt-1 max-w-56 text-[10px] font-mono-num leading-relaxed text-slate-500 short:hidden">
-            24 BILLION KM · CROSSED AUG 2012 · RADIO DELAY MEASURED IN HOURS
+            {VOYAGER_RANGE_LABEL} · CROSSED AUG 2012 · RADIO DELAY ABOUT A DAY
           </div>
           <div className="mt-1 text-[10px] font-mono-num text-slate-500">
             {linkSent ? 'TELEMETRY SENT' : lookingAround ? 'PANNING' : '← → YAW · ↑ ↓ PITCH'}

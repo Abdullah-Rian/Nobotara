@@ -669,7 +669,7 @@ export default function App() {
     setPhase('outro');
     setOutroProgress(0);
 
-    const completionSpeech = "Good work, explorer. You understand why we left these pieces behind: for science, for survival, and for peace. The lunar surface keeps our story safe.";
+    const completionSpeech = "Good work, explorer. You understand why we left these pieces behind: to get us home, to keep doing science, and to leave a message of peace. The lunar surface keeps our story safe.";
     setActiveDialogue({
       speaker: 'Neil Armstrong (Narrator-01)',
       text: completionSpeech
@@ -767,7 +767,7 @@ export default function App() {
     };
     engine.onFuelSpent = () => {
       engine.resetAim();
-      setFuelNote('The propellant is spent. The dish is not on Earth.');
+      setFuelNote('The propellant ran out before the dish found Earth. The tank is refilled. Try short taps this time.');
     };
     engine.onUplinkDone = () => {
       voyagerSignalSentRef.current = true;
@@ -1768,6 +1768,9 @@ export default function App() {
   });
   // With ?debug, the cinematics can be started from the console: __mars.plan(), .question(), .legacy('inspire'), .closing()
   if (DEBUG_SKIP) {
+    // The live Apollo engine, for checking collisions from the console.
+    (window as unknown as { __apollo: () => unknown }).__apollo = () => engineRef.current;
+    (window as unknown as { __voyager: () => unknown }).__voyager = () => voyagerRef.current;
     (window as unknown as { __mars: unknown }).__mars = {
       plan: finishSequence,
       question: beginQuestionShot,

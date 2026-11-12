@@ -10,6 +10,7 @@ import {
   voyagerSunEarthPositions
 } from '../missions/voyager/data';
 import { VOYAGER_PARTS, VOYAGER_PART_CENTER, VoyagerPartFrame } from '../missions/voyager/parts';
+import { disposeScene } from './disposeScene';
 
 export interface SkyPoint {
   x: number;
@@ -45,7 +46,8 @@ export interface VoyagerTelemetry {
 const ALIGN_RAD = (8 * Math.PI) / 180;
 const ALIGN_HOLD = 1;
 /** Seconds of full-rate turning the aim tank holds. */
-const AIM_FUEL_SECONDS = 8;
+/** Seconds of full turning the tank allows. Long enough for a first-time player who overshoots once or twice. */
+const AIM_FUEL_SECONDS = 20;
 const START_YAW = Math.PI;
 const PAN_SECONDS = 12;
 /** Radians per second the inspection camera walks around the still craft. */
@@ -307,7 +309,7 @@ export class VoyagerEngine {
     this.sunGlowMap?.dispose();
     this.earthGlowMap?.dispose();
     this.marsGlowMap?.dispose();
-    this.renderer.dispose();
+    disposeScene(this.scene, this.renderer);
     if (this.renderer.domElement.parentNode === this.container) {
       this.container.removeChild(this.renderer.domElement);
     }

@@ -193,40 +193,40 @@ export const VOYAGER_MARKERS: VoyagerMarker[] = [
     name: 'Plasma waves',
     position: [26, 2, 8],
     narrator: 'The first reading is a plasma wave. Out here the instrument listens to the thin electrical tremble of the gas around the spacecraft.',
-    science: 'Plasma-wave measurements can reveal properties of the surrounding environment. What you see is an educational reading of an instrument Voyager really carries. The game is not performing a new scan.',
+    science: 'In 2012 and 2013, bursts from the Sun made that gas ring like a bell. The pitch showed the gas was about forty times denser than inside the Sun\'s bubble. That was the proof Voyager had reached interstellar space.',
     narratorClip: 'voyager_plasma_narrator',
     scienceClip: 'voyager_plasma_science',
-    note: 'Educational reading of a real Voyager instrument. Not a new scan.'
+    note: 'Plasma-wave instrument · still working'
   },
   {
     id: 'magnetic',
     name: 'Magnetic field',
     position: [-8, 4, 28],
     narrator: 'The next reading is the magnetic field. Scientists compare its strength and direction with what the heliosphere would produce.',
-    science: 'Magnetic-field measurements help scientists tell the solar bubble from the interstellar medium beyond it. This panel is an interpretation of that investigation, not a fresh measurement made for the game.',
+    science: 'Scientists expected the field\'s direction to change sharply at the edge. It barely changed. That surprise is still being studied, and it shows how much we learn by going to look.',
     narratorClip: 'voyager_magnetic_narrator',
     scienceClip: 'voyager_magnetic_science',
-    note: 'Educational reading of a real Voyager instrument. Not a new scan.'
+    note: 'Magnetometer · still working'
   },
   {
     id: 'particles',
     name: 'Charged particles',
     position: [-24, -2, -6],
-    narrator: 'The third reading counts charged particles. Their numbers change as the spacecraft leaves the Sun\'s wind behind.',
-    science: 'Particle measurements help scientists investigate the space beyond the heliosphere. The display explains that capability. It does not claim Voyager is taking a new sample right now.',
+    narrator: 'The third reading is charged particles. When Voyager crossed the edge in 2012, particles from the Sun almost vanished, and particles from the rest of the galaxy jumped up.',
+    science: 'That swap was the clearest sign that Voyager had left the Sun\'s bubble. Its particle instruments have since been switched off to save power, the last one in April 2026, but their record remains.',
     narratorClip: 'voyager_particles_narrator',
     scienceClip: 'voyager_particles_science',
-    note: 'Educational reading of a real Voyager instrument. Not a new scan.'
+    note: 'Particle instruments · switched off to save power'
   },
   {
     id: 'power',
     name: 'Power system',
     position: [12, -3, -24],
     narrator: 'Every mission has limits. Voyager was never designed to operate forever. Its power supply slowly weakens, and engineers must decide which systems can continue and which must be switched off. Sometimes, keeping a mission alive means learning to do less.',
-    science: 'NASA has made real decisions to switch off Voyager instruments to conserve power. This is a long-term engineering trade-off, not a sudden failure of the spacecraft.',
+    science: 'NASA has switched off Voyager 1 instruments one by one to save power. Today only two still work: the plasma-wave instrument and the magnetometer. It is a careful trade-off, not a sudden failure.',
     narratorClip: 'voyager_power_narrator',
     scienceClip: 'voyager_power_science',
-    note: 'A real power trade-off. Not a sudden catastrophe.'
+    note: 'A real power trade-off, not a sudden failure.'
   }
 ];
 
@@ -270,15 +270,21 @@ export interface ArchiveItem {
   id: string;
   text: string;
   correct: boolean;
+  /** For a wrong choice: who really did it. */
+  note?: string;
 }
 
+/**
+ * The wrong choices are real discoveries by other spacecraft, so a wrong pick still teaches something.
+ * The list is mixed so the right answers are not simply the first three.
+ */
 export const ARCHIVE_ITEMS: ArchiveItem[] = [
   { id: 'jupiter', text: "Jupiter's ring and previously unknown moons.", correct: true },
-  { id: 'saturn', text: "Saturn's rings and moons.", correct: true },
+  { id: 'neptune', text: "Neptune's Great Dark Spot, a storm the size of Earth.", correct: false, note: 'Neptune was Voyager 2. Voyager 1 never went there.' },
+  { id: 'saturn', text: "Saturn's rings and moons, up close.", correct: true },
+  { id: 'titan-landing', text: "A landing on Saturn's moon Titan.", correct: false, note: "The Huygens probe landed on Titan in 2005. Voyager 1 only flew past it." },
   { id: 'interstellar', text: 'Measurements of the interstellar environment.', correct: true },
-  { id: 'neptune-landing', text: 'A crewed landing on Neptune.', correct: false },
-  { id: 'return-home', text: 'A planned return of the spacecraft to Earth.', correct: false },
-  { id: 'record-broadcast', text: 'A live broadcast of the Golden Record back to Earth.', correct: false }
+  { id: 'uranus', text: 'The first close look at Uranus.', correct: false, note: 'Uranus was Voyager 2, in 1986.' }
 ];
 
 export const ARCHIVE_DISCLAIMER = 'This is a fictional ending for the game. It is not a claim that Voyager 1 has sent its final real-world transmission.';
@@ -297,6 +303,10 @@ export const VOYAGER_SUN_SPEED_KM_S = 17;
 export const VOYAGER_RANGE_DATE = '9 November 2026';
 export const VOYAGER_LIGHT_DAY_DATE = '18 November 2026';
 export const VOYAGER_LIGHT_DAY_BILLION_KM = 25.9;
+/** The same moment as a date, so text can say "will reach" before it and "reached" after. */
+export const VOYAGER_LIGHT_DAY = new Date('2026-11-18T00:00:00Z');
+/** Short distance label for headers, from the same tracked range. */
+export const VOYAGER_RANGE_LABEL = `${(VOYAGER_EARTH_RANGE_KM / 1_000_000_000).toFixed(1)} BILLION KM`;
 
 export const VOYAGER_INTRO_TITLE = 'VOYAGER 1';
 export const VOYAGER_INTRO_STATUS = `Distance from Earth: ${(VOYAGER_EARTH_RANGE_KM / 1_000_000_000).toFixed(2)} billion km ; Speed: ${VOYAGER_SUN_SPEED_KM_S.toFixed(1)} km/s`;

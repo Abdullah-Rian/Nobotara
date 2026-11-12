@@ -3,7 +3,7 @@ import { GamePhase, ObjectiveStep } from '../types/game';
 
 const LANDER: CoachBeat = {
   id: 'apollo-lander',
-  text: 'Drag the stick, or use W A S D, and drive into the marker.',
+  text: 'Drag the stick, or use W A S D, and drive into the marker. (Apollo 11 had no rover. The astronauts walked. This one is ours, for exploring.)',
   pointAt: 'apollo-stick',
   hand: true,
   dismissOnDrive: true

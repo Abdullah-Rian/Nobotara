@@ -1,3 +1,4 @@
+import { VOYAGER_RANGE_LABEL } from '../missions/voyager/data';
 import React from 'react';
 import { RotateCcw, ArrowRight, Compass, Sparkles } from 'lucide-react';
 
@@ -43,7 +44,7 @@ export const OutroScreen: React.FC<OutroScreenProps> = ({ onReplay, onContinue, 
               VOYAGER 1: The Golden Record
             </div>
             <div className="text-xs text-slate-400">
-              Traverse the edge of the heliosphere carrying humanity's sights, sounds, and greetings to the stars.
+              Turn a spacecraft 25 billion km away to face home, read its instruments, and open the record of sounds, greetings, and images it carries.
             </div>
           </div>
 
@@ -71,7 +72,7 @@ export const OutroScreen: React.FC<OutroScreenProps> = ({ onReplay, onContinue, 
         {!isVoyagerRevealed ? (
           <span>DEPARTING SEA OF TRANQUILITY · ACCELERATING TO DEEP SPACE...</span>
         ) : (
-          <span>VOYAGER 1 INTERSTELLAR PROBE · 24 BILLION KM FROM EARTH</span>
+          <span>VOYAGER 1 INTERSTELLAR PROBE · {VOYAGER_RANGE_LABEL} FROM EARTH</span>
         )}
       </div>
     </div>

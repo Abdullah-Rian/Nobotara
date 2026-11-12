@@ -29,10 +29,10 @@ export const ArchivePuzzle: React.FC<ArchivePuzzleProps> = ({ onComplete, onPick
   };
 
   const confirm = () => {
-    const correct = ARCHIVE_ITEMS.filter(item => item.correct).map(item => item.id);
-    const matches = picked.length === 3 && correct.every(id => picked.includes(id));
-    if (!matches) {
-      setError('Those three are not Voyager 1\'s recorded legacy. Choose again.');
+    const wrong = ARCHIVE_ITEMS.filter(item => !item.correct && picked.includes(item.id));
+    if (picked.length !== 3 || wrong.length > 0) {
+      const count = wrong.length === 1 ? 'One of those was' : wrong.length === 2 ? 'Two of those were' : 'None of those were';
+      setError(`${count}${wrong.length === 3 ? '' : ' not'} Voyager 1. ${wrong.map(item => item.note).join(' ')}`);
       return;
     }
     setDone(true);
@@ -51,7 +51,7 @@ export const ArchivePuzzle: React.FC<ArchivePuzzleProps> = ({ onComplete, onPick
             Choose three discoveries to preserve
           </h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-slate-400">
-            Keep the findings that belong to Voyager 1. A simulated transmission will carry this telemetry home.
+            Three of these were Voyager 1. The others were other spacecraft. Pick Voyager 1's three to send home.
           </p>
         </div>
 
@@ -79,8 +79,8 @@ export const ArchivePuzzle: React.FC<ArchivePuzzleProps> = ({ onComplete, onPick
         <p className="mt-4 text-xs leading-relaxed text-slate-500">{ARCHIVE_DISCLAIMER}</p>
 
         {error && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-rose-300">
-            <AlertCircle className="h-4 w-4" />
+          <div className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-rose-300">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}

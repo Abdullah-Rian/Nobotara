@@ -64,7 +64,7 @@ const PlaqueCallout: React.FC<{ readPoint: () => PlaqueScreenPoint | undefined }
         ref={photoRef}
         src="/assets/images/apollo11-plaque.jpg"
         alt="Apollo 11 commemorative plaque, with the inscription, Earth hemispheres, and signatures"
-        className="pointer-events-none ml-16 w-[min(22rem,46vw)] max-h-[40vh] origin-bottom-left -rotate-6 rounded-md border border-slate-200/90 bg-slate-100 object-contain shadow-2xl"
+        className="pointer-events-none ml-16 w-[min(22rem,46vw)] max-h-[26vh] origin-bottom-left -rotate-6 rounded-md border border-slate-200/90 bg-slate-100 object-contain shadow-2xl"
       />
     </>
   );
@@ -115,7 +115,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
             className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs"
           >
             <Volume2 className="w-4 h-4" />
-            {playingHistoricalVoice ? 'PLAYING HISTORIC AUDIO...' : "LISTEN: THAT'S ONE SMALL STEP"}
+            {playingHistoricalVoice ? 'PLAYING A READING OF THE LINE…' : "LISTEN: THAT'S ONE SMALL STEP"}
           </button>
         </div>
       )}

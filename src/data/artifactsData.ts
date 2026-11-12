@@ -14,7 +14,7 @@ export const ARTIFACTS: Record<string, ArtifactInfo> = {
     legacy: 'HUMANITY’S FIRST LUNAR BASE',
     description: 'The octagonal lower portion of the Apollo 11 Lunar Module. Clad in gold and aluminum thermal insulation foil, it housed the Descent Propulsion System (DPS) rocket and 4 trussed landing gear legs with dish footpads.',
     neilQuote: "This is the Eagle’s descent stage. It helped the Lunar Module land on the Moon. The ascent stage carried me and Aldrin back into lunar orbit, while the descent stage remained behind.",
-    scientificQuote: "The Lunar Module was built in two distinct stages. The descent stage contained the throttleable rocket engine, landing gear, and propellant tanks. Since weight was critical for orbital rendezvous, only the lightweight ascent stage lifted off to return to Earth.",
+    scientificQuote: "The Lunar Module was built in two parts. The descent stage held the landing engine, the legs, and the fuel for landing. It also served as a launch pad. Every kilogram counted, so only the light ascent stage lifted off, to meet the command module Columbia in orbit around the Moon. Only Columbia came home to Earth.",
     actionLabel: 'Inspect Descent Stage'
   },
   retroreflector: {
@@ -30,7 +30,7 @@ export const ARTIFACTS: Record<string, ArtifactInfo> = {
     legacy: 'EARTH–MOON DISTANCE RESEARCH',
     description: 'An array of 100 high-precision corner-cube fused silica prisms oriented toward Earth. It operates with zero power and remains active after more than half a century.',
     neilQuote: "Not everything left behind became inactive. Apollo 11 astronauts placed this laser retroreflector. Scientists on Earth can send laser pulses toward it and measure the returning light to study the distance between Earth and the Moon.",
-    scientificQuote: "Observatories in Texas, Hawaii, and France still bounce high-energy pulsed lasers off this Apollo 11 reflector. By timing the ~2.5 second round-trip with picosecond accuracy, scientists proved the Moon is drifting away at 3.8 cm per year.",
+    scientificQuote: "Observatories in New Mexico, Texas, France, and Italy still aim laser pulses at this Apollo 11 reflector. The light takes about two and a half seconds to get there and back. Timing it over many years showed that the Moon is drifting away from Earth by about 3.8 centimetres a year.",
     actionLabel: 'Inspect Retroreflector'
   },
   plaque: {

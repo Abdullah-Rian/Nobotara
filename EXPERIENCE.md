@@ -43,7 +43,7 @@ The player is with Voyager 1 in interstellar space. The spacecraft itself does n
 4. **Charged particles.** Read how particle counts help mark the space outside the heliosphere.
 5. **Power limit.** Hear why instruments are switched off as the power supply weakens, as an engineering trade-off rather than a sudden failure.
 6. **Golden Record.** Page through sounds, greetings, and images carried on the disc.
-7. **Final archive.** Choose the three findings Voyager actually made, from a list that also includes three things it did not do.
+7. **Final archive.** Choose the three findings Voyager 1 actually made. The other three choices are real discoveries by other spacecraft (Voyager 2 at Uranus and Neptune, Huygens on Titan), and a wrong pick says who really did it.
 8. **Send the telemetry.** Turn the dish toward Earth and watch the light-time: how long that signal still needs to reach Earth.
 
 The three true findings are Jupiter’s ring and previously unknown moons, Saturn’s rings and moons, and measurements of the interstellar environment.
@@ -131,11 +131,11 @@ Versions are the ones installed in `package-lock.json`.
 
 The game is a single-page app. `server.ts` serves it: Vite middleware in development, and the `dist` build in production when `NODE_ENV=production`. The default listen address is `http://0.0.0.0:3000`.
 
-3D scenes are three separate engines (Apollo, Voyager, Mars), each with its own `WebGLRenderer`. Apollo and Voyager load Blender exports from `public/models` (`terrain.glb`, `descent_stage.glb`, `retroreflector.glb`, `earth.glb`, `sun.glb`, `voyager.glb`, and an optional `rover.glb`). Missing optional models fall back to geometry built in code. The Mars terrain, rocks, tubes and holograms are built in code; the Perseverance rover, the approach globe, the small Mars globe, Earth and Voyager in its cinematics are loaded from `public/models`. Input is keyboard plus an on-screen stick. Sound effects (rover hum, Quindar tones, laser, UI, the Martian wind, and the short music pad that closes Mission 03) are synthesized in the Web Audio API.
+3D scenes are three separate engines (Apollo, Voyager, Mars), each with its own `WebGLRenderer`. Apollo builds its ground from `terrain-heights.bin`, a 0.3 MB grid of heights made from the Blender terrain (`scripts/build-terrain-heightmap.mjs`), and weak devices draw it at half detail. Apollo and Voyager load Blender exports from `public/models` (`descent_stage.glb`, `retroreflector.glb`, `earth.glb`, `sun.glb`, `voyager.glb`, and an optional `rover.glb`). Missing optional models fall back to geometry built in code. The Mars terrain, rocks, tubes and holograms are built in code; the Perseverance rover, the approach globe, the small Mars globe, Earth and Voyager in its cinematics are loaded from `public/models`. Input is keyboard plus an on-screen stick. Sound effects (rover hum, Quindar tones, laser, UI, the Martian wind, and the short music pad that closes Mission 03) are synthesized in the Web Audio API.
 
 `motion` 12.43.0 and `autoprefixer` 10.6.2 are declared dependencies. The game source does not import them.
 
-Offline voice clips are encoded with ffmpeg (mono, 44.1 kHz, 128 kbps MP3) by `scripts/render-voiceovers.mjs`.
+Offline voice clips are encoded with ffmpeg (mono, 24 kHz, 64 kbps MP3) by `scripts/render-voiceovers.mjs`.
 
 ## Use of AI
 
@@ -173,4 +173,6 @@ All three missions ship as local MP3s, so a normal playthrough does not call the
 
 The Apollo MP3s, including Neil’s opening line, are labeled in the voiceover manifest as Gemini TTS with the Fenrir voice. The manifest does not record a model id for those clips. The live endpoint and the render script both use `gemini-3.8-flash-lite-tts`.
 
-The speech style sent with the 3.8 models is a calm, clear male studio voice at a steady pace, with no radio filter. Apollo-era radio color, when it plays, is added afterward by the Web Audio engine (Quindar tones at 2525 Hz and 2475 Hz), not by the speech model.
+Tara, the Mission 03 assistant, is a woman. Her lines use the **Kore** voice (set `TARA_VOICE` to try Aoede, Leda, Zephyr or Sulafat), with a young, friendly female style prompt, in the render script, the live endpoint and the browser fallback (which picks a female English voice if the device has one). Her clips were rendered on four different models because of daily limits, so their timbre can vary a little.
+
+The speech style sent with the 3.8 models is a calm, clear male studio voice at a steady pace, with no radio filter. Tara and the Mars narrator are played without the Apollo-style radio beeps. Apollo-era radio color, when it plays, is added afterward by the Web Audio engine (Quindar tones at 2525 Hz and 2475 Hz), not by the speech model.

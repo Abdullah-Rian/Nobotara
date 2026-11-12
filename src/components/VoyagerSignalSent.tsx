@@ -2,6 +2,7 @@ import React from 'react';
 import {
   LIGHT_SPEED_KM_S,
   VOYAGER_EARTH_RANGE_KM,
+  VOYAGER_LIGHT_DAY,
   VOYAGER_LIGHT_DAY_BILLION_KM,
   VOYAGER_LIGHT_DAY_DATE,
   VOYAGER_RANGE_DATE
@@ -48,7 +49,10 @@ export const VoyagerSignalSent: React.FC<VoyagerSignalSentProps> = ({ onContinue
           </div>
         </dl>
         <p className="mt-4 text-xs leading-relaxed text-slate-400">
-          On {VOYAGER_RANGE_DATE}, Voyager 1 was this far from Earth. On {VOYAGER_LIGHT_DAY_DATE} it reaches one light-day, {VOYAGER_LIGHT_DAY_BILLION_KM} billion km, so a radio signal will need a full day.
+          On {VOYAGER_RANGE_DATE}, Voyager 1 was this far from Earth.{' '}
+          {Date.now() < VOYAGER_LIGHT_DAY.getTime()
+            ? `On ${VOYAGER_LIGHT_DAY_DATE} it reaches one light-day, ${VOYAGER_LIGHT_DAY_BILLION_KM} billion km, so a radio signal will need a full day.`
+            : `On ${VOYAGER_LIGHT_DAY_DATE} it passed one light-day, ${VOYAGER_LIGHT_DAY_BILLION_KM} billion km. A radio signal now needs more than a full day, and the gap keeps growing.`}
         </p>
         <p className="mt-2 text-xs leading-relaxed text-slate-500">
           This transmission is part of the game. The distance and the travel time are from Voyager 1&apos;s tracked path.

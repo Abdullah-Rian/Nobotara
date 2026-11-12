@@ -22,7 +22,7 @@ export const VoyagerReading: React.FC<VoyagerReadingProps> = ({ marker, narratio
         <Chart id={marker.id} />
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-        Published NASA results, drawn here as a classroom chart. Not a new live scan.
+        Drawn from published NASA results. The game does not take new readings.
       </p>
       {narrationDone && (
         <button
@@ -48,17 +48,20 @@ function PlasmaChart() {
   return (
     <div>
       <div className="text-[10px] font-bold tracking-wider text-slate-400">ELECTRON DENSITY</div>
-      <div className="mt-2 flex items-end gap-3">
-        <div className="flex h-24 flex-1 items-end">
-          <div className="w-full rounded-t bg-sky-400/80" style={{ height: '70%' }} />
+      <div className="mt-2 flex h-28 items-end gap-4 px-2">
+        <div className="flex flex-1 flex-col items-center justify-end">
+          <div className="font-mono-num text-sm font-bold text-slate-300">0.002</div>
+          <div className="mt-1 w-full rounded-t bg-slate-500/80" style={{ height: '4px' }} />
+          <div className="mt-1 text-center text-[10px] leading-tight text-slate-400">inside the Sun&apos;s bubble</div>
         </div>
-        <div className="pb-1 text-right">
-          <div className="font-mono-num text-2xl font-bold text-sky-200">0.08</div>
-          <div className="text-[10px] text-slate-400">per cm³ · 2013</div>
+        <div className="flex flex-1 flex-col items-center justify-end">
+          <div className="font-mono-num text-sm font-bold text-sky-200">0.08</div>
+          <div className="mt-1 w-full rounded-t bg-sky-400/80" style={{ height: '64px' }} />
+          <div className="mt-1 text-center text-[10px] leading-tight text-slate-400">outside, 2013</div>
         </div>
       </div>
       <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-        After 2012, plasma waves showed the gas getting denser. NASA reported about 0.08 electrons per cubic centimetre in 2013.
+        Electrons per cubic centimetre. Outside the bubble the gas is about forty times denser.
       </p>
     </div>
   );
@@ -107,9 +110,11 @@ function PowerChart() {
         <path d="M16 16 L184 74" fill="none" stroke="#fbbf24" strokeWidth="3" />
         <circle cx="16" cy="16" r="3.5" fill="#fef3c7" />
         <text x="24" y="14" fill="#e2e8f0" fontSize="10">1977 · 470 W</text>
+        <circle cx="184" cy="74" r="3.5" fill="#fef3c7" />
+        <text x="176" y="88" fill="#e2e8f0" fontSize="10" textAnchor="end">2026 · far less</text>
       </svg>
       <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-        About 470 watts at launch. NASA reports the supply falling by roughly 4 watts a year. Not a live gauge.
+        About 470 watts at launch, falling by roughly 4 watts every year since. Each switched-off instrument buys more time.
       </p>
     </div>
   );

@@ -9,6 +9,7 @@ class ApolloAudioSystem {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private themeGain: GainNode | null = null;
+  private radioBeeps = true;
   private windGain: GainNode | null = null;
   private windNodes: AudioScheduledSourceNode[] = [];
   private roverOsc: OscillatorNode | null = null;
@@ -82,7 +83,7 @@ class ApolloAudioSystem {
    * Type 'outro': 2475 Hz for 250ms (mic unkey)
    */
   public playQuindarTone(type: 'intro' | 'outro' = 'intro') {
-    if (this.isMuted) return;
+    if (this.isMuted || !this.radioBeeps) return;
     try {
       const ctx = this.getContext();
       const freq = type === 'intro' ? 2525 : 2475;
@@ -545,6 +546,20 @@ class ApolloAudioSystem {
     return englishVoices[0];
   }
 
+  /** A named female English voice, when the device has one. */
+  private getBestFemaleVoice(): SpeechSynthesisVoice | null {
+    if (this.voices.length === 0 && 'speechSynthesis' in window) {
+      this.voices = window.speechSynthesis.getVoices();
+    }
+    const english = this.voices.filter(v => v.lang.startsWith('en'));
+    const femaleNames = [
+      'female', 'samantha', 'victoria', 'karen', 'zira', 'fiona', 'veena', 'susan', 'allison', 'ava',
+      'catherine', 'jenny', 'monica', 'stephanie', 'serena', 'moira', 'tessa', 'kate', 'aria', 'libby',
+      'sonia', 'natasha', 'emma', 'joanna', 'salli', 'kendra', 'kimberly', 'ivy', 'woman', 'girl'
+    ];
+    return english.find(v => femaleNames.some(n => v.name.toLowerCase().includes(n))) ?? null;
+  }
+
   /**
    * Speak dialogue prioritizing local offline MP3 assets (/assets/audio/voiceovers/*.mp3),
    * with seamless fallback to server-side Gemini TTS and client-side male Web Speech API.
@@ -565,6 +580,8 @@ class ApolloAudioSystem {
 
     this.stopSpeaking();
     const generation = this.speakGeneration;
+    // Apollo radio beeps belong to the Moon and Voyager voices. Tara and the Mars narrator speak without them.
+    this.radioBeeps = !/Tara|^Narrator$/.test(speaker);
     this.playQuindarTone('intro');
 
     // 1. First priority: Check for pre-rendered local offline audio asset
@@ -752,10 +769,14 @@ class ApolloAudioSystem {
       utterance.rate = 0.95;
     }
 
-    // Select strictly male English voice
-    const maleVoice = this.getBestMaleVoice();
-    if (maleVoice) {
-      utterance.voice = maleVoice;
+    // Tara is a woman. Everyone else keeps the male English voice.
+    if (/Tara/.test(speaker)) {
+      utterance.pitch = 1.08;
+      const femaleVoice = this.getBestFemaleVoice();
+      if (femaleVoice) utterance.voice = femaleVoice;
+    } else {
+      const maleVoice = this.getBestMaleVoice();
+      if (maleVoice) utterance.voice = maleVoice;
     }
 
     utterance.onend = () => {

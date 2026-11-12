@@ -1,6 +1,6 @@
 /**
- * Re-render every voiceover except the opening line with Gemini TTS (Fenrir),
- * then encode it like intro_neil.mp3: mono, 44.1 kHz, 128 kbps.
+ * Re-render every voiceover except the opening line with Gemini TTS (Fenrir, and Kore for Tara),
+ * then encode it for the web: mono, 24 kHz, 64 kbps. The text-to-speech output is 24 kHz, so nothing is lost, and the clips are half the size.
  *
  * The opening clip is already the reference and is left untouched.
  * Requires GEMINI_API_KEY in .env or .env.local.
@@ -21,9 +21,21 @@ const manifestPath = path.join(voiceDir, 'manifest.json');
 const workDir = path.join(root, '.tmp-vo');
 const KEEP_ID = 'intro_neil';
 const MODEL = process.env.TTS_MODEL || 'gemini-3.8-flash-lite-tts';
-const VOICE = 'Fenrir';
-const STYLE =
+/**
+ * Two voices. Everything is Fenrir except Tara, the Mission 03 assistant, who is a young woman.
+ * Her voice is Kore unless TARA_VOICE says otherwise (Aoede, Leda, Zephyr and Sulafat are other female choices).
+ */
+const NARRATOR_VOICE = 'Fenrir';
+const TARA_VOICE = process.env.TARA_VOICE || 'Kore';
+const NARRATOR_STYLE =
   'Calm, clear, natural male voice with a warm full tone and a steady pace. Studio recording, the same voice as the opening narration. No radio filter, no static, no distortion.';
+const TARA_STYLE =
+  'Clear, friendly, natural young woman\'s voice, warm and bright, with a steady, patient pace, like a helpful guide speaking to a student. Studio recording. No radio filter, no static, no distortion.';
+
+const voiceFor = (clip) =>
+  /Tara/.test(clip.speaker || '')
+    ? { name: TARA_VOICE, style: TARA_STYLE }
+    : { name: NARRATOR_VOICE, style: NARRATOR_STYLE };
 
 const key = process.env.GEMINI_API_KEY;
 if (!key || key === 'MY_GEMINI_API_KEY') {
@@ -94,7 +106,7 @@ function audioToWav(base64, mime) {
 function encodeMp3(ffmpeg, wavPath, mp3Path) {
   const result = spawnSync(
     ffmpeg,
-    ['-y', '-i', wavPath, '-ac', '1', '-ar', '44100', '-codec:a', 'libmp3lame', '-b:a', '128k', mp3Path],
+    ['-y', '-i', wavPath, '-ac', '1', '-ar', '24000', '-codec:a', 'libmp3lame', '-b:a', '64k', mp3Path],
     { encoding: 'utf8' }
   );
   if (result.status !== 0) {
@@ -105,6 +117,7 @@ function encodeMp3(ffmpeg, wavPath, mp3Path) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function renderClip(clip) {
+  const voice = voiceFor(clip);
   for (let attempt = 1; attempt <= 6; attempt++) {
     try {
       return await ai.models.generateContent({
@@ -114,14 +127,14 @@ async function renderClip(clip) {
             role: 'user',
             parts: [
               MODEL.includes('3.8')
-                ? { text: clip.text, speechMetadata: { style: STYLE } }
+                ? { text: clip.text, speechMetadata: { style: voice.style } }
                 : { text: clip.text }
             ]
           }
         ],
         config: {
           responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } } }
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice.name } } }
         }
       });
     } catch (error) {
@@ -159,13 +172,15 @@ for (const clip of clips) {
   const mp3Path = path.join(voiceDir, `${clip.id}.mp3`);
   fs.writeFileSync(wavPath, audioToWav(inline.data, inline.mimeType));
   encodeMp3(ffmpeg, wavPath, mp3Path);
-  clip.engine = `Gemini TTS (${VOICE}, ${MODEL})`;
+  clip.engine = `Gemini TTS (${voiceFor(clip).name}, ${MODEL})`;
   clip.size = fs.statSync(mp3Path).size;
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  // Write only this clip, into the file as it is now, so two runs at once do not erase each other.
+  const latest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const entry = latest.clips.find((item) => item.id === clip.id);
+  if (entry) Object.assign(entry, { engine: clip.engine, size: clip.size });
+  fs.writeFileSync(manifestPath, JSON.stringify(latest, null, 2) + '\n');
   process.stdout.write(`  wrote ${clip.filename} (${clip.size} bytes, ${inline.mimeType || 'audio'})\n`);
 }
-
-fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 
 const zipPath = path.join(root, 'public', 'nobotara-voiceovers-offline.zip');
 const zipped = spawnSync('zip', ['-r', '-FS', zipPath, 'audio/voiceovers'], {

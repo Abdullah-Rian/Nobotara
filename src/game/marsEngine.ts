@@ -3,6 +3,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { buildApolloSceneModels } from './apolloModels';
 import { isSoftwareGl } from './threeEngine';
+import { disposeScene } from './disposeScene';
 import {
   MARS_RANGE,
   MarsSiteId,
@@ -337,25 +338,7 @@ export class MarsEngine {
     this.disposed = true;
     cancelAnimationFrame(this.frameId);
     window.removeEventListener('resize', this.onResize);
-    // Free everything the scene put on the graphics card, so replays do not pile up.
-    const seen = new Set<THREE.Material>();
-    this.scene.traverse(node => {
-      const mesh = node as THREE.Mesh;
-      mesh.geometry?.dispose();
-      const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
-      if (!material) return;
-      for (const item of Array.isArray(material) ? material : [material]) {
-        if (seen.has(item)) continue;
-        seen.add(item);
-        for (const value of Object.values(item)) {
-          if (value instanceof THREE.Texture) value.dispose();
-        }
-        item.dispose();
-      }
-    });
-    this.sun.shadow.map?.dispose();
-    this.scene.clear();
-    this.renderer.dispose();
+    disposeScene(this.scene, this.renderer);
     if (this.renderer.domElement.parentNode === this.container) {
       this.container.removeChild(this.renderer.domElement);
     }
@@ -1317,7 +1300,7 @@ export class MarsEngine {
     group.position.copy(TRIO_SPOT);
     const spots = [new THREE.Vector3(-15, -2, 0), new THREE.Vector3(0, 5, 0), new THREE.Vector3(15, -2, 0)];
 
-    const moonTexture = new THREE.TextureLoader().load('/models/regolith_tile.png');
+    const moonTexture = new THREE.TextureLoader().load('/models/regolith_tile.jpg');
     moonTexture.colorSpace = THREE.SRGBColorSpace;
     moonTexture.wrapS = THREE.RepeatWrapping;
     moonTexture.wrapT = THREE.RepeatWrapping;

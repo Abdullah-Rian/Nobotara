@@ -3,7 +3,31 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { buildApolloSceneModels, RoverRig, SceneModels } from './apolloModels';
 import { ArtifactId, MarkerId, RoverTelemetry } from '../types/game';
 import { ReplaceableModelType, customModelManager } from './modelLoader';
+import { disposeScene } from './disposeScene';
 import { ARTIFACTS, LASER_STATION } from '../data/artifactsData';
+
+/** Convex hull of points on the ground, counter-clockwise seen from above (x right, z toward the viewer). */
+function convexHull(points: { x: number; z: number }[]) {
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.z - b.z);
+  if (sorted.length < 3) return sorted;
+  const cross = (o: { x: number; z: number }, a: { x: number; z: number }, b: { x: number; z: number }) =>
+    (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+  const lower: { x: number; z: number }[] = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper: { x: number; z: number }[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+/** Parts of the lander higher than this above the ground are over the rover's roof and do not block it. */
+const ROVER_HEIGHT = 1.6;
 
 // Software WebGL Detection
 export const isSoftwareGl = (() => {
@@ -125,7 +149,11 @@ export class ApolloThreeEngine {
 
   // Rover Kinematics
   private roverVelocity: number = 0;
-  private roverHeading: number = 0;
+  /** The rover starts facing the first marker, so the first push forward goes the right way. */
+  private roverHeading: number = Math.atan2(
+    ARTIFACTS.descent_stage.markerPosition[0] - 8,
+    ARTIFACTS.descent_stage.markerPosition[2] - 7
+  );
   private roverPose: 'charging' | 'booting' | 'ready' = 'charging';
   private roverBootStart = 0;
   private roverBootNotified = false;
@@ -135,6 +163,8 @@ export class ApolloThreeEngine {
   /** Horizontal reach of the wheels, so the body stops before it overlaps a solid. */
   private readonly roverClearance = 0.9;
   private readonly solidBoxes: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
+  /** Convex outlines, counter-clockwise seen from above, already grown by the rover's reach. */
+  private readonly solidOutlines: { x: number; z: number }[][] = [];
   private landerX = ARTIFACTS.descent_stage.position[0];
   private landerZ = ARTIFACTS.descent_stage.position[2];
   /** Radius of the circle that covers half the lunar surface, centered on the lander. */
@@ -247,7 +277,7 @@ export class ApolloThreeEngine {
   /** The Blender tile repeats 64 times across the kilometre-wide ground. */
   private loadRegolithMap() {
     this.regolithReady = new Promise(resolve => {
-      new THREE.TextureLoader().load('/models/regolith_tile.png', tex => {
+      new THREE.TextureLoader().load('/models/regolith_tile.jpg', tex => {
         tex.wrapS = THREE.RepeatWrapping;
         tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set(64, 64);
@@ -287,6 +317,11 @@ export class ApolloThreeEngine {
    */
   private buildTerrainHeightField(root: THREE.Object3D) {
     this.heightField = null;
+    const baked = root.userData.bakedField as typeof this.heightField;
+    if (baked) {
+      this.heightField = baked;
+      return;
+    }
     let source: THREE.Mesh | null = null;
     root.updateWorldMatrix(true, true);
     root.traverse(child => {
@@ -713,26 +748,147 @@ export class ApolloThreeEngine {
 
   private async checkDefaultPublicModels() {
     const defaultPaths: { type: ReplaceableModelType; url: string }[] = [
-      { type: 'terrain', url: '/models/terrain.glb' },
       { type: 'descent_stage', url: '/models/descent_stage.glb' },
       { type: 'retroreflector', url: '/models/retroreflector.glb' },
       { type: 'earth', url: '/models/earth.glb' },
       { type: 'sun', url: '/models/sun.glb' },
       { type: 'rover', url: '/models/rover.glb' },
-      { type: 'voyager', url: '/models/voyager.glb' },
     ];
 
-    await Promise.all(defaultPaths.map(async (item) => {
+    // No HEAD probe first: on a slow link it would cost a round trip per file. A missing
+    // file (the optional rover) fails to load and keeps its built stand-in.
+    await Promise.all([this.loadTerrainFromHeights(), ...defaultPaths.map(async (item) => {
       try {
-        const res = await fetch(item.url, { method: 'HEAD' });
-        if (!res.ok || this.isDisposed) return;
         const loaded = await customModelManager.loadFromUrl(item.url, item.type);
         if (this.isDisposed) return;
         this.replaceModel(item.type, loaded.scene, loaded.wheels);
       } catch {
         // A missing optional file, such as the rover, keeps its built model.
       }
-    }));
+    })]);
+  }
+
+  /**
+   * The ground is a regular grid, so the game downloads only its heights (about 0.3 MB) and builds
+   * the mesh here, instead of downloading a 14 MB model of 500,000 triangles. The heights come from
+   * model-sources/terrain.glb through scripts/build-terrain-heightmap.mjs.
+   */
+  private async loadTerrainFromHeights() {
+    try {
+      const response = await fetch('/models/terrain-heights.bin');
+      if (!response.ok) return;
+      const data = await response.arrayBuffer();
+      if (this.isDisposed) return;
+      const header = new DataView(data);
+      if (header.getUint32(0, true) !== 0x31504d48) return; // 'HMP1'
+      const cols = header.getUint16(4, true);
+      const rows = header.getUint16(6, true);
+      const cell = header.getFloat32(8, true);
+      const originX = header.getFloat32(12, true);
+      const originZ = header.getFloat32(16, true);
+      const lowest = header.getFloat32(20, true);
+      const range = header.getFloat32(24, true);
+      const count = cols * rows;
+      if (data.byteLength < 28 + count * 2) return;
+
+      // Undo the row-by-row differences, rebuilding the heights in metres.
+      const bytes = new Uint8Array(data, 28);
+      const heights = new Float32Array(count);
+      for (let r = 0; r < rows; r++) {
+        let value = 32768; // every row starts from the middle of the range
+        for (let c = 0; c < cols; c++) {
+          const i = r * cols + c;
+          const zigzag = (bytes[i] << 8) | bytes[count + i];
+          value += (zigzag >>> 1) ^ -(zigzag & 1);
+          heights[i] = lowest + (value / 65535) * range;
+        }
+      }
+
+      const group = new THREE.Group();
+      group.name = 'TranquilityBaseTerrain';
+      group.add(this.buildTerrainMesh(heights, cols, rows, cell, originX, originZ));
+      group.userData.bakedField = { originX, originZ, cellX: cell, cellZ: -cell, cols, rows, heights };
+      this.replaceModel('terrain', group);
+    } catch {
+      // Without the file the procedural ground stays.
+    }
+  }
+
+  private voyagerRequested = false;
+
+  /**
+   * Voyager appears only in the closing shot, so the menu does not download its 2.4 MB model.
+   * The download starts once a mission begins. If it is not there by the closing shot, the
+   * built-in stand-in is shown instead.
+   */
+  private loadVoyagerModel() {
+    if (this.voyagerRequested || this.isDisposed) return;
+    this.voyagerRequested = true;
+    customModelManager
+      .loadFromUrl('/models/voyager.glb', 'voyager')
+      .then(loaded => {
+        if (!this.isDisposed) this.replaceModel('voyager', loaded.scene, loaded.wheels);
+      })
+      .catch(() => {
+        // The stand-in built in code stays.
+      });
+  }
+
+  /** Weak devices draw every second point of the grid. Driving still follows the full-detail heights. */
+  private terrainStep() {
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    const weak = isSoftwareGl || (nav.deviceMemory ?? 8) <= 4 || (navigator.hardwareConcurrency ?? 8) <= 4;
+    return weak ? 2 : 1;
+  }
+
+  private buildTerrainMesh(heights: Float32Array, cols: number, rows: number, cell: number, originX: number, originZ: number) {
+    const step = this.terrainStep();
+    const gridCols = Math.floor((cols - 1) / step) + 1;
+    const gridRows = Math.floor((rows - 1) / step) + 1;
+    const positions = new Float32Array(gridCols * gridRows * 3);
+    const uvs = new Float32Array(gridCols * gridRows * 2);
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
+        const v = r * gridCols + c;
+        const source = r * step * cols + c * step;
+        positions[v * 3] = originX + c * step * cell;
+        positions[v * 3 + 1] = heights[source];
+        positions[v * 3 + 2] = originZ - r * step * cell;
+        uvs[v * 2] = c / (gridCols - 1);
+        uvs[v * 2 + 1] = 1 - r / (gridRows - 1);
+      }
+    }
+    const indices = new Uint32Array((gridCols - 1) * (gridRows - 1) * 6);
+    let k = 0;
+    for (let r = 0; r < gridRows - 1; r++) {
+      for (let c = 0; c < gridCols - 1; c++) {
+        const a = r * gridCols + c;
+        const b = a + 1;
+        const d = a + gridCols;
+        const e = d + 1;
+        indices[k++] = a;
+        indices[k++] = b;
+        indices[k++] = e;
+        indices[k++] = a;
+        indices[k++] = e;
+        indices[k++] = d;
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.92,
+      metalness: 0,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = 'TerrainMesh';
+    return mesh;
   }
 
   /** Drop a model so its lowest point rests on the lunar surface without moving it sideways. */
@@ -970,12 +1126,14 @@ export class ApolloThreeEngine {
   public setCameraMode(config: CameraStateConfig) {
     if (config.mode !== 'intro' && this.introActive) this.cancelIntroFlyby();
     this.cameraConfig = config;
+    if (config.mode !== 'title') this.loadVoyagerModel();
   }
 
   /** The opening move runs on the render clock and eases to a stop before the boot. */
   public beginIntroFlyby() {
     if (this.introActive) return;
     this.introActive = true;
+    this.loadVoyagerModel();
     this.introStartedAt = performance.now();
     this.introHoldUntil = 0;
     this.cameraConfig = { mode: 'intro', introProgress: 0 };
@@ -1199,7 +1357,8 @@ export class ApolloThreeEngine {
   private rebuildSolidBoxes() {
     if (!this.models) return;
     this.solidBoxes.length = 0;
-    this.addSolidBox(this.models.descentStageGroup);
+    this.solidOutlines.length = 0;
+    this.addFootprintBoxes(this.models.descentStageGroup);
     this.addSolidBox(this.models.retroreflectorGroup);
     this.addSolidBox(this.models.flagGroup);
   }
@@ -1218,37 +1377,235 @@ export class ApolloThreeEngine {
     this.solidBoxes.push({ minX, maxX, minZ, maxZ });
   }
 
+  private footprintKey = '';
+
   /**
-   * Stop the rover at a solid. A fast step cannot skip the flag, and a slide
-   * along a face keeps the part of the speed that is not into the box.
+   * The lander is a cross of legs around a body, with open ground between the legs. One box
+   * around all of it would also block those four empty corners, so the rover would stop against
+   * air. Instead this looks at the model itself: every part within the rover's height of the
+   * ground is marked on a fine grid, the marks are grown by the rover's reach, and the result is
+   * covered with as few rectangles as possible.
    */
-  private holdRoverOutsideSolids(x0: number, z0: number, forwardX: number, forwardZ: number) {
-    for (const box of this.solidBoxes) {
-      if (!this.pointInSolid(x0, z0, box)) continue;
-      this.roverPosition.x = x0;
-      this.roverPosition.z = z0;
-      const normal = this.pushOutOfSolid(box);
-      this.slideRoverVelocity(forwardX, forwardZ, normal.nx, normal.nz);
+  private addFootprintBoxes(root: THREE.Object3D | null | undefined) {
+    if (!root) return;
+    root.updateWorldMatrix(true, true);
+    const bounds = new THREE.Box3().setFromObject(root);
+    if (bounds.isEmpty() || bounds.max.x - bounds.min.x > 40 || bounds.max.z - bounds.min.z > 40) return;
+
+    const key = `${root.uuid}|${this.heightField ? 1 : 0}|${bounds.min.x.toFixed(2)}|${bounds.min.z.toFixed(2)}|${bounds.max.x.toFixed(2)}`;
+    if (key === this.footprintKey && this.footprintOutline.length > 2) {
+      this.solidOutlines.push(this.footprintOutline);
       return;
     }
 
-    const dx = this.roverPosition.x - x0;
-    const dz = this.roverPosition.z - z0;
-    let tHit = 1;
+    const cell = 0.2;
+    const reach = Math.ceil(this.roverClearance / cell);
+    const margin = reach + 2;
+    const originX = bounds.min.x - margin * cell;
+    const originZ = bounds.min.z - margin * cell;
+    const cols = Math.ceil((bounds.max.x - bounds.min.x) / cell) + margin * 2 + 1;
+    const rows = Math.ceil((bounds.max.z - bounds.min.z) / cell) + margin * 2 + 1;
+    const marked = new Uint8Array(cols * rows);
+
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    const c = new THREE.Vector3();
+    const p = new THREE.Vector3();
+    const mark = (point: THREE.Vector3) => {
+      const height = point.y - this.getLunarHeight(point.x, point.z);
+      if (height > ROVER_HEIGHT || height < -0.6) return;
+      const col = Math.floor((point.x - originX) / cell);
+      const row = Math.floor((point.z - originZ) / cell);
+      if (col >= 0 && row >= 0 && col < cols && row < rows) marked[row * cols + col] = 1;
+    };
+    root.traverse(node => {
+      const mesh = node as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.geometry.attributes.position) return;
+      mesh.updateWorldMatrix(true, false);
+      const position = mesh.geometry.attributes.position;
+      const index = mesh.geometry.index;
+      const triangles = index ? index.count / 3 : position.count / 3;
+      for (let t = 0; t < triangles; t++) {
+        const i0 = index ? index.getX(t * 3) : t * 3;
+        const i1 = index ? index.getX(t * 3 + 1) : t * 3 + 1;
+        const i2 = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+        a.fromBufferAttribute(position, i0).applyMatrix4(mesh.matrixWorld);
+        b.fromBufferAttribute(position, i1).applyMatrix4(mesh.matrixWorld);
+        c.fromBufferAttribute(position, i2).applyMatrix4(mesh.matrixWorld);
+        // Sample large triangles across their surface so a flat plate marks every cell it covers.
+        const longest = Math.max(a.distanceTo(b), b.distanceTo(c), c.distanceTo(a));
+        const steps = Math.min(16, Math.max(1, Math.ceil(longest / (cell * 0.75))));
+        for (let u = 0; u <= steps; u++) {
+          for (let v = 0; v <= steps - u; v++) {
+            const wu = u / steps;
+            const wv = v / steps;
+            p.copy(a).multiplyScalar(1 - wu - wv).addScaledVector(b, wu).addScaledVector(c, wv);
+            mark(p);
+          }
+        }
+      }
+    });
+
+    // Grow every mark by the rover's reach (a square, one pass across and one pass down).
+    const across = new Uint8Array(cols * rows);
+    for (let r = 0; r < rows; r++) {
+      let last = -1000;
+      for (let col = 0; col < cols; col++) {
+        if (marked[r * cols + col]) last = col;
+        if (col - last <= reach) across[r * cols + col] = 1;
+      }
+      last = 1000;
+      for (let col = cols - 1; col >= 0; col--) {
+        if (marked[r * cols + col]) last = col;
+        if (last - col <= reach) across[r * cols + col] = 1;
+      }
+    }
+    const grown = new Uint8Array(cols * rows);
+    for (let col = 0; col < cols; col++) {
+      let last = -1000;
+      for (let r = 0; r < rows; r++) {
+        if (across[r * cols + col]) last = r;
+        if (r - last <= reach) grown[r * cols + col] = 1;
+      }
+      last = 1000;
+      for (let r = rows - 1; r >= 0; r--) {
+        if (across[r * cols + col]) last = r;
+        if (last - r <= reach) grown[r * cols + col] = 1;
+      }
+    }
+
+    // Wrap the grown area in its convex outline. The gaps between the legs are under the lander's
+    // body, and a rover that drove into one would be wedged in a corner, so the outline closes them.
+    const points: { x: number; z: number }[] = [];
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        if (!grown[r * cols + col]) continue;
+        const edge =
+          col === 0 || r === 0 || col === cols - 1 || r === rows - 1 ||
+          !grown[r * cols + col - 1] || !grown[r * cols + col + 1] ||
+          !grown[(r - 1) * cols + col] || !grown[(r + 1) * cols + col];
+        if (!edge) continue;
+        const x = originX + col * cell;
+        const z = originZ + r * cell;
+        points.push({ x, z }, { x: x + cell, z }, { x, z: z + cell }, { x: x + cell, z: z + cell });
+      }
+    }
+    const outline = convexHull(points);
+    if (outline.length < 3) {
+      this.addSolidBox(root);
+      return;
+    }
+    this.footprintKey = key;
+    this.footprintOutline = outline;
+    this.solidOutlines.push(outline);
+  }
+
+  private footprintOutline: { x: number; z: number }[] = [];
+
+  /**
+   * Keep the rover out of the solids. Moving into a face does not stop it: the part of the move
+   * that runs along the face carries on, so the rover glides past, around a corner, and off.
+   */
+  private holdRoverOutsideSolids(x0: number, z0: number, forwardX: number, forwardZ: number) {
+    const wantedX = this.roverPosition.x - x0;
+    const wantedZ = this.roverPosition.z - z0;
+    const wanted = Math.hypot(wantedX, wantedZ);
+    let px = x0;
+    let pz = z0;
+    let dx = wantedX;
+    let dz = wantedZ;
+
+    // A start inside a solid (a model swapped in under the rover) is pushed out first.
+    this.roverPosition.x = px;
+    this.roverPosition.z = pz;
+    this.escapeSolids();
+    px = this.roverPosition.x;
+    pz = this.roverPosition.z;
+
+    for (let pass = 0; pass < 4 && Math.hypot(dx, dz) > 1e-6; pass++) {
+      let tHit = 1;
+      let nx = 0;
+      let nz = 0;
+      for (const box of this.solidBoxes) {
+        const hit = this.sweepSolid(px, pz, dx, dz, box);
+        if (!hit || hit.t >= tHit) continue;
+        tHit = hit.t;
+        nx = hit.nx;
+        nz = hit.nz;
+      }
+      if (tHit >= 1) {
+        px += dx;
+        pz += dz;
+        break;
+      }
+      const t = Math.max(0, tHit - 0.002);
+      px += dx * t;
+      pz += dz * t;
+      // What is left of the move, with the part that points into the face removed.
+      const rest = 1 - t;
+      const into = dx * nx + dz * nz;
+      dx = (dx - into * nx) * rest;
+      dz = (dz - into * nz) * rest;
+    }
+
+    this.roverPosition.x = px;
+    this.roverPosition.z = pz;
+    this.escapeSolids();
+
+    // A head-on push loses its speed. A glide along a face keeps it (the move itself is already
+    // limited to the part along the face), so the rover does not crawl while it slides past.
+    if (wanted > 1e-6) {
+      const done = Math.hypot(this.roverPosition.x - x0, this.roverPosition.z - z0);
+      const share = Math.min(1, done / wanted);
+      if (share < 0.3) this.roverVelocity *= share;
+    }
+  }
+
+  /** If the rover is inside a solid, move it out through the nearest face. Repeats for touching boxes. */
+  private escapeSolids() {
+    for (let pass = 0; pass < 6; pass++) {
+      let moved = false;
+      for (const outline of this.solidOutlines) moved = this.pushOutOfOutline(outline) || moved;
+      const box = this.solidBoxes.find(item => this.pointInSolid(this.roverPosition.x, this.roverPosition.z, item));
+      if (box) {
+        this.pushOutOfSolid(box);
+        moved = true;
+      }
+      if (!moved) return;
+    }
+  }
+
+  /**
+   * If the rover is inside a convex outline, move it out through the nearest edge. Because only
+   * the part of the move that went into the edge is undone, the rest carries the rover along it.
+   */
+  private pushOutOfOutline(outline: { x: number; z: number }[]) {
+    const x = this.roverPosition.x;
+    const z = this.roverPosition.z;
+    let best = Infinity;
     let nx = 0;
     let nz = 0;
-    for (const box of this.solidBoxes) {
-      const hit = this.sweepSolid(x0, z0, dx, dz, box);
-      if (!hit || hit.t >= tHit) continue;
-      tHit = hit.t;
-      nx = hit.nx;
-      nz = hit.nz;
+    for (let i = 0; i < outline.length; i++) {
+      const a = outline[i];
+      const b = outline[(i + 1) % outline.length];
+      const ex = b.x - a.x;
+      const ez = b.z - a.z;
+      const len = Math.hypot(ex, ez);
+      if (len < 1e-6) continue;
+      // Outward normal of a counter-clockwise outline.
+      const ox = ez / len;
+      const oz = -ex / len;
+      const outside = (x - a.x) * ox + (z - a.z) * oz;
+      if (outside >= 0) return false;
+      if (-outside < best) {
+        best = -outside;
+        nx = ox;
+        nz = oz;
+      }
     }
-    if (tHit >= 1) return;
-    const t = Math.max(0, tHit - 0.002);
-    this.roverPosition.x = x0 + dx * t;
-    this.roverPosition.z = z0 + dz * t;
-    this.slideRoverVelocity(forwardX, forwardZ, nx, nz);
+    this.roverPosition.x = x + nx * (best + 0.002);
+    this.roverPosition.z = z + nz * (best + 0.002);
+    return true;
   }
 
   private pointInSolid(
@@ -1341,17 +1698,6 @@ export class ApolloThreeEngine {
     if (tmax <= 1e-4 || tmin > 1) return null;
     if (tmin < 0) return null;
     return { t: tmin, nx, nz };
-  }
-
-  /** Drop the part of the speed that points into the solid so the rover can slide along it. */
-  private slideRoverVelocity(forwardX: number, forwardZ: number, nx: number, nz: number) {
-    const vx = forwardX * this.roverVelocity;
-    const vz = forwardZ * this.roverVelocity;
-    const into = vx * nx + vz * nz;
-    if (into >= 0) return;
-    const slideX = vx - into * nx;
-    const slideZ = vz - into * nz;
-    this.roverVelocity = slideX * forwardX + slideZ * forwardZ;
   }
 
   /** Keep the rover on or inside the circle around the lander. */
@@ -1930,7 +2276,7 @@ export class ApolloThreeEngine {
       (marker.diamond.material as THREE.Material).dispose();
     }
     this.inspectionMarkers.clear();
-    this.renderer.dispose();
+    disposeScene(this.scene, this.renderer);
     if (this.container && this.renderer.domElement.parentNode === this.container) {
       this.container.removeChild(this.renderer.domElement);
     }

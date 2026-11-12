@@ -8,7 +8,7 @@
       "id": "intro_neil",
       "speaker": "Neil Armstrong",
       "filename": "intro_neil.mp3",
-      "size": 404210,
+      "size": 202220,
       "text": "Hey, Neil Armstrong here. On July 16, 1969, we rode a Saturn V built from math, sweat, and nerve. 384,000 km to test physics where mistakes could kill. We didn’t just chase a rock in the sky; we went to learn what people can do when they dare.",
       "engine": "Gemini TTS (Fenrir)"
     },
@@ -16,7 +16,7 @@
       "id": "descent_stage_neil",
       "speaker": "Neil Armstrong",
       "filename": "descent_stage_neil.mp3",
-      "size": 185198,
+      "size": 92780,
       "text": "This is the Eagle’s descent stage. It helped the Lunar Module land on the Moon. The ascent stage carried me and Aldrin back into lunar orbit, while the descent stage remained behind.",
       "engine": "Gemini TTS (Fenrir)"
     },
@@ -24,15 +24,15 @@
       "id": "descent_stage_scientific",
       "speaker": "Scientific Voice",
       "filename": "descent_stage_scientific.mp3",
-      "size": 268790,
-      "text": "The Lunar Module was built in two distinct stages. The descent stage contained the throttleable rocket engine, landing gear, and propellant tanks. Since weight was critical for orbital rendezvous, only the lightweight ascent stage lifted off to return to Earth.",
-      "engine": "Gemini TTS (Fenrir)"
+      "size": 181868,
+      "text": "The Lunar Module was built in two parts. The descent stage held the landing engine, the legs, and the fuel for landing. It also served as a launch pad. Every kilogram counted, so only the light ascent stage lifted off, to meet the command module Columbia in orbit around the Moon. Only Columbia came home to Earth.",
+      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
     },
     {
       "id": "retroreflector_neil",
       "speaker": "Neil Armstrong",
       "filename": "retroreflector_neil.mp3",
-      "size": 244131,
+      "size": 122348,
       "text": "Not everything left behind became inactive. Apollo 11 astronauts placed this laser retroreflector. Scientists on Earth can send laser pulses toward it and measure the returning light to study the distance between Earth and the Moon.",
       "engine": "Gemini TTS (Fenrir)"
     },
@@ -40,15 +40,15 @@
       "id": "retroreflector_scientific",
       "speaker": "Scientific Voice",
       "filename": "retroreflector_scientific.mp3",
-      "size": 294286,
-      "text": "Observatories in Texas, Hawaii, and France still bounce high-energy pulsed lasers off this Apollo 11 reflector. By timing the ~2.5 second round-trip with picosecond accuracy, scientists proved the Moon is drifting away at 3.8 cm per year.",
-      "engine": "Gemini TTS (Fenrir)"
+      "size": 155948,
+      "text": "Observatories in New Mexico, Texas, France, and Italy still aim laser pulses at this Apollo 11 reflector. The light takes about two and a half seconds to get there and back. Timing it over many years showed that the Moon is drifting away from Earth by about 3.8 centimetres a year.",
+      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
     },
     {
       "id": "plaque_neil",
       "speaker": "Neil Armstrong",
       "filename": "plaque_neil.mp3",
-      "size": 159285,
+      "size": 79724,
       "text": "This plaque commemorates humanity’s first crewed lunar landing. It carries a message of peace from Earth. A message left behind for history to remember.",
       "engine": "Gemini TTS (Fenrir)"
     },
@@ -56,7 +56,7 @@
       "id": "plaque_scientific",
       "speaker": "Scientific Voice",
       "filename": "plaque_scientific.mp3",
-      "size": 276732,
+      "size": 138668,
       "text": "Engraved on stainless steel to withstand cosmic radiation and 300°C temperature swings: 'HERE MEN FROM THE PLANET EARTH FIRST SET FOOT UPON THE MOON JULY 1969 A.D. WE CAME IN PEACE FOR ALL MANKIND.'",
       "engine": "Gemini TTS (Fenrir)"
     },
@@ -64,15 +64,15 @@
       "id": "puzzle_complete_neil",
       "speaker": "Neil Armstrong",
       "filename": "puzzle_complete_neil.mp3",
-      "size": 190632,
-      "text": "Good work, explorer. You understand why we left these pieces behind: for science, for survival, and for peace. The lunar surface keeps our story safe.",
-      "engine": "Gemini TTS (Fenrir)"
+      "size": 96812,
+      "text": "Good work, explorer. You understand why we left these pieces behind: to get us home, to keep doing science, and to leave a message of peace. The lunar surface keeps our story safe.",
+      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
     },
     {
       "id": "outro_voyager",
       "speaker": "Neil Armstrong",
       "filename": "outro_voyager.mp3",
-      "size": 204007,
+      "size": 102188,
       "text": "The footprints at Tranquility Base proved that humanity could leave Earth. But our journey didn't stop at the Moon. We aimed further—beyond the planets, into interstellar space.",
       "engine": "Gemini TTS (Fenrir)"
     },
@@ -80,7 +80,7 @@
       "id": "voyager_intro",
       "speaker": "Narrator-02",
       "filename": "voyager_intro.mp3",
-      "size": 557182,
+      "size": 278828,
       "text": "Humanity once stood on the Moon, leaving behind the marks of its first steps. But exploration was never meant to end there. Beyond the Moon, beyond Mars, beyond the familiar boundaries of our Solar System, another journey continued. A machine built on Earth, launched in 1977, sent to explore the outer planets. It travelled farther than any human-made spacecraft before it. In August 2012, Voyager 1 entered interstellar space. It had crossed a boundary humanity had never crossed before.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
@@ -88,7 +88,7 @@
       "id": "voyager_align_control",
       "speaker": "Mission Control",
       "filename": "voyager_align_control.mp3",
-      "size": 193558,
+      "size": 97004,
       "text": "Voyager 1, your signal is faint, but we are listening. You have travelled farther than we ever imagined. Turn the spacecraft until the high-gain antenna points at Earth.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
     },
@@ -96,7 +96,7 @@
       "id": "voyager_align_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_align_science.mp3",
-      "size": 296794,
+      "size": 148460,
       "text": "Voyager uses a high-gain antenna fixed to the body of the spacecraft. The whole craft has to turn so that dish faces Earth. That link is how its instruments send scientific data home. At this distance a radio message takes many hours to arrive.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
     },
@@ -104,7 +104,7 @@
       "id": "voyager_shell",
       "speaker": "Narrator-02",
       "filename": "voyager_shell.mp3",
-      "size": 301391,
+      "size": 150764,
       "text": "The Sun's influence reaches far beyond the planets. But there is a frontier where its protective bubble gives way to the interstellar environment. Voyager 1 crossed that frontier in August 2012. Now it is exploring a region no human-made spacecraft had entered before.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
     },
@@ -112,7 +112,7 @@
       "id": "voyager_plasma_narrator",
       "speaker": "Narrator-02",
       "filename": "voyager_plasma_narrator.mp3",
-      "size": 137551,
+      "size": 68780,
       "text": "The first reading is a plasma wave. Out here the instrument listens to the thin electrical tremble of the gas around the spacecraft.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
     },
@@ -120,15 +120,15 @@
       "id": "voyager_plasma_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_plasma_science.mp3",
-      "size": 203171,
-      "text": "Plasma-wave measurements can reveal properties of the surrounding environment. What you see is an educational reading of an instrument Voyager really carries. The game is not performing a new scan.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+      "size": 117932,
+      "text": "In 2012 and 2013, bursts from the Sun made that gas ring like a bell. The pitch showed the gas was about forty times denser than inside the Sun's bubble. That was the proof Voyager had reached interstellar space.",
+      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
     },
     {
       "id": "voyager_magnetic_narrator",
       "speaker": "Narrator-02",
       "filename": "voyager_magnetic_narrator.mp3",
-      "size": 125430,
+      "size": 62828,
       "text": "The next reading is the magnetic field. Scientists compare its strength and direction with what the heliosphere would produce.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
     },
@@ -136,31 +136,31 @@
       "id": "voyager_magnetic_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_magnetic_science.mp3",
-      "size": 199409,
-      "text": "Magnetic-field measurements help scientists tell the solar bubble from the interstellar medium beyond it. This panel is an interpretation of that investigation, not a fresh measurement made for the game.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+      "size": 89516,
+      "text": "Scientists expected the field's direction to change sharply at the edge. It barely changed. That surprise is still being studied, and it shows how much we learn by going to look.",
+      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
     },
     {
       "id": "voyager_particles_narrator",
       "speaker": "Narrator-02",
       "filename": "voyager_particles_narrator.mp3",
-      "size": 123758,
-      "text": "The third reading counts charged particles. Their numbers change as the spacecraft leaves the Sun's wind behind.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+      "size": 91436,
+      "text": "The third reading is charged particles. When Voyager crossed the edge in 2012, particles from the Sun almost vanished, and particles from the rest of the galaxy jumped up.",
+      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
     },
     {
       "id": "voyager_particles_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_particles_science.mp3",
-      "size": 190632,
-      "text": "Particle measurements help scientists investigate the space beyond the heliosphere. The display explains that capability. It does not claim Voyager is taking a new sample right now.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+      "size": 93932,
+      "text": "That swap was the clearest sign that Voyager had left the Sun's bubble. Its particle instruments have since been switched off to save power, the last one in April 2026, but their record remains.",
+      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
     },
     {
       "id": "voyager_power_narrator",
       "speaker": "Narrator-02",
       "filename": "voyager_power_narrator.mp3",
-      "size": 287598,
+      "size": 144044,
       "text": "Every mission has limits. Voyager was never designed to operate forever. Its power supply slowly weakens, and engineers must decide which systems can continue and which must be switched off. Sometimes, keeping a mission alive means learning to do less.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
     },
@@ -168,15 +168,15 @@
       "id": "voyager_power_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_power_science.mp3",
-      "size": 170152,
-      "text": "NASA has made real decisions to switch off Voyager instruments to conserve power. This is a long-term engineering trade-off, not a sudden failure of the spacecraft.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-tts)"
+      "size": 108332,
+      "text": "NASA has switched off Voyager 1 instruments one by one to save power. Today only two still work: the plasma-wave instrument and the magnetometer. It is a careful trade-off, not a sudden failure.",
+      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
     },
     {
       "id": "voyager_record_sounds",
       "speaker": "Narrator-02",
       "filename": "voyager_record_sounds.mp3",
-      "size": 167644,
+      "size": 83948,
       "text": "Voyager carries something more than instruments. The Golden Record holds sounds from our world: wind, surf, animals, and tools.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -184,7 +184,7 @@
       "id": "voyager_record_sounds_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_record_sounds_science.mp3",
-      "size": 163047,
+      "size": 81644,
       "text": "The Golden Record is real. Its sound essay was chosen to represent Earth. The record is not a device that transmits those sounds back to Earth.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -192,7 +192,7 @@
       "id": "voyager_record_greetings",
       "speaker": "Narrator-02",
       "filename": "voyager_record_greetings.mp3",
-      "size": 159285,
+      "size": 79724,
       "text": "It also carries greetings in human languages. A civilisation wanted to say, across every barrier of speech: we were here.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -200,7 +200,7 @@
       "id": "voyager_record_greetings_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_record_greetings_science.mp3",
-      "size": 160957,
+      "size": 80684,
       "text": "The greetings were recorded in dozens of languages. They are a message to whoever might one day find the spacecraft. They are not a live broadcast.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -208,7 +208,7 @@
       "id": "voyager_record_images",
       "speaker": "Narrator-02",
       "filename": "voyager_record_images.mp3",
-      "size": 180183,
+      "size": 90284,
       "text": "The record also stores images: people, animals, the planet, and how we build. Scientists and collaborators chose them to represent life on Earth.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -216,7 +216,7 @@
       "id": "voyager_record_images_science",
       "speaker": "Scientific Voice",
       "filename": "voyager_record_images_science.mp3",
-      "size": 148418,
+      "size": 74348,
       "text": "The images were encoded on the disc with music and the sounds. The record rides with Voyager. It does not send its contents home.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -224,7 +224,7 @@
       "id": "mars_approach",
       "speaker": "Narrator",
       "filename": "mars_approach.mp3",
-      "size": 637430,
+      "size": 318764,
       "text": "We have travelled beyond the edge of our familiar world. We have sent machines into the unknown, carrying questions we still cannot answer. But sometimes the greatest discoveries are not in the farthest corners of space. Sometimes they are waiting on a neighbouring world. A world that once had rivers and lakes, and may once have been a place where life could survive. Mars. In February 2021, a NASA rover named Perseverance landed here, in Jezero Crater. Its job: to read the rocks an ancient lake left behind, and to seal the best pieces in tubes for a journey home.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
@@ -232,15 +232,15 @@
       "id": "mars_arrival",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_arrival.mp3",
-      "size": 309750,
+      "size": 165548,
       "text": "Welcome to Jezero Crater, Mars. I am Tara, your mission assistant. More than three and a half billion years ago, this crater was a lake. A river flowed in and dropped sand and mud here, layer upon layer. The water is long gone. The rocks are still here.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
+      "engine": "Gemini TTS (Kore, gemini-3.8-flash-tts)"
     },
     {
       "id": "mars_arrival_narrator",
       "speaker": "Narrator",
       "filename": "mars_arrival_narrator.mp3",
-      "size": 207350,
+      "size": 103724,
       "text": "A photograph can show us a rock. It cannot tell us how old it is, or what once lived beside it. For that, you need the rock itself. Three rocks are marked in green. Drive to one and scan it.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
@@ -248,7 +248,7 @@
       "id": "mars_igneous_narrator",
       "speaker": "Narrator",
       "filename": "mars_igneous_narrator.mp3",
-      "size": 124594,
+      "size": 62444,
       "text": "This rock was born in fire. It is igneous: melted rock that cooled and turned hard.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
@@ -256,15 +256,15 @@
       "id": "mars_igneous_science",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_igneous_science.mp3",
-      "size": 211530,
+      "size": 109868,
       "text": "It holds dark minerals called olivine and pyroxene. Rocks like this carry a natural clock. A laboratory on Earth could read that clock, and tell us exactly how old this crater floor is.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
+      "engine": "Gemini TTS (Kore, gemini-3.8-flash-tts)"
     },
     {
       "id": "mars_sedimentary_narrator",
       "speaker": "Narrator",
       "filename": "mars_sedimentary_narrator.mp3",
-      "size": 113727,
+      "size": 57068,
       "text": "This rock was not born in fire. It was built grain by grain, from sand that a river carried here.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
@@ -272,15 +272,15 @@
       "id": "mars_sedimentary_science",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_sedimentary_science.mp3",
-      "size": 202753,
+      "size": 100844,
       "text": "Where a river meets a lake, it slows down and drops its sand. The pile it leaves is called a delta. This sandstone is a piece of that delta. It shows that water once flowed here.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
+      "engine": "Gemini TTS (Kore, gemini-3.8-flash-tts)"
     },
     {
       "id": "mars_mudstone_narrator",
       "speaker": "Narrator",
       "filename": "mars_mudstone_narrator.mp3",
-      "size": 69006,
+      "size": 34604,
       "text": "This is mud from the bottom of the lake, now hard as stone.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
@@ -288,23 +288,23 @@
       "id": "mars_mudstone_science",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_mudstone_science.mp3",
-      "size": 224905,
+      "size": 111020,
       "text": "Fine mud buries things gently and keeps them safe. On Earth, rocks like this hold some of the oldest signs of life. That does not mean life was here. It means this is the right place to look.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
+      "engine": "Gemini TTS (Kore, gemini-3.8-flash-tts)"
     },
     {
       "id": "mars_tubes_assistant",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_tubes_assistant.mp3",
-      "size": 202753,
+      "size": 102380,
       "text": "These are samples collected by Perseverance. Each tube holds a piece of Mars about the size of a stick of chalk. The rover left this set on the ground as a backup, and carries the rest on board.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
+      "engine": "Gemini TTS (Kore, gemini-3.8-flash-tts)"
     },
     {
       "id": "mars_tubes_narrator",
       "speaker": "Narrator",
       "filename": "mars_tubes_narrator.mp3",
-      "size": 191886,
+      "size": 96044,
       "text": "Every sample tells a story. But some stories cannot be read by a robot millions of kilometres from home. Scientists wanted to bring these tubes to Earth. Drive to the terminal to see how.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
@@ -312,7 +312,7 @@
       "id": "mars_water_narrator",
       "speaker": "Narrator",
       "filename": "mars_water_narrator.mp3",
-      "size": 159285,
+      "size": 79724,
       "text": "Clue one. Water. It left its marks everywhere here: a delta, dry river channels, and minerals that only form in water.",
       "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
     },
@@ -320,15 +320,15 @@
       "id": "mars_water_science",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_water_science.mp3",
-      "size": 167644,
+      "size": 91820,
       "text": "Every living thing we know of needs water. So a lake that lasted is exactly where scientists want to look. The rocks here are the record of that lake.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
+      "engine": "Gemini TTS (Kore, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "mars_bio_narrator",
       "speaker": "Narrator",
       "filename": "mars_bio_narrator.mp3",
-      "size": 197737,
+      "size": 98924,
       "text": "Clue two. In 2024, in the old river valley that fed this lake, Perseverance drilled a rock named Cheyava Falls. It is covered in small dark spots, like a leopard’s.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -336,15 +336,15 @@
       "id": "mars_bio_science",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_bio_science.mp3",
-      "size": 309750,
+      "size": 158828,
       "text": "On Earth, spots like these can form when tiny living things feed on mud. But chemistry without life can make them too. Scientists call this a possible biosignature. To know for sure, they need that sample in a laboratory on Earth. It is still on Mars, sealed in a tube.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Kore, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "mars_lab_narrator",
       "speaker": "Narrator",
       "filename": "mars_lab_narrator.mp3",
-      "size": 201917,
+      "size": 101228,
       "text": "Clue three. A rover can only carry small, light tools. The best instruments on Earth are as big as a room, and some are as big as a building. They cannot fly to Mars.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -352,23 +352,23 @@
       "id": "mars_lab_science",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_lab_science.mp3",
-      "size": 218635,
+      "size": 114860,
       "text": "Samples on Earth can be studied again and again. Scientists still study Moon rocks from Apollo, using tools that did not exist in 1969. That is why these samples were meant to come home.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Kore, gemini-3.8-flash-lite-tts)"
     },
     {
       "id": "mars_question",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_question.mp3",
-      "size": 83634,
+      "size": 41324,
       "text": "Final record found. Did life ever exist on Mars?",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Kore, gemini-3.1-flash-tts-preview)"
     },
     {
       "id": "mars_no_conclusion",
       "speaker": "Narrator",
       "filename": "mars_no_conclusion.mp3",
-      "size": 237443,
+      "size": 118892,
       "text": "We have found ancient rivers. We have explored a world that may once have been more like our own. We have collected pieces of its history. But we still do not know if we were ever alone in the universe.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -376,23 +376,23 @@
       "id": "mars_sequence",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_sequence.mp3",
-      "size": 145074,
+      "size": 80684,
       "text": "Plan rebuilt. Five machines, each with one job. Together, they would have made one of the boldest journeys ever planned.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Kore, gemini-3.1-flash-tts-preview)"
     },
     {
       "id": "mars_unfinished",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_unfinished.mp3",
-      "size": 209022,
+      "size": 111020,
       "text": "Warning. Mission record found. The plan grew too complicated, too slow, and too expensive. In 2026, its funding was stopped. The original plan was never flown.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Kore, gemini-3.1-flash-tts-preview)"
     },
     {
       "id": "mars_meaning",
       "speaker": "Narrator",
       "filename": "mars_meaning.mp3",
-      "size": 158031,
+      "size": 79148,
       "text": "So was it all wasted? Or was something important left behind? Three clues are waiting in this crater. Go and find them.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -400,23 +400,23 @@
       "id": "mars_unanswered",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_unanswered.mp3",
-      "size": 104114,
+      "size": 48620,
       "text": "One mission may stay unfinished. But discovery does not end with a single mission.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Kore, gemini-3.1-flash-tts-preview)"
     },
     {
       "id": "mars_legacy",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_legacy.mp3",
-      "size": 136715,
+      "size": 70124,
       "text": "Archive complete. The evidence is safe. The questions are still open. Exploration continues.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Kore, gemini-3.1-flash-tts-preview)"
     },
     {
       "id": "mars_closing",
       "speaker": "Narrator",
       "filename": "mars_closing.mp3",
-      "size": 358234,
+      "size": 179180,
       "text": "One journey showed us that people could reach another world. Another showed us that our curiosity could travel beyond the Solar System. And this one taught us that even an unfinished journey can leave behind something worth going back for. Three missions. Three different legacies. One endless human wish to discover.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -424,7 +424,7 @@
       "id": "mars_closing_final",
       "speaker": "Narrator",
       "filename": "mars_closing_final.mp3",
-      "size": 154687,
+      "size": 77420,
       "text": "The tubes are still on Mars, sealed and waiting. Someone will go and bring them home. Perhaps it will be you.",
       "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
     },
@@ -432,15 +432,15 @@
       "id": "mars_brief_assistant",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_brief_assistant.mp3",
-      "size": 238697,
+      "size": 114668,
       "text": "This terminal holds the plan. NASA and the European Space Agency designed it together. It was not one spacecraft. It was a relay of several machines, including the first rocket ever meant to launch from another planet.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.1-flash-tts-preview)"
+      "engine": "Gemini TTS (Kore, gemini-2.5-flash-preview-tts)"
     },
     {
       "id": "mars_brief_narrator",
       "speaker": "Narrator",
       "filename": "mars_brief_narrator.mp3",
-      "size": 244131,
+      "size": 122348,
       "text": "Imagine the challenge. A sample picked up on Mars. A rocket launched from its surface. A spacecraft waiting in orbit. And then the long journey home. Every step depended on the one before it. Put the steps in order.",
       "engine": ""
     },
@@ -448,7 +448,7 @@
       "id": "mars_unfinished_narrator",
       "speaker": "Narrator",
       "filename": "mars_unfinished_narrator.mp3",
-      "size": 171406,
+      "size": 85868,
       "text": "Years of work. Thousands of people. An extraordinary plan to bring another world’s secrets home. And yet the journey was never finished.",
       "engine": ""
     },
@@ -456,9 +456,9 @@
       "id": "mars_rocks_done",
       "speaker": "Tara · Mission Assistant",
       "filename": "mars_rocks_done.mp3",
-      "size": 137551,
+      "size": 93932,
       "text": "Three rocks scanned. Fire, river and lake: three chapters of one story. The sample tubes are next, beside Perseverance.",
-      "engine": "Gemini TTS (Fenrir, gemini-3.8-flash-lite-tts)"
+      "engine": "Gemini TTS (Kore, gemini-2.5-flash-preview-tts)"
     }
   ]
 }

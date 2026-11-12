@@ -69,7 +69,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </p>
 
         <p className="text-sm md:text-base text-slate-800 leading-relaxed max-w-xl mb-8 short:mb-3 short:line-clamp-2">
-          Pilot an autonomous lunar explorer rover across the Sea of Tranquility. Inspect the artifacts left behind at the historic landing site, discover the scientific reasons they remained, and conduct a live laser measurement between Earth and the Moon.
+          Drive an explorer rover across the Sea of Tranquility. Inspect what Apollo 11 left behind, find out why each piece stayed, and time a laser pulse between Earth and the Moon.
         </p>
         </div>
 
@@ -90,7 +90,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             className="rounded-xl border border-sky-400/70 bg-slate-950/90 p-4 text-left text-slate-100 shadow-lg transition-transform hover:-translate-y-0.5"
           >
             <div className="text-[11px] font-mono-num font-bold text-sky-300">MISSION 02</div>
-            <div className="mt-1 whitespace-nowrap text-sm font-bold">Voyager 1 — THE GOLDEN DISK</div>
+            <div className="mt-1 whitespace-nowrap text-sm font-bold">Voyager 1 — THE GOLDEN RECORD</div>
             <div className="mt-1 text-xs text-slate-400">The endless journey</div>
           </button>
           <button

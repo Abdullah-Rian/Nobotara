@@ -25,7 +25,7 @@ export const VoyagerOutro: React.FC<VoyagerOutroProps> = ({ progress, onContinue
             A neighbouring world
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-slate-300">
-            Sometimes the greatest discoveries are not in the farthest dark. Sometimes they wait on a world that once may have held rivers, lakes, and conditions suitable for life. Mars.
+            Sometimes the greatest discoveries are not in the farthest dark. Sometimes they wait on a world that once had rivers and lakes, and may once have been a place where life could survive. Mars.
           </p>
           <p className="mt-4 text-xs leading-relaxed text-slate-500">{ARCHIVE_DISCLAIMER}</p>
           <button

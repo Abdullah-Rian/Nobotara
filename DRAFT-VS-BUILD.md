@@ -51,7 +51,7 @@ Draft: at the reflector, **Activate Laser** plays a beam from the sky. The scrip
 
 Build: the reflector inspection and the laser shot are two stops. The player drives to a ranging station and presses **Fire the laser**. The overlay says the pulse is a 532 nm shot from McDonald Observatory, then shows a round-trip of 2.56448 s, a distance of 384,402.1 km, and a recession of 3.8 cm per year. The result line still says the pulse left Earth. The action the player takes is firing it.
 
-The scientific line at the reflector is also more specific than the draft (observatories in Texas, Hawaii, and France; the Moon drifting away at 3.8 cm per year).
+The scientific line at the reflector is also more specific than the draft (observatories in New Mexico, Texas, France, and Italy; the Moon drifting away at about 3.8 cm per year).
 
 ### The plaque and the other copy
 
@@ -97,7 +97,7 @@ The power speech and the “this is a real trade-off, not a sudden failure” sc
 
 The Golden Record content matches: sounds, greetings, images, and the warning that the disc does not transmit home. The draft is one narrator speech, then three symbols or panels on the craft. The build is a paged panel. The one speech is split across the three pages and rewritten into shorter lines.
 
-The archive items match: Jupiter’s ring and moons, Saturn’s rings and moons, interstellar measurements. The draft asks the player to choose those three. The build asks the player to pick the three true findings out of six. The three decoys are a crewed landing on Neptune, a return of the spacecraft to Earth, and a live broadcast of the Golden Record.
+The archive items match: Jupiter’s ring and moons, Saturn’s rings and moons, interstellar measurements. The draft asks the player to choose those three. The build asks the player to pick the three true findings out of six. The three wrong choices are real discoveries by other spacecraft: Neptune's Great Dark Spot and the first close look at Uranus (Voyager 2), and the landing on Titan (Huygens).
 
 The send is also heavier than the script. The draft shows a packet moving through stars and a long delay, then says in a note that this ending is fiction. The build turns the dish toward Earth, shows a light-time card (distance and one-way time from Voyager 1’s tracked position on 9 November 2026), and keeps the fiction disclaimer. The packet flight through the starfield is not a player-visible scene.
 
