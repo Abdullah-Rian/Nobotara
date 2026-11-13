@@ -15,7 +15,7 @@ GitHub Pages and Netlify do not help: neither can hold a WebSocket open (Netlify
 
 ## Accuracy
 - `synthesizeAstrophysicsAnswer()` in `server.ts` returns canned keyword answers; the catch-all ("governed by gravitational dynamics") is invented.
-- `generateAIResponse` in `src/services/aiAdvisor.ts` returns an empty answer on failure instead of an error message.
+- `generateAIResponse` in `src/services/aiAdvisor.ts`: when the Worker fails, it shows canned keyword answers dressed as real ones (with made-up metrics), including the inaccurate 'about 25 seconds of fuel' and an invented catch-all. (Corrected 2026-11-13: it is not an empty answer.)
 - The "Data Verification: NASA Telemetry" label is not true; answers come from indexed web pages.
 - `streamAIResponse` ignores the `sources` event the worker sends.
 - Answers quote their snapshot date ("As of Nov. 18, 2026" for Voyager's distance). There is no ingestion script in the repo to rebuild the Vectorize index.
@@ -26,3 +26,12 @@ GitHub Pages and Netlify do not help: neither can hold a WebSocket open (Netlify
 
 ## Home page items (handled in the merge plan, docs/game/MERGE-PLAN.md)
 - Mission alerts: Artemis II still "T-Minus Integration / Late 2025–Early 2026" (it launched 2026-04-01, splashed down 2026-04-10); Voyager 1 numbers hard-coded and stale; thumbnails hot-linked from a third-party cloudfront account.
+
+## Re-check, 2026-11-13
+- Confirmed: the Worker answers a plain script (no website, no origin): anyone can spend the quota.
+- Answers are accurate and sourced, but written for adults (jargon like "CSM", times in UT); the source is listed twice.
+- The microphone button only toggles its own glow ("Stop listening"); it records nothing.
+- The NASA Live Updates panel shows dated or invented "news" (Artemis II pre-launch avionics power-on, after the
+  April 2026 flight; a "Sample #25 at Neretva Vallis"), presented as live.
+- `MissionAlerts.tsx` is not used anywhere. `createLiveSessionSocket`, and server.ts's /api/generate, /api/generate/stream,
+  /api/chat and /api/live are not used by the site either (it calls the Worker).
