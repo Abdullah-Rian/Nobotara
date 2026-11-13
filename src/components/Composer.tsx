@@ -226,7 +226,7 @@ export const Composer: React.FC<ComposerProps> = ({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleTextareaKeyDown}
-              placeholder="Ask anything about space, ephemeris, or missions..."
+              placeholder="Ask anything about space or our missions…"
               className="w-full resize-none bg-transparent text-white placeholder-slate-400 text-[15px] sm:text-[16px] leading-[1.5] focus:outline-none tracking-normal font-normal p-0 selection:bg-[#38bdf8]/30"
             />
           </div>

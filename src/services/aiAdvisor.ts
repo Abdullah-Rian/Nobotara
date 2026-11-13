@@ -1,123 +1,77 @@
 import { AttachedFile, ComposerMode } from '../components/Composer';
 import { PersonalizationConfig } from '../components/PersonalizeDrawer';
-import { ConversationHistoryItem } from '../types/chat';
+import { AnswerSource, ConversationHistoryItem } from '../types/chat';
 import { fetchNasaMediaForTopic } from './nasaMediaService';
 
 const RAG_URL = 'https://nobotara-worker.nobotara71.workers.dev';
 
+/** Said when SpaceAI could not get an answer. Never replaced by a made-up one. */
+export const UNAVAILABLE_ANSWER =
+  "SpaceAI can't answer right now. Please check your internet connection and try again in a minute.";
+
+/** Removes citation numbers like [1] or [1, 2] and a trailing "Sources:" list: sources are shown as links instead. */
+export function tidyAnswer(text: string): string {
+  return text
+    .replace(/\n\s*(?:\*\*)?(?:#+\s*)?Sources?(?:\*\*)?\s*:?(?:\*\*)?\s*\n?(?:\s*(?:[-*]\s*)?(?:\[\d+\]\s*)?\S*https?:\/\/\S+\s*)+$/i, '')
+    .replace(/[ \t]?\[[1-9]\d*(?:\s*,\s*[1-9]\d*)*\]/g, '')
+    .trim();
+}
+
 /**
- * Generates an AI response via the server-side Gemini API proxy (/api/generate).
- * Kept secure with server-side API keys and graceful fallback.
+ * Asks SpaceAI (the Cloudflare Worker: NASA mission passages + Gemini).
+ * If it fails, the reply says so plainly: there are no stand-in answers.
  */
 export async function generateAIResponse(
   query: string,
-  mode: ComposerMode = 'Normal',
+  _mode: ComposerMode = 'Normal',
   attachments: AttachedFile[] = [],
-  personalization?: PersonalizationConfig
+  _personalization?: PersonalizationConfig
 ): Promise<ConversationHistoryItem> {
-  const mediaPromise = fetchNasaMediaForTopic(query);
+  const question = query || (attachments.length > 0 ? `Analysis of ${attachments[0].name}` : 'Space question');
+  const reply = (fullAnswer: string, extra: Partial<ConversationHistoryItem> = {}): ConversationHistoryItem => ({
+    id: `conv-${Date.now()}`,
+    question,
+    time: 'Just now',
+    fullAnswer,
+    ...extra,
+  });
 
   try {
-  const response = await fetch(`${RAG_URL}/generate`, {
-    method: 'POST',
-    credentials: 'omit',
-    headers: { 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(20000),
-    body: JSON.stringify({ query, attachments }),
-  });
+    const response = await fetch(`${RAG_URL}/generate`, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(20000),
+      body: JSON.stringify({ query, attachments }),
+    });
 
     if (response.ok) {
       const data = await response.json();
-      if (data && data.text) {
-        const media = await mediaPromise;
-        //const isLive = !!data.isLiveGemini;
-        return {
-          id: `conv-${Date.now()}`,
-          question: query || (attachments.length > 0 ? `Analysis of ${attachments[0].name}` : 'Cosmic Inquiry'),
-          time: 'Just now',
-          fullAnswer: data.text,
-          metrics: [
-            { label: 'Intelligence Core', value: data.model ?? 'Gemini', delta: 'Live API' },
-            { label: 'Astrophysics Mode', value: mode },
-            { label: 'Data Verification', value: 'NASA Telemetry' },
-          ],
-          media,
-        };
+      if (data && typeof data.text === 'string' && data.text.trim()) {
+        const sources: AnswerSource[] = Array.isArray(data.sources)
+          ? data.sources.filter((src: AnswerSource) => typeof src?.url === 'string' && /^https:\/\//.test(src.url))
+          : [];
+        // Pictures and sounds from the NASA library, only alongside a real answer.
+        const media = await fetchNasaMediaForTopic(query).catch(() => undefined);
+        return reply(tidyAnswer(data.text), { sources, media });
       }
     }
+
     // Asked too often (the worker's per-visitor or overall limit): say so plainly.
     if (response.status === 429) {
       const data = await response.json().catch(() => null);
-      return {
-        id: `conv-${Date.now()}`,
-        question: query || 'Space Inquiry',
-        time: 'Just now',
-        fullAnswer: `${data?.error === 'SpaceAI is busy, try again in a minute' ? 'SpaceAI is busy right now.' : 'You are asking very quickly!'} Please wait a minute, then ask again.`,
-        metrics: [],
-      };
+      const busy = data?.error === 'SpaceAI is busy, try again in a minute';
+      return reply(
+        `${busy ? 'SpaceAI is busy right now.' : 'You are asking very quickly!'} Please wait a minute, then ask again.`,
+        { failed: true }
+      );
     }
+    console.warn('[SpaceAI] worker answered', response.status);
   } catch (e) {
-    console.warn('[SpaceAI] Server-side Gemini request failed, using local telemetry engine:', e);
+    console.warn('[SpaceAI] request failed:', e);
   }
 
-  // High-fidelity local space intelligence fallback for core queries
-  const qLower = query.toLowerCase();
-  let answer = '';
-  let metrics: { label: string; value: string; delta?: string }[] = [
-    { label: 'Astrophysics Mode', value: mode },
-    { label: 'Mission Field', value: 'NASA & Cosmology' },
-    { label: 'Telemetry Status', value: 'Nominal' },
-  ];
-
-  if (qLower.includes('apollo') || qLower.includes('moon') || qLower.includes('lunar')) {
-    answer = `Apollo 11 landed Neil Armstrong and Buzz Aldrin in Mare Tranquillitatis on July 20, 1969, with ~25 seconds of descent fuel remaining. They spent 21.6 hours on the lunar surface, deploying laser retroreflectors and returning 21.55 kg of pristine lunar rock samples.`;
-    metrics = [
-      { label: 'Apollo 11 Landing', value: 'Mare Tranquillitatis' },
-      { label: 'Sample Return', value: '21.55 kg', delta: 'Lunar Basalt' },
-      { label: 'Surface Stay', value: '21.6 hours' },
-    ];
-  } else if (qLower.includes('mars') || qLower.includes('red')) {
-    answer = `Mars is red because its basaltic crust is rich in iron, oxidized by ancient solar UV and water into fine ferric oxide (Fe₂O₃ rust) dust. It hosts Olympus Mons, a 21.9 km tall shield volcano (2.5× higher than Everest) that formed because Mars lacks shifting tectonic plates.`;
-    metrics = [
-      { label: 'Dominant Mineral', value: 'Fe₂O₃ (Ferric Oxide)' },
-      { label: 'Olympus Mons Peak', value: '21.9 km', delta: 'Solar System Max' },
-      { label: 'Atmosphere', value: '95.3% CO₂' },
-    ];
-  } else if (qLower.includes('cassini') || qLower.includes('grand finale')) {
-    answer = `The Cassini Grand Finale was a series of 22 daring dives between Saturn and its innermost rings at 122,000 km/h in 2017. It sampled Saturn's upper atmosphere directly before plunging into the planet to protect potentially habitable moons like Enceladus.`;
-    metrics = [
-      { label: 'Ring Dives', value: '22 Orbits' },
-      { label: 'Peak Velocity', value: '122,000 km/h' },
-      { label: 'Mission End', value: 'Sept 15, 2017' },
-    ];
-  } else if (qLower.includes('enceladus') || qLower.includes('plume')) {
-    answer = `Enceladus hosts a warm, global subsurface saltwater ocean beneath its icy crust. Tidal friction from Saturn powers cryovolcanic geysers at its south pole that vent water vapor, silica nanoparticles, and organic molecules directly into space.`;
-    metrics = [
-      { label: 'Ocean Depth', value: '30-40 km' },
-      { label: 'Plume Constituents', value: 'H₂O, H₂, Organics' },
-      { label: 'Heat Source', value: 'Tidal Flexing' },
-    ];
-  } else if (qLower.includes('sound') || qLower.includes('noise') || qLower.includes('listen')) {
-    answer = `Sound cannot travel across outer space because acoustic waves require an atomic medium to compress, and space is an ultra-high vacuum (~1 atom/cm³). The famous Apollo 10 'music' was simply analog VHF radio heterodyne interference between the spacecraft transceivers.`;
-    metrics = [
-      { label: 'Space Medium', value: 'Vacuum (0 dB)' },
-      { label: 'Apollo 10 Signal', value: 'VHF Heterodyne' },
-      { label: 'Sonification Method', value: 'EM to Audio' },
-    ];
-  } else {
-    answer = `In space science, ${query.trim() || 'this inquiry'} is governed by gravitational dynamics and orbital physics. Telescopes and interplanetary probes gather continuous multi-wavelength telemetry to resolve these celestial phenomena directly.`;
-  }
-
-  const media = await mediaPromise;
-
-  return {
-    id: `conv-${Date.now()}`,
-    question: query || (attachments.length > 0 ? `Analysis of ${attachments[0].name}` : 'Space Inquiry'),
-    time: 'Just now',
-    fullAnswer: answer,
-    metrics,
-    media,
-  };
+  return reply(UNAVAILABLE_ANSWER, { failed: true });
 }
 
 /**

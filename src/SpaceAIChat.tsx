@@ -6,13 +6,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, ExternalLink, Play, Pause, Volume2 } from 'lucide-react';
+import { Copy, Check, ExternalLink, Play, Pause, Volume2, RotateCcw } from 'lucide-react';
 import { CassiniSaturnHero } from './components/CassiniSaturnHero';
 import { Composer, AttachedFile } from './components/Composer';
-import { generateAIResponse } from './services/aiAdvisor';
+import { generateAIResponse, UNAVAILABLE_ANSWER } from './services/aiAdvisor';
 import { NasaLiveUpdatesModal } from './components/NasaLiveUpdatesModal';
 import { PolicyModal } from './components/PolicyModal';
-import { ConversationHistoryItem } from './types/chat';
+import { AnswerSource, ConversationHistoryItem } from './types/chat';
 
 interface SpaceAIChatProps {
   onBack: () => void;
@@ -28,13 +28,34 @@ interface ChatMessage {
   text: string;
   recalled?: boolean;
   media?: ConversationHistoryItem['media'];
+  sources?: AnswerSource[];
+  /** SpaceAI could not answer: shown as a notice with Try again (retry asks this question). */
+  retry?: string;
 }
 
 const PRESET_PILLS = [
-  'Why is NASA targeting the lunar South Pole for Artemis water ice extraction?',
-  'Cassini Grand Finale orbital entry',
-  'Enceladus subsurface ocean plumes',
+  'Why did Apollo 11 leave half its lander on the Moon?',
+  "What is on Voyager 1's Golden Record?",
+  'Why does Perseverance collect rocks on Mars?',
 ];
+
+const MISSION_NAMES: Record<string, string> = {
+  apollo11: 'Apollo 11',
+  voyager1: 'Voyager 1',
+  msr: 'Mars Sample Return',
+  marssamplereturn: 'Mars Sample Return',
+};
+
+/** "Apollo 11 · nssdc.gsfc.nasa.gov" for a source link. */
+function sourceLabel(src: AnswerSource) {
+  let host = src.url;
+  try {
+    host = new URL(src.url).hostname.replace(/^www\./, '');
+  } catch {}
+  const key = (src.mission ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const mission = MISSION_NAMES[key] ?? src.mission;
+  return mission ? `${mission} · ${host}` : host;
+}
 
 const ARTEMIS_Q = 'Why is NASA targeting the lunar South Pole for Artemis water ice extraction?';
 
@@ -121,7 +142,15 @@ function StatusChip({
 }
 
 /** Markdown text + image/video card + audio player + source/copy row. */
-function MessageBody({ text, media }: { text: string; media?: ConversationHistoryItem['media'] }) {
+function MessageBody({
+  text,
+  media,
+  sources = [],
+}: {
+  text: string;
+  media?: ConversationHistoryItem['media'];
+  sources?: AnswerSource[];
+}) {
   const visual = media?.visual;
   const audio = media?.audio;
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -256,15 +285,20 @@ function MessageBody({ text, media }: { text: string; media?: ConversationHistor
         </section>
       )}
 
-      <div className="flex items-center gap-2 select-none">
-        <a
-          href="https://www.nasa.gov"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 text-[11px] font-mono text-[#38bdf8] transition"
-        >
-          🚀 NASA Official Archive <ExternalLink className="w-3 h-3" />
-        </a>
+      <div className="flex items-center gap-2 flex-wrap select-none">
+        {sources.length > 0 && <span className="text-[11px] font-mono text-slate-500">Sources</span>}
+        {sources.map((src) => (
+          <a
+            key={src.url}
+            href={src.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={src.url}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 text-[11px] font-mono text-[#38bdf8] transition max-w-full"
+          >
+            <span className="truncate">{sourceLabel(src)}</span> <ExternalLink className="w-3 h-3 shrink-0" />
+          </a>
+        ))}
         <button
           type="button"
           title="Copy"
@@ -341,9 +375,12 @@ export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
     onBack();
   };
 
-  const handleSendMessage = async (text: string, attachments: AttachedFile[] = []) => {
+  const handleSendMessage = async (text: string, attachments: AttachedFile[] = [], isRetry = false) => {
     if (!text.trim() && attachments.length === 0) return;
-    setMessages((m) => [...m, { id: uid(), role: 'user', text }]);
+    if (isLoading) return;
+    // Try again replaces the "can't answer" notice instead of repeating the question.
+    if (isRetry) setMessages((m) => m.filter((msg) => msg.retry !== text));
+    else setMessages((m) => [...m, { id: uid(), role: 'user', text }]);
     setPromptText('');
     setStage('recalling');
     setIsLoading(true);
@@ -353,14 +390,21 @@ export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
       const res = await generateAIResponse(text, 'Brief', attachments);
       setMessages((m) => [
         ...m,
-        { id: uid(), role: 'assistant', text: res.fullAnswer, media: res.media, recalled: true },
+        res.failed
+          ? { id: uid(), role: 'assistant', text: res.fullAnswer, retry: text }
+          : {
+              id: uid(),
+              role: 'assistant',
+              text: res.fullAnswer,
+              media: res.media,
+              sources: res.sources,
+              // "Recalled from mission archives" only when the answer really used the NASA mission files.
+              recalled: (res.sources?.length ?? 0) > 0,
+            },
       ]);
     } catch (err) {
       console.error('Failed to generate SpaceAI response:', err);
-      setMessages((m) => [
-        ...m,
-        { id: uid(), role: 'assistant', text: 'Something went wrong reaching mission control. Try again.' },
-      ]);
+      setMessages((m) => [...m, { id: uid(), role: 'assistant', text: UNAVAILABLE_ANSWER, retry: text }]);
     } finally {
       clearTimeout(t);
       setIsLoading(false);
@@ -442,8 +486,24 @@ export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
                       <SaturnMark className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col gap-3">
-                      {m.recalled && <StatusChip done reducedMotion={reducedMotion} />}
-                      <MessageBody text={m.text} media={m.media} />
+                      {m.retry !== undefined ? (
+                        <div role="status" className="flex flex-col items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-500/[0.06] px-4 py-3">
+                          <p className="text-[15px] leading-relaxed text-amber-100/90">{m.text}</p>
+                          <button
+                            type="button"
+                            onClick={() => handleSendMessage(m.retry!, [], true)}
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 text-xs text-white transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" /> Try again
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {m.recalled && <StatusChip done reducedMotion={reducedMotion} />}
+                          <MessageBody text={m.text} media={m.media} sources={m.sources} />
+                        </>
+                      )}
                     </div>
                   </div>
                 )

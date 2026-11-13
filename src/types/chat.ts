@@ -38,6 +38,12 @@ export interface NasaMediaBundle {
   audio?: NasaMediaAudio;
 }
 
+/** A NASA page an answer used (from the worker). */
+export interface AnswerSource {
+  mission?: string;
+  url: string;
+}
+
 export interface ConversationHistoryItem {
   id: string;
   question: string;
@@ -47,6 +53,10 @@ export interface ConversationHistoryItem {
   nasaUrl?: string;
   topic?: string;
   media?: NasaMediaBundle;
+  /** NASA pages the answer used. Empty when it came from general knowledge. */
+  sources?: AnswerSource[];
+  /** True when SpaceAI could not answer (offline, busy, error). */
+  failed?: boolean;
 }
 
 
