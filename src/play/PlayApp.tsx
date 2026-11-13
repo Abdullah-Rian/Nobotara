@@ -472,10 +472,18 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     }
   }, [phase, activeInspectArtifact, rangingOpen, mission]);
 
+  /**
+   * Mars: a line is still being told while the player can drive. Until it ends the site markers stay
+   * hidden and nothing can be inspected, so driving to a marker can't cut the narration short.
+   */
+  const marsLineRunning = mission === 'mars' && phase === 'explore' && (activeDialogue !== null || marsSpeaking);
+  const marsLineRunningRef = useRef(false);
+  marsLineRunningRef.current = marsLineRunning;
+
   useEffect(() => {
     if (mission !== 'mars') return;
-    marsRef.current?.setLive(STEP_SITES[marsStep].filter(site => !marsDone.includes(site)));
-  }, [mission, marsStep, marsDone]);
+    marsRef.current?.setLive(marsLineRunning ? [] : STEP_SITES[marsStep].filter(site => !marsDone.includes(site)));
+  }, [mission, marsStep, marsDone, marsLineRunning]);
 
   const holdRover = () => {
     roverLockedRef.current = true;
@@ -1576,6 +1584,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   };
 
   const handleMarsInteract = () => {
+    if (marsLineRunningRef.current) return; // wait for the narration to finish
     const step = marsStepRef.current;
     if (step === 'sequence') {
       // The briefing introduces the five machines before the player has to order them.
@@ -1828,7 +1837,10 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   }
 
   const marsStepSites = STEP_SITES[marsStep];
-  const marsTargets = marsStepSites.filter(site => !marsDone.includes(site)).map(site => ({ ...SITES[site] }));
+  // The map's target dots appear with the 3D markers, once the narration has finished.
+  const marsTargets = marsLineRunning
+    ? []
+    : marsStepSites.filter(site => !marsDone.includes(site)).map(site => ({ ...SITES[site] }));
   const marsLog =
     marsStepSites.length > 1 && (phase === 'explore' || phase === 'inspect')
       ? marsStepSites.map(site => ({ label: SITE_NAMES[site] ?? site, done: marsDone.includes(site) }))

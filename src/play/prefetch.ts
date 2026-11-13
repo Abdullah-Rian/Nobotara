@@ -7,7 +7,7 @@ import type { GameMission } from './routes';
 /** The files each mission asks for first, in the order its scene needs them. */
 const FIRST_FILES: Record<GameMission, string[]> = {
   apollo: [
-    '/models/terrain-heights.bin',
+    '/models/terrain-heights-v2.bin',
     '/models/regolith_tile.jpg',
     '/models/descent_stage.glb',
     '/models/retroreflector.glb',

@@ -1,13 +1,24 @@
 /**
- * Turn the Blender terrain (model-sources/terrain.glb) into the small height map the game loads
- * (public/models/terrain-heights.bin). The terrain is a regular grid, so its heights are all the
- * game needs: it builds the mesh from them at start-up. The file is 16-bit heights, each row stored
- * as differences from the previous point, split into a high-byte plane and a low-byte plane, which
- * the web server's Brotli squeezes to about 270 KB (the glb was 14 MB).
+ * Turn the Blender terrain (model-sources/terrain.glb) into the small height maps the game loads.
+ * The terrain is a regular grid, so its heights are all the game needs: it builds the mesh from them
+ * at start-up. Heights are stored at 16 bits (under 1 mm steps). Two files, with the same heights:
  *
- * Usage: node scripts/build-terrain-heightmap.mjs [input.glb] [output.bin]
+ *   terrain-heights-v2.bin  (HMP2, about 195 KB)  what the game loads. Each height is predicted from its
+ *                           left, upper and upper-left neighbours (left + upper - upper-left); only the
+ *                           small misses are stored, then gzipped here, because Cloudflare does not
+ *                           compress .bin files. The browser unzips it with DecompressionStream.
+ *   terrain-heights.bin     (HMP1, 490 KB)  for browsers without DecompressionStream (iOS before 16.4).
  *
- * File layout, little endian:
+ * The glb was 14 MB.
+ *
+ * Usage: node scripts/build-terrain-heightmap.mjs [input.glb] [output-dir]
+ *
+ * HMP2 layout, little endian: the same 28-byte header as HMP1 with magic 'HMP2', then a gzip stream
+ * of rows*cols u16 prediction misses, zigzag coded, high bytes first, then low bytes.
+ * Prediction: left + upper - upper-left; the first row uses left, the first column uses upper, and
+ * the first point is 32768 (the middle of the range).
+ *
+ * HMP1 layout, little endian:
  *   0  u32  magic 'HMP1'
  *   4  u16  cols        8  f32 cell size (metres between points)
  *   6  u16  rows       12  f32 world x of column 0
@@ -16,12 +27,13 @@
  *  28  rows*cols u16 deltas, zigzag coded, high bytes first, then low bytes
  */
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const input = process.argv[2] || path.join(root, 'model-sources', 'terrain.glb');
-const output = process.argv[3] || path.join(root, 'public', 'models', 'terrain-heights.bin');
+const outDir = process.argv[3] || path.join(root, 'public', 'models');
 
 const file = fs.readFileSync(input);
 const jsonLength = file.readUInt32LE(12);
@@ -86,7 +98,35 @@ for (let r = 0; r < cols; r++) {
     low[i] = zigzag & 0xff;
   }
 }
-fs.writeFileSync(output, Buffer.concat([header, high, low]));
+const v1 = path.join(outDir, 'terrain-heights.bin');
+fs.writeFileSync(v1, Buffer.concat([header, high, low]));
+
+// HMP2: predict each height from its neighbours and keep only the misses.
+const predict = (r, c) => {
+  if (r === 0 && c === 0) return 32768;
+  if (r === 0) return q[c - 1];
+  if (c === 0) return q[(r - 1) * cols];
+  const i = r * cols + c;
+  return q[i - 1] + q[i - cols] - q[i - cols - 1];
+};
+const high2 = Buffer.alloc(count);
+const low2 = Buffer.alloc(count);
+for (let r = 0; r < cols; r++) {
+  for (let c = 0; c < cols; c++) {
+    const i = r * cols + c;
+    const miss = q[i] - predict(r, c);
+    if (miss < -32768 || miss > 32767) throw new Error(`A prediction miss at row ${r}, column ${c} is too large to store.`);
+    const zigzag = ((miss << 1) ^ (miss >> 31)) & 0xffff;
+    high2[i] = zigzag >> 8;
+    low2[i] = zigzag & 0xff;
+  }
+}
+const header2 = Buffer.from(header);
+header2.write('HMP2', 0, 'ascii');
+const v2 = path.join(outDir, 'terrain-heights-v2.bin');
+fs.writeFileSync(v2, Buffer.concat([header2, zlib.gzipSync(Buffer.concat([high2, low2]), { level: 9 })]));
+
 console.log(`${cols}x${cols} points, ${cell} m apart, heights ${lo.toFixed(2)} to ${hi.toFixed(2)} m`);
 console.log(`stored at 16 bits, worst rounding error ${(worst * 1000).toFixed(2)} mm`);
-console.log(`wrote ${output} (${(28 + count * 2) / 1024 | 0} KB before compression)`);
+console.log(`wrote ${v2} (${fs.statSync(v2).size / 1024 | 0} KB)`);
+console.log(`wrote ${v1} (${fs.statSync(v1).size / 1024 | 0} KB, for browsers without DecompressionStream)`);

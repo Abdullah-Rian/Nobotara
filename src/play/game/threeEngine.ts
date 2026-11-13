@@ -92,6 +92,78 @@ function createMarkerBeamTexture(): THREE.CanvasTexture {
   return tex;
 }
 
+/** Moon heights, built from public/models/terrain-heights-v2.bin (or the larger v1 file). */
+interface HeightMap {
+  cols: number;
+  rows: number;
+  cell: number;
+  originX: number;
+  originZ: number;
+  heights: Float32Array;
+}
+
+/**
+ * Load the compact height map (HMP2, gzipped prediction misses, about 195 KB). Browsers that can't
+ * unzip it (DecompressionStream arrived in iOS 16.4) load the plain 490 KB file (HMP1) instead.
+ * Both give exactly the same heights.
+ */
+async function readHeightMap(): Promise<HeightMap | null> {
+  if (typeof DecompressionStream !== 'undefined') {
+    try {
+      const response = await fetch('/models/terrain-heights-v2.bin');
+      if (response.ok) {
+        const file = await response.arrayBuffer();
+        const header = new DataView(file);
+        if (header.getUint32(0, true) === 0x32504d48) {
+          // 'HMP2'
+          const unzipped = new Response(new Blob([file.slice(28)]).stream().pipeThrough(new DecompressionStream('gzip')));
+          const misses = new Uint8Array(await unzipped.arrayBuffer());
+          return decodeHeights(header, misses, 'predicted');
+        }
+      }
+    } catch {
+      // Fall through to the plain file.
+    }
+  }
+  const response = await fetch('/models/terrain-heights.bin');
+  if (!response.ok) return null;
+  const file = await response.arrayBuffer();
+  const header = new DataView(file);
+  if (header.getUint32(0, true) !== 0x31504d48) return null; // 'HMP1'
+  return decodeHeights(header, new Uint8Array(file, 28), 'rows');
+}
+
+/** Rebuild the 16-bit heights (in metres) from zigzag-coded steps: high bytes first, then low bytes. */
+function decodeHeights(header: DataView, bytes: Uint8Array, mode: 'predicted' | 'rows'): HeightMap | null {
+  const cols = header.getUint16(4, true);
+  const rows = header.getUint16(6, true);
+  const cell = header.getFloat32(8, true);
+  const originX = header.getFloat32(12, true);
+  const originZ = header.getFloat32(16, true);
+  const lowest = header.getFloat32(20, true);
+  const range = header.getFloat32(24, true);
+  const count = cols * rows;
+  if (bytes.length < count * 2) return null;
+
+  const q = new Int32Array(count);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const i = r * cols + c;
+      const zigzag = (bytes[i] << 8) | bytes[count + i];
+      const step = (zigzag >>> 1) ^ -(zigzag & 1);
+      let base: number;
+      if (mode === 'rows') base = c === 0 ? 32768 : q[i - 1]; // HMP1: each row from the middle of the range
+      else if (r === 0) base = c === 0 ? 32768 : q[i - 1]; // HMP2: left + upper - upper-left
+      else if (c === 0) base = q[i - cols];
+      else base = q[i - 1] + q[i - cols] - q[i - cols - 1];
+      q[i] = base + step;
+    }
+  }
+  const heights = new Float32Array(count);
+  for (let i = 0; i < count; i++) heights[i] = lowest + (q[i] / 65535) * range;
+  return { cols, rows, cell, originX, originZ, heights };
+}
+
 export class ApolloThreeEngine {
   private container: HTMLDivElement;
   public renderer: THREE.WebGLRenderer;
@@ -783,40 +855,15 @@ export class ApolloThreeEngine {
   }
 
   /**
-   * The ground is a regular grid, so the game downloads only its heights (about 0.3 MB) and builds
+   * The ground is a regular grid, so the game downloads only its heights (about 195 KB) and builds
    * the mesh here, instead of downloading a 14 MB model of 500,000 triangles. The heights come from
-   * model-sources/terrain.glb through scripts/build-terrain-heightmap.mjs.
+   * model-sources/terrain.glb through scripts/build-terrain-heightmap.mjs, which explains both formats.
    */
   private async loadTerrainFromHeights() {
     try {
-      const response = await fetch('/models/terrain-heights.bin');
-      if (!response.ok) return;
-      const data = await response.arrayBuffer();
-      if (this.isDisposed) return;
-      const header = new DataView(data);
-      if (header.getUint32(0, true) !== 0x31504d48) return; // 'HMP1'
-      const cols = header.getUint16(4, true);
-      const rows = header.getUint16(6, true);
-      const cell = header.getFloat32(8, true);
-      const originX = header.getFloat32(12, true);
-      const originZ = header.getFloat32(16, true);
-      const lowest = header.getFloat32(20, true);
-      const range = header.getFloat32(24, true);
-      const count = cols * rows;
-      if (data.byteLength < 28 + count * 2) return;
-
-      // Undo the row-by-row differences, rebuilding the heights in metres.
-      const bytes = new Uint8Array(data, 28);
-      const heights = new Float32Array(count);
-      for (let r = 0; r < rows; r++) {
-        let value = 32768; // every row starts from the middle of the range
-        for (let c = 0; c < cols; c++) {
-          const i = r * cols + c;
-          const zigzag = (bytes[i] << 8) | bytes[count + i];
-          value += (zigzag >>> 1) ^ -(zigzag & 1);
-          heights[i] = lowest + (value / 65535) * range;
-        }
-      }
+      const field = await readHeightMap();
+      if (!field || this.isDisposed) return;
+      const { cols, rows, cell, originX, originZ, heights } = field;
 
       const group = new THREE.Group();
       group.name = 'TranquilityBaseTerrain';
