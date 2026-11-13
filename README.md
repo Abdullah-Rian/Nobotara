@@ -18,7 +18,7 @@ Live site: https://nobotara.pages.dev
 | `public/assets/audio/voiceovers` | Pre-rendered narration (AI voices, Gemini TTS) and `manifest.json` |
 | `public/manus-storage` | Home page hero videos and stills |
 | `nobotara-worker/` | Cloudflare Worker for SpaceAI (retrieval + Gemini) |
-| `server.ts`, `server/gameApi.ts` | Local dev server: Vite, chat API, game API (`/api/narrator`, `/api/mars-archive`) |
+| `server.ts`, `server/gameApi.ts` | Local dev server: Vite, chat API, game API (`/api/mars-archive`) |
 | `scripts/` | Voiceover, retroreflector-model and terrain build scripts |
 | `docs/` | Plans and notes (`docs/game/MERGE-PLAN.md`, `docs/SPACEAI-NOTES.md`, `docs/video/`) |
 
@@ -29,8 +29,7 @@ npm ci
 npm run dev            # http://localhost:3000 (set PORT to change it)
 ```
 
-Add `GEMINI_API_KEY=...` to `.env` for the local chat and game API. Without it the site still runs;
-the game uses its pre-rendered voices.
+Add `GEMINI_API_KEY=...` to `.env` for the local chat and the Mars archive. Without it the site still runs.
 
 Open a mission directly with `/play/apollo-11?debug` (or `voyager-1`, `mars-sample-return`) to get
 a SKIP OBJECTIVE button for testing.
@@ -50,8 +49,9 @@ Cloudflare Pages settings:
 `public/_redirects` sends `/play/*` to the app, and `public/_headers` sets the cache rules
 (hashed files in `/static` for a year; models, audio, video and images for a day).
 
-The game's API routes exist only on the local server. On Pages the game falls back on its own:
-every line has a pre-rendered voice clip, and the Mars archive question box stays off.
+The game's API route exists only on the local server. On Pages the Mars archive question box stays off.
+Every spoken line is a pre-recorded clip; nothing is synthesized while playing.
+`npx tsx scripts/check-voiceovers.ts` checks that every line has a clip whose recorded text matches.
 
 SpaceAI calls the Worker in `nobotara-worker/` (`npx wrangler deploy` there). Its CORS list allows
 `https://nobotara.pages.dev` and localhost; add preview addresses if you need them.

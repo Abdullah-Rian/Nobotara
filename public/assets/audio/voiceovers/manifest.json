@@ -459,6 +459,14 @@
       "size": 93932,
       "text": "Three rocks scanned. Fire, river and lake: three chapters of one story. The sample tubes are next, beside Perseverance.",
       "engine": "Gemini TTS (Kore, gemini-2.5-flash-preview-tts)"
+    },
+    {
+      "id": "plaque_one_small_step",
+      "speaker": "Neil Armstrong",
+      "filename": "plaque_one_small_step.mp3",
+      "size": 42668,
+      "text": "That's one small step for man, one giant leap for mankind.",
+      "engine": "Gemini TTS (Fenrir, gemini-2.5-flash-preview-tts)"
     }
   ]
 }

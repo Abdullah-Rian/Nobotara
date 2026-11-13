@@ -88,7 +88,8 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
     apolloAudio.speakDialogue(
       "That's one small step for man, one giant leap for mankind.",
       'Neil Armstrong (Narrator-01)',
-      () => setPlayingHistoricalVoice(false)
+      () => setPlayingHistoricalVoice(false),
+      'plaque_one_small_step'
     );
   };
 

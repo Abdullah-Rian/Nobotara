@@ -1,6 +1,5 @@
 /**
  * The game's server pieces, used by the root server.ts:
- * - /api/narrator: Gemini TTS for a line that has no pre-rendered clip
  * - /api/mars-archive: Mission 03's "ask the archive" question (rate limited)
  * - compressed static files with cache headers, for production
  */
@@ -45,64 +44,9 @@ function archiveAllowed(visitor: string) {
   return true;
 }
 
-/** Adds the game's API routes. Call after express.json(). */
+/** Adds the game's API routes. Call after express.json(). Voices are never generated here: every line is a pre-recorded clip. */
 export function registerGameApi(app: express.Express) {
   const ai = gameAi();
-  // Audio cache to avoid re-generating identical speech lines
-  const audioCache = new Map<string, string>();
-
-  app.post('/api/narrator', async (req, res) => {
-    try {
-      const { text, speaker } = req.body;
-      if (!text) {
-        return res.status(400).json({ error: 'Text is required' });
-      }
-      if (!ai) {
-        return res.json({ useFallback: true, reason: 'No API key configured' });
-      }
-
-      // Fenrir is the voice used for the opening line, and every line uses it so the narration stays
-      // one clear studio voice. The one exception is Tara, the Mission 03 assistant, who is a young woman.
-      const isTara = /Tara/.test(String(speaker || ''));
-      const isScience = /Scientific Voice|Science Narrator/.test(String(speaker || ''));
-      const voiceName = isTara
-        ? process.env.TARA_VOICE || 'Kore'
-        : isScience
-          ? process.env.SCIENCE_VOICE || 'Aoede'
-          : 'Fenrir';
-      const cacheKey = `${voiceName}:${text}`;
-
-      if (audioCache.has(cacheKey)) {
-        return res.json({ audioData: audioCache.get(cacheKey), mimeType: 'audio/wav' });
-      }
-
-      const speechStyle = isScience
-        ? "Clear, calm, natural woman's voice, like a science teacher explaining something exciting to a class. Even pace, precise, warm. Studio recording. No radio filter, no static, no distortion."
-        : isTara
-        ? "Clear, friendly, natural young woman's voice, warm and bright, with a steady, patient pace, like a helpful guide speaking to a student. Studio recording. No radio filter, no static, no distortion."
-        : 'Calm, clear, natural male voice with a warm full tone and a steady pace. Studio recording, the same voice as the opening narration. No radio filter, no static, no distortion.';
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash-lite-tts',
-        contents: [{ role: 'user', parts: [{ text, speechMetadata: { style: speechStyle } } as any] }],
-        config: {
-          responseModalities: ['AUDIO'] as any,
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
-        }
-      });
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (base64Audio) {
-        audioCache.set(cacheKey, base64Audio);
-        return res.json({ audioData: base64Audio, mimeType: 'audio/wav' });
-      }
-      return res.json({ useFallback: true, reason: 'No audio generated' });
-    } catch (error) {
-      console.error('Error generating narration:', error);
-      return res.json({ useFallback: true, error: String(error) });
-    }
-  });
-
   app.get('/api/mars-archive', (_req, res) => {
     res.json({ available: Boolean(ai) });
   });

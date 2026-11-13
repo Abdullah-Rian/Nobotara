@@ -11,7 +11,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "voiceovers": "node scripts/render-voiceovers.mjs",
-    "terrain": "node scripts/build-terrain-heightmap.mjs"
+    "terrain": "node scripts/build-terrain-heightmap.mjs",
+    "check:voices": "tsx scripts/check-voiceovers.ts"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

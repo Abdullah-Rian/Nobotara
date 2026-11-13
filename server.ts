@@ -30,7 +30,7 @@ async function startServer() {
 
   app.use(express.json({ limit: '20mb' }));
 
-  // The game's routes: /api/narrator, /api/mars-archive, /health
+  // The game's routes: /api/mars-archive, /health
   registerGameApi(app);
 
   // Helper to get GoogleGenAI client

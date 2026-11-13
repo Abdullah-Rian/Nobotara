@@ -2,7 +2,7 @@
  * NoboTara-71: Procedural Web Audio Engine
  * Features authentic Apollo 11 Quindar tones (2525Hz / 2475Hz),
  * radio static bursts, bandpass-filtered speech, rover engine synthesis,
- * laser pulse sounds, and server-side Gemini TTS / male astronaut synthesis.
+ * laser pulse sounds, and playback of the pre-recorded voice clips.
  */
 
 class ApolloAudioSystem {
@@ -19,22 +19,8 @@ class ApolloAudioSystem {
   private currentAudioElement: HTMLAudioElement | null = null;
   private speakGeneration = 0;
   private initialized: boolean = false;
-  private voices: SpeechSynthesisVoice[] = [];
 
-  constructor() {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      this.loadVoices();
-      window.speechSynthesis.onvoiceschanged = () => {
-        this.loadVoices();
-      };
-    }
-  }
 
-  private loadVoices() {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      this.voices = window.speechSynthesis.getVoices();
-    }
-  }
 
   private getContext(): AudioContext {
     if (!this.ctx) {
@@ -523,60 +509,6 @@ class ApolloAudioSystem {
   }
 
   /**
-   * Select best male English voice for Neil Armstrong from browser speech synthesis
-   */
-  private getBestMaleVoice(): SpeechSynthesisVoice | null {
-    if (this.voices.length === 0 && 'speechSynthesis' in window) {
-      this.voices = window.speechSynthesis.getVoices();
-    }
-    const englishVoices = this.voices.filter(v => v.lang.startsWith('en'));
-    if (englishVoices.length === 0) return null;
-
-    const femaleKeywords = [
-      'female', 'samantha', 'victoria', 'karen', 'zira', 'fiona', 
-      'veena', 'susan', 'allison', 'ava', 'catherine', 'jenny', 'monica', 'stephanie', 'girl', 'woman'
-    ];
-
-    const maleKeywords = [
-      'male', 'david', 'mark', 'george', 'daniel', 'james', 'richard', 
-      'guy', 'bruce', 'tom', 'alex', 'fred', 'junior', 'wavenet-b', 'wavenet-d',
-      'standard-b', 'standard-c', 'standard-d', 'en-us-standard-b', 'natural'
-    ];
-
-    // 1. Try to find an explicitly named male voice
-    for (const v of englishVoices) {
-      const name = v.name.toLowerCase();
-      const isFemale = femaleKeywords.some(f => name.includes(f));
-      if (!isFemale && maleKeywords.some(m => name.includes(m))) {
-        return v;
-      }
-    }
-
-    // 2. Fall back to any English voice that is NOT marked female
-    const nonFemale = englishVoices.filter(v => {
-      const name = v.name.toLowerCase();
-      return !femaleKeywords.some(f => name.includes(f));
-    });
-
-    if (nonFemale.length > 0) return nonFemale[0];
-    return englishVoices[0];
-  }
-
-  /** A named female English voice, when the device has one. */
-  private getBestFemaleVoice(): SpeechSynthesisVoice | null {
-    if (this.voices.length === 0 && 'speechSynthesis' in window) {
-      this.voices = window.speechSynthesis.getVoices();
-    }
-    const english = this.voices.filter(v => v.lang.startsWith('en'));
-    const femaleNames = [
-      'female', 'samantha', 'victoria', 'karen', 'zira', 'fiona', 'veena', 'susan', 'allison', 'ava',
-      'catherine', 'jenny', 'monica', 'stephanie', 'serena', 'moira', 'tessa', 'kate', 'aria', 'libby',
-      'sonia', 'natasha', 'emma', 'joanna', 'salli', 'kendra', 'kimberly', 'ivy', 'woman', 'girl'
-    ];
-    return english.find(v => femaleNames.some(n => v.name.toLowerCase().includes(n))) ?? null;
-  }
-
-  /**
    * Speak dialogue prioritizing local offline MP3 assets (/assets/audio/voiceovers/*.mp3),
    * with seamless fallback to server-side Gemini TTS and client-side male Web Speech API.
    */
@@ -611,31 +543,16 @@ class ApolloAudioSystem {
 
     if (generation !== this.speakGeneration) return;
 
-    // 2. Second priority: Attempt to fetch authentic audio from /api/narrator (Gemini TTS)
-    try {
-      const response = await fetch('/api/narrator', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, speaker })
-      });
-
+    // Every line is pre-recorded (public/assets/audio/voiceovers, checked by scripts/check-voiceovers.ts).
+    // Nothing is synthesized while playing. If a clip is missing or fails to load, the line stays
+    // on screen silently for about as long as it takes to read, then the game moves on.
+    if (import.meta.env.DEV) console.warn(`No voice clip played for "${clipId ?? 'no clip id'}": ${text.slice(0, 60)}`);
+    onStart?.(guess);
+    window.setTimeout(() => {
       if (generation !== this.speakGeneration) return;
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.audioData && !data.useFallback) {
-          await this.playBase64Wav(data.audioData, onEnd, generation, onStart, guess);
-          return;
-        }
-      }
-    } catch {
-      // Network or API unavailable, fall back seamlessly to client-side male voice
-    }
-
-    if (generation !== this.speakGeneration) return;
-
-    // 3. Third priority: Client-side fallback with strictly male voice selection & Apollo tuning
-    this.speakClientFallback(text, speaker, onEnd, onStart, guess);
+      this.playQuindarTone('outro');
+      onEnd?.();
+    }, guess * 1000);
   }
 
   /**
@@ -704,110 +621,6 @@ class ApolloAudioSystem {
     }
   }
 
-  /**
-   * Play generated WAV at full bandwidth, matching the opening MP3.
-   */
-  private async playBase64Wav(
-    base64Data: string,
-    onEnd: (() => void) | undefined,
-    generation: number,
-    onStart?: (duration: number) => void,
-    guess = 8
-  ) {
-    try {
-      const ctx = this.getContext();
-      const binaryString = atob(base64Data);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const audioBuffer = await ctx.decodeAudioData(bytes.buffer.slice(0));
-      if (generation !== this.speakGeneration) return;
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-
-      const gain = ctx.createGain();
-      gain.gain.value = 1.0;
-
-      source.connect(gain);
-      gain.connect(ctx.destination);
-
-      this.currentAudioSource = source;
-
-      source.onended = () => {
-        this.currentAudioSource = null;
-        this.playQuindarTone('outro');
-        if (onEnd) onEnd();
-      };
-
-      const duration = audioBuffer.duration;
-      onStart?.(Number.isFinite(duration) && duration > 0.35 ? duration : guess);
-      source.start();
-    } catch (err) {
-      console.warn('WAV playback failed, using fallback:', err);
-      if (onEnd) onEnd();
-    }
-  }
-
-  /**
-   * Client-side Web Speech API strictly configured for male astronaut voice
-   */
-  private speakClientFallback(
-    text: string,
-    speaker: string,
-    onEnd?: () => void,
-    onStart?: (duration: number) => void,
-    guess = 8
-  ) {
-    onStart?.(guess);
-    if (!('speechSynthesis' in window)) {
-      if (onEnd) {
-        setTimeout(() => {
-          this.playQuindarTone('outro');
-          onEnd();
-        }, guess * 1000);
-      }
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const isNeil = speaker.includes('Neil');
-
-    // Neil Armstrong vocal profile: grounded mid-baritone, calm deliberate pacing
-    if (isNeil) {
-      utterance.pitch = 0.76; // grounded lower baritone pitch
-      utterance.rate = 0.86;  // steady, deliberate astronaut cadence
-    } else {
-      utterance.pitch = 0.95;
-      utterance.rate = 0.95;
-    }
-
-    // Tara and the Science Narrator are women. Everyone else keeps the male English voice.
-    if (/Tara|Scientific Voice|Science Narrator/.test(speaker)) {
-      utterance.pitch = 1.08;
-      const femaleVoice = this.getBestFemaleVoice();
-      if (femaleVoice) utterance.voice = femaleVoice;
-    } else {
-      const maleVoice = this.getBestMaleVoice();
-      if (maleVoice) utterance.voice = maleVoice;
-    }
-
-    utterance.onend = () => {
-      this.playQuindarTone('outro');
-      if (onEnd) onEnd();
-    };
-
-    utterance.onerror = () => {
-      this.playQuindarTone('outro');
-      if (onEnd) onEnd();
-    };
-
-    window.speechSynthesis.speak(utterance);
-  }
-
   public stopSpeaking() {
     this.speakGeneration += 1;
     if (this.currentAudioSource) {
@@ -830,9 +643,6 @@ class ApolloAudioSystem {
       this.currentAudioElement = null;
     }
 
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
   }
 }
 
