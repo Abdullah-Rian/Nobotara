@@ -57,6 +57,14 @@ const INSPECT_ORBIT_RATE = 0.32;
  * side by side ahead of the dish, pass through the frame during the pan.
  */
 const INSPECT_PITCH = 0.16;
+/**
+ * Distance of the circling camera. The model is scaled by its longest part, the 13 m magnetometer boom,
+ * so the dish is only about 2 units across: at 18 it was about 10% of the screen height. At 11 the dish
+ * fills about a fifth, and the boom still fits.
+ */
+const TOUR_RADIUS = 11;
+/** Distance when a reading eases the camera onto the instrument being read. */
+const CLOSE_UP_RADIUS = 8.5;
 const CRAFT_HOME = new THREE.Vector3(0, 0, 4);
 
 /**
@@ -96,6 +104,19 @@ export class VoyagerEngine {
   private partLabelsOn = false;
   private partLabelsRequested = false;
   private nasaCraft = false;
+  /** The player asked to see the part markers (Inspect Voyager 1). The circling camera is separate. */
+  private markersOn = false;
+  /** What the circling camera looks at: the craft, or the instrument being read. */
+  private readonly orbitTarget = new THREE.Vector3();
+  private readonly closeUpPoint = new THREE.Vector3();
+  /** Share of the screen width covered by a right-hand panel; the picture shifts left to clear it. */
+  private frameShift = 0;
+  private frameShiftNow = 0;
+  /** Share of the height to raise the picture by (short screens, where the narration box sits low). */
+  private frameLift = 0;
+  private frameLiftNow = 0;
+  private fillLight!: THREE.DirectionalLight;
+  private rimLight!: THREE.DirectionalLight;
   private orbitYaw = Math.PI;
   private orbitPitch = INSPECT_PITCH;
   private orbitRadius = 16;
@@ -191,6 +212,11 @@ export class VoyagerEngine {
     const sunLight = new THREE.DirectionalLight(0xfff4d6, 2.4);
     sunLight.position.copy(this.sunPosition);
     this.scene.add(sunLight);
+    // Voyager is far from the Sun, and the camera often sees its unlit side: a dark shape on black space.
+    // A soft light from the camera and a faint cool rim from behind keep its outline readable.
+    this.fillLight = new THREE.DirectionalLight(0xdfe8ff, 1.15);
+    this.rimLight = new THREE.DirectionalLight(0x9cc3ff, 1.4);
+    this.scene.add(this.fillLight, this.fillLight.target, this.rimLight, this.rimLight.target);
 
     this.addStars();
     this.sunBody = this.addSun();
@@ -282,7 +308,22 @@ export class VoyagerEngine {
     if (this.mode !== 'outro') this.mode = 'flight';
   }
 
-  /** Screen callouts. Ignored until the NASA model is the one on screen. */
+  /** The part markers (chips and leader lines) for Inspect Voyager 1. The circling camera stays as it is. */
+  public setPartMarkers(on: boolean) {
+    this.markersOn = on;
+    if (!on) this.clearPartFrame();
+  }
+
+  /** Move the picture left by half a panel's share of the width, so the craft sits beside the panel. */
+  public setFrameShift(share: number, lift = 0) {
+    this.frameShift = THREE.MathUtils.clamp(share, 0, 0.6);
+    this.frameLift = THREE.MathUtils.clamp(lift, 0, 0.3);
+  }
+
+  /**
+   * The circling tour camera (it walks slowly around the still craft). Named for the part labels it used to
+   * switch on as well; those are now setPartMarkers. Ignored until the NASA model is the one on screen.
+   */
   public setPartLabels(on: boolean) {
     this.partLabelsRequested = on;
     this.partLabelsOn = on && this.nasaCraft;
@@ -546,7 +587,7 @@ export class VoyagerEngine {
 
   /** Anchors in viewport pixels, using the craft scale and rotation. */
   private projectParts() {
-    if (!this.partLabelsOn) return;
+    if (!this.partLabelsOn || !this.markersOn) return;
     const bounds = this.container.getBoundingClientRect();
     this.camera.updateMatrixWorld();
     this.camera.getWorldDirection(this.partView);
@@ -687,9 +728,30 @@ export class VoyagerEngine {
       this.orbitYaw = Math.atan2(this.orbitOffset.x, this.orbitOffset.z);
       this.orbitPitch = Math.asin(THREE.MathUtils.clamp(this.orbitOffset.y / this.orbitOffset.length(), -1, 1));
       this.orbitPitch = THREE.MathUtils.lerp(this.orbitPitch, INSPECT_PITCH, 0.85);
+      this.orbitTarget.copy(this.craft.position);
       this.orbitReady = true;
     }
-    this.orbitRadius = THREE.MathUtils.damp(this.orbitRadius, 18, 2.5, dt);
+    // During a reading the camera eases onto the blinking instrument, from the side it sits on, and holds.
+    const closeUp = this.closeUpTarget();
+    if (closeUp) {
+      this.orbitTarget.lerp(closeUp, 1 - Math.exp(-2.2 * dt));
+      this.orbitRadius = THREE.MathUtils.damp(this.orbitRadius, CLOSE_UP_RADIUS, 1.8, dt);
+      const out = this.closeUpPoint.copy(closeUp).sub(this.craft.position);
+      if (out.lengthSq() > 1e-4) {
+        const want = Math.atan2(out.x, out.z);
+        const turn = Math.atan2(Math.sin(want - this.orbitYaw), Math.cos(want - this.orbitYaw));
+        this.orbitYaw += turn * (1 - Math.exp(-1.6 * dt));
+      }
+      this.orbitPitch = THREE.MathUtils.damp(this.orbitPitch, INSPECT_PITCH + 0.12, 1.6, dt);
+      this.orbitYaw += this.orbitDragYaw;
+      this.orbitPitch = THREE.MathUtils.clamp(this.orbitPitch + this.orbitDragPitch, -1.05, 1.15);
+      this.orbitDragYaw = 0;
+      this.orbitDragPitch = 0;
+      this.placeOrbit(this.orbitYaw, this.orbitPitch, this.orbitRadius);
+      return;
+    }
+    this.orbitTarget.lerp(this.craft.position, 1 - Math.exp(-2.2 * dt));
+    this.orbitRadius = THREE.MathUtils.damp(this.orbitRadius, TOUR_RADIUS, 2.5, dt);
     this.orbitYaw += (INSPECT_ORBIT_RATE - this.yawInput * 0.9) * dt + this.orbitDragYaw;
     this.orbitPitch = THREE.MathUtils.clamp(
       this.orbitPitch + this.pitchInput * 0.7 * dt + this.orbitDragPitch,
@@ -703,12 +765,62 @@ export class VoyagerEngine {
 
   private placeOrbit(yaw: number, pitch: number, radius: number) {
     const cp = Math.cos(pitch);
+    const target = this.orbitReady ? this.orbitTarget : this.craft.position;
     this.camera.position.set(
-      this.craft.position.x + Math.sin(yaw) * cp * radius,
-      this.craft.position.y + Math.sin(pitch) * radius,
-      this.craft.position.z + Math.cos(yaw) * cp * radius
+      target.x + Math.sin(yaw) * cp * radius,
+      target.y + Math.sin(pitch) * radius,
+      target.z + Math.cos(yaw) * cp * radius
     );
-    this.camera.lookAt(this.craft.position);
+    this.camera.lookAt(target);
+  }
+
+  /** World position of the instrument a reading is about (the blinking part), or null. */
+  private closeUpTarget(): THREE.Vector3 | null {
+    if (!this.blinkId) return null;
+    const part = VOYAGER_PARTS.find(item => item.id === this.blinkId);
+    if (!part) return null;
+    const scale = this.craft.scale.x || 1;
+    // Aim between the craft and the instrument, so both the part and the craft it sits on stay in view.
+    return this.closeUpPoint
+      .set(part.anchor[0], part.anchor[1], part.anchor[2])
+      .multiplyScalar(scale * 0.6)
+      .applyQuaternion(this.craft.quaternion)
+      .add(this.craft.position)
+      .clone();
+  }
+
+  /** The fill light sits with the camera; the rim light opposite it, a little above. */
+  private placeCraftLights() {
+    this.fillLight.position.copy(this.camera.position);
+    this.fillLight.target.position.copy(this.craft.position);
+    this.rimLight.position
+      .copy(this.craft.position)
+      .multiplyScalar(2)
+      .sub(this.camera.position)
+      .add(new THREE.Vector3(0, 4, 0));
+    this.rimLight.target.position.copy(this.craft.position);
+  }
+
+  private setOffset(width: number, height: number) {
+    if (this.frameShiftNow < 1e-4 && this.frameLiftNow < 1e-4) {
+      this.camera.clearViewOffset();
+      return;
+    }
+    this.camera.setViewOffset(width, height, (this.frameShiftNow / 2) * width, this.frameLiftNow * height, width, height);
+  }
+
+  /** Ease the picture sideways (camera view offset) so the craft clears a right-hand panel. */
+  private applyFrameShift(dt: number) {
+    if (this.frameShiftNow === this.frameShift && this.frameLiftNow === this.frameLift) return;
+    let shift = THREE.MathUtils.damp(this.frameShiftNow, this.frameShift, 3, dt);
+    if (Math.abs(shift - this.frameShift) < 1e-3) shift = this.frameShift;
+    let lift = THREE.MathUtils.damp(this.frameLiftNow, this.frameLift, 3, dt);
+    if (Math.abs(lift - this.frameLift) < 1e-3) lift = this.frameLift;
+    this.frameShiftNow = shift;
+    this.frameLiftNow = lift;
+    const width = Math.max(this.container.clientWidth, 1);
+    const height = Math.max(this.container.clientHeight, 1);
+    this.setOffset(width, height);
   }
 
   private onOrbitPointerDown = (event: PointerEvent) => {
@@ -772,6 +884,8 @@ export class VoyagerEngine {
       this.playOutro();
     }
 
+    this.placeCraftLights();
+    this.applyFrameShift(dt);
     this.bobMarkers(now);
     this.updateBlink(now);
     this.projectParts();
@@ -980,7 +1094,8 @@ export class VoyagerEngine {
     const width = this.container.clientWidth;
     const height = Math.max(this.container.clientHeight, 1);
     this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
+    if (this.frameShiftNow > 1e-4 || this.frameLiftNow > 1e-4) this.setOffset(width, height);
+    else this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
   };
 }

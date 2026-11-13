@@ -9,14 +9,6 @@ const RAG_URL = 'https://nobotara-worker.nobotara71.workers.dev';
 export const UNAVAILABLE_ANSWER =
   "SpaceAI can't answer right now. Please check your internet connection and try again in a minute.";
 
-/** Removes citation numbers like [1] or [1, 2] and a trailing "Sources:" list: sources are shown as links instead. */
-export function tidyAnswer(text: string): string {
-  return text
-    .replace(/\n\s*(?:\*\*)?(?:#+\s*)?Sources?(?:\*\*)?\s*:?(?:\*\*)?\s*\n?(?:\s*(?:[-*]\s*)?(?:\[\d+\]\s*)?\S*https?:\/\/\S+\s*)+$/i, '')
-    .replace(/[ \t]?\[[1-9]\d*(?:\s*,\s*[1-9]\d*)*\]/g, '')
-    .trim();
-}
-
 /**
  * Asks SpaceAI (the Cloudflare Worker: NASA mission passages + Gemini).
  * If it fails, a prepared answer for common topics is shown instead (the "local telemetry engine" below).
@@ -49,7 +41,7 @@ export async function generateAIResponse(
           id: `conv-${Date.now()}`,
           question: query || (attachments.length > 0 ? `Analysis of ${attachments[0].name}` : 'Cosmic Inquiry'),
           time: 'Just now',
-          fullAnswer: tidyAnswer(data.text),
+          fullAnswer: data.text,
           metrics: [
             { label: 'Intelligence Core', value: data.model ?? 'Gemini', delta: 'Live API' },
             { label: 'Astrophysics Mode', value: mode },

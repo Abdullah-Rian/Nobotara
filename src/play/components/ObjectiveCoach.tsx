@@ -11,7 +11,20 @@ export type CoachBeat = {
   dismissOn?: string[];
   /** Also dismiss when the player drives with the keyboard. */
   dismissOnDrive?: boolean;
+  /**
+   * 'hint' (default): caption, plus the hand if `hand`.
+   * 'highlight': no caption or hand; the control itself pulses (used for buttons).
+   * 'caption+highlight': the caption, and the control pulses.
+   */
+  style?: 'hint' | 'highlight' | 'caption+highlight';
 };
+
+/** The attribute play.css animates on a highlighted control. */
+const ATTENTION = 'data-attention';
+
+function clearAttention() {
+  document.querySelectorAll(`[${ATTENTION}]`).forEach(node => node.removeAttribute(ATTENTION));
+}
 
 type Side = 'above' | 'below' | 'left' | 'right';
 
@@ -72,8 +85,11 @@ export function ObjectiveCoach({
   useEffect(() => {
     if (!beat) return;
     let frame = 0;
+    const highlight = beat.style === 'highlight' || beat.style === 'caption+highlight';
     const tick = () => {
       const element = coachElement(beat.pointAt);
+      // Set every frame: React may re-create the control while the beat is showing.
+      if (highlight && element && !element.hasAttribute(ATTENTION)) element.setAttribute(ATTENTION, '');
       setRect(element ? element.getBoundingClientRect() : null);
       setAvoid(
         [...document.querySelectorAll('[data-coach-avoid]')]
@@ -84,7 +100,10 @@ export function ObjectiveCoach({
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearAttention();
+    };
   }, [beat]);
 
   useEffect(() => {
@@ -111,6 +130,7 @@ export function ObjectiveCoach({
   }, [beat, onDismiss]);
 
   if (!beat || !rect || rect.width === 0) return null;
+  if (beat.style === 'highlight') return null;
 
   const short = viewport.h <= 500;
   const hand = short ? 40 : HAND;

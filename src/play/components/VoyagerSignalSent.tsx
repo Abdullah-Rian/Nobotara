@@ -27,8 +27,9 @@ export const VoyagerSignalSent: React.FC<VoyagerSignalSentProps> = ({ onContinue
   const au = VOYAGER_EARTH_RANGE_KM / AU_KM;
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-30">
-      <aside className="pointer-events-auto absolute right-4 top-1/2 w-[min(24rem,42vw)] -translate-y-1/2 rounded-2xl border border-emerald-400/40 bg-slate-950/95 p-5 shadow-2xl md:right-8">
+    <div className="pointer-events-none absolute inset-0 z-[45]">
+      <aside className="side-sheet pointer-events-auto absolute right-4 top-1/2 max-h-[calc(100%-2rem)] w-[min(24rem,42vw)] -translate-y-1/2 rounded-2xl border border-emerald-400/40 bg-slate-950/95 shadow-2xl md:right-8">
+        <div className="side-sheet-body thin-scroll p-5 pb-2 short:p-3 short:pb-1">
         <div className="text-xs font-mono-num font-bold tracking-wider text-emerald-300">
           TELEMETRY SENT
         </div>
@@ -57,13 +58,17 @@ export const VoyagerSignalSent: React.FC<VoyagerSignalSentProps> = ({ onContinue
         <p className="mt-2 text-xs leading-relaxed text-slate-500">
           This transmission is part of the game. The distance and the travel time are from Voyager 1&apos;s tracked path.
         </p>
-        <button
-          type="button"
-          onClick={onContinue}
-          className="mt-5 w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950"
-        >
-          CONTINUE
-        </button>
+        </div>
+        <div className="shrink-0 px-5 pb-5 pt-2 short:px-3 short:pb-3">
+          <button
+            type="button"
+            data-coach="voyager-signal-continue"
+            onClick={onContinue}
+            className="w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950"
+          >
+            CONTINUE
+          </button>
+        </div>
       </aside>
     </div>
   );

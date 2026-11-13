@@ -20,14 +20,16 @@ const HOLD_SCAN: CoachBeat = {
   id: 'mars-scan',
   text: 'Hold this button, or hold E, to sweep the scanner over the rock.',
   pointAt: 'mars-scan',
-  hand: true
+  hand: false,
+  style: 'highlight'
 };
 
 const READ_CONTINUE: CoachBeat = {
   id: 'mars-continue',
   text: 'When you have read it, press Continue.',
   pointAt: 'mars-continue',
-  hand: true
+  hand: false,
+  style: 'highlight'
 };
 
 const MAP: CoachBeat = {
@@ -50,7 +52,8 @@ const LEAVE: CoachBeat = {
   id: 'mars-leave',
   text: 'Press Leave the Crater when you are ready.',
   pointAt: 'mars-leave',
-  hand: true
+  hand: false,
+  style: 'highlight'
 };
 
 /** The first time the rover reaches a site in each step: press E, or tap the button (named as on screen). */
@@ -59,7 +62,8 @@ function nearBeat(step: MarsStep, label: string): CoachBeat {
     id: `mars-near-${step}`,
     text: `You are close enough. Press E, or tap ${label}.`,
     pointAt: 'mars-interact',
-    hand: true
+    hand: false,
+    style: 'highlight'
   };
 }
 

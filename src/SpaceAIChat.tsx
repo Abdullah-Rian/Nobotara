@@ -12,7 +12,7 @@ import { Composer, AttachedFile } from './components/Composer';
 import { generateAIResponse, UNAVAILABLE_ANSWER } from './services/aiAdvisor';
 import { NasaLiveUpdatesModal } from './components/NasaLiveUpdatesModal';
 import { PolicyModal } from './components/PolicyModal';
-import { AnswerSource, ConversationHistoryItem } from './types/chat';
+import { ConversationHistoryItem } from './types/chat';
 
 interface SpaceAIChatProps {
   onBack: () => void;
@@ -28,7 +28,6 @@ interface ChatMessage {
   text: string;
   recalled?: boolean;
   media?: ConversationHistoryItem['media'];
-  sources?: AnswerSource[];
   /** SpaceAI could not answer: shown as a notice with Try again (retry asks this question). */
   retry?: string;
 }
@@ -38,24 +37,6 @@ const PRESET_PILLS = [
   "What is on Voyager 1's Golden Record?",
   'Why does Perseverance collect rocks on Mars?',
 ];
-
-const MISSION_NAMES: Record<string, string> = {
-  apollo11: 'Apollo 11',
-  voyager1: 'Voyager 1',
-  msr: 'Mars Sample Return',
-  marssamplereturn: 'Mars Sample Return',
-};
-
-/** "Apollo 11 · nssdc.gsfc.nasa.gov" for a source link. */
-function sourceLabel(src: AnswerSource) {
-  let host = src.url;
-  try {
-    host = new URL(src.url).hostname.replace(/^www\./, '');
-  } catch {}
-  const key = (src.mission ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const mission = MISSION_NAMES[key] ?? src.mission;
-  return mission ? `${mission} · ${host}` : host;
-}
 
 const ARTEMIS_Q = 'Why is NASA targeting the lunar South Pole for Artemis water ice extraction?';
 
@@ -142,15 +123,7 @@ function StatusChip({
 }
 
 /** Markdown text + image/video card + audio player + source/copy row. */
-function MessageBody({
-  text,
-  media,
-  sources = [],
-}: {
-  text: string;
-  media?: ConversationHistoryItem['media'];
-  sources?: AnswerSource[];
-}) {
+function MessageBody({ text, media }: { text: string; media?: ConversationHistoryItem['media'] }) {
   const visual = media?.visual;
   const audio = media?.audio;
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -285,20 +258,15 @@ function MessageBody({
         </section>
       )}
 
-      <div className="flex items-center gap-2 flex-wrap select-none">
-        {sources.length > 0 && <span className="text-[11px] font-mono text-slate-500">Sources</span>}
-        {sources.map((src) => (
-          <a
-            key={src.url}
-            href={src.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={src.url}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 text-[11px] font-mono text-[#38bdf8] transition max-w-full"
-          >
-            <span className="truncate">{sourceLabel(src)}</span> <ExternalLink className="w-3 h-3 shrink-0" />
-          </a>
-        ))}
+      <div className="flex items-center gap-2 select-none">
+        <a
+          href="https://www.nasa.gov"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 text-[11px] font-mono text-[#38bdf8] transition"
+        >
+          🚀 NASA Official Archive <ExternalLink className="w-3 h-3" />
+        </a>
         <button
           type="button"
           title="Copy"
@@ -397,7 +365,6 @@ export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
               role: 'assistant',
               text: res.fullAnswer,
               media: res.media,
-              sources: res.sources,
               recalled: true,
             },
       ]);
@@ -500,7 +467,7 @@ export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
                       ) : (
                         <>
                           {m.recalled && <StatusChip done reducedMotion={reducedMotion} />}
-                          <MessageBody text={m.text} media={m.media} sources={m.sources} />
+                          <MessageBody text={m.text} media={m.media} />
                         </>
                       )}
                     </div>

@@ -41,13 +41,14 @@ export const ArchivePuzzle: React.FC<ArchivePuzzleProps> = ({ onComplete, onPick
   };
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-30">
-      <div className="pointer-events-auto absolute right-4 top-1/2 w-[min(24rem,42vw)] -translate-y-1/2 rounded-2xl border border-slate-700/80 bg-slate-950/95 p-5 shadow-2xl md:right-8">
-        <div className="mb-5 border-b border-slate-800 pb-4 text-center">
+    <div className="pointer-events-none absolute inset-0 z-[45]">
+      <div className="side-sheet pointer-events-auto absolute right-4 top-1/2 max-h-[calc(100%-2rem)] w-[min(24rem,42vw)] -translate-y-1/2 rounded-2xl border border-slate-700/80 bg-slate-950/95 shadow-2xl md:right-8">
+        <div className="side-sheet-body thin-scroll p-5 pb-2 short:p-3 short:pb-1">
+        <div className="mb-5 border-b border-slate-800 pb-4 text-center short:mb-3 short:pb-2">
           <div className="text-xs font-mono-num font-bold tracking-wider text-amber-400">
             FINAL ARCHIVE
           </div>
-          <h2 className="mt-2 text-xl font-bold text-slate-100 md:text-2xl">
+          <h2 className="mt-2 text-xl font-bold text-slate-100 md:text-2xl short:mt-1 short:text-base">
             Choose three discoveries to preserve
           </h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-slate-400">
@@ -63,7 +64,7 @@ export const ArchivePuzzle: React.FC<ArchivePuzzleProps> = ({ onComplete, onPick
                 key={item.id}
                 type="button"
                 onClick={() => toggle(item.id)}
-                className={`flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
+                className={`flex items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition-colors short:px-3 short:py-2 ${
                   selected
                     ? 'border-amber-400 bg-amber-500/10 text-slate-100'
                     : 'border-slate-800 bg-slate-950/60 text-slate-300 hover:border-slate-600'
@@ -85,7 +86,8 @@ export const ArchivePuzzle: React.FC<ArchivePuzzleProps> = ({ onComplete, onPick
           </div>
         )}
 
-        <div className="mt-5 flex justify-end">
+        </div>
+        <div className="flex shrink-0 justify-end px-5 pb-5 pt-2 short:px-3 short:pb-3">
           {!done ? (
             <button
               type="button"

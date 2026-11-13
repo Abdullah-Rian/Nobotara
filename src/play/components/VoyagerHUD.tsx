@@ -32,6 +32,12 @@ interface VoyagerHUDProps {
   lookingAround?: boolean;
   /** The archive has been beamed and is waiting on the light-time panel. */
   linkSent?: boolean;
+  /** A right-hand panel (reading, record, archive, signal) is open: the narration keeps to its left. */
+  panelOpen?: boolean;
+  /** The dish dial is only for aiming at Earth. */
+  showDial?: boolean;
+  /** The part markers are showing (the player chose Inspect Voyager 1). */
+  inspecting?: boolean;
 }
 
 const OBJECTIVES: { id: VoyagerStep; label: string }[] = [
@@ -87,7 +93,10 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
   onInspectCraft,
   inspectCraftDisabled = false,
   lookingAround = false,
-  linkSent = false
+  linkSent = false,
+  panelOpen = false,
+  showDial = true,
+  inspecting = false
 }) => {
   const short = useShortHeight();
   const dialRadius = short ? 35 : 52;
@@ -111,23 +120,25 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
         <div className="flex min-w-0 flex-col items-stretch gap-3">
         <div className="pointer-events-auto rounded-lg border border-slate-800/80 bg-slate-950/80 p-3 short:p-2">
           <div className="text-xs font-bold tracking-wider text-slate-200">MISSION 02: VOYAGER 1</div>
-          <div className="mt-1 text-xs font-mono-num text-slate-400">
+          <div className={`mt-1 text-xs font-mono-num text-slate-400 ${showDial ? '' : 'short:hidden'}`}>
             SIGNAL {Math.round(telemetry.signal * 100)}% · EARTH {telemetry.headingErrorDeg.toFixed(0)}°
           </div>
           <div className="mt-1 max-w-56 text-[10px] font-mono-num leading-relaxed text-slate-500 short:hidden">
             {VOYAGER_RANGE_LABEL} · CROSSED AUG 2012 · RADIO DELAY ABOUT A DAY
           </div>
-          <div className="mt-1 text-[10px] font-mono-num text-slate-500">
-            {linkSent ? 'TELEMETRY SENT' : lookingAround ? 'PANNING' : '← → YAW · ↑ ↓ PITCH'}
+          <div className={`mt-1 text-[10px] font-mono-num text-slate-500 ${showDial || linkSent ? '' : 'short:hidden'}`}>
+            {linkSent ? 'TELEMETRY SENT' : inspecting ? 'INSPECTING' : lookingAround ? 'PANNING' : '← → YAW · ↑ ↓ PITCH'}
           </div>
           <div className="mt-1 max-w-56 text-[10px] leading-relaxed text-slate-500 short:hidden">
             {linkSent
               ? 'The radio signal is crossing the distance to Earth.'
-              : lookingAround
-                ? 'The camera pans around Voyager.'
-                : 'Turn the craft until the dish points at Earth. Turning spends propellant.'}
+              : inspecting
+                ? 'Drag to look around. Tap a part to learn what it does.'
+                : lookingAround
+                  ? 'The camera pans around Voyager.'
+                  : 'Turn the craft until the dish points at Earth. Turning spends propellant.'}
           </div>
-          <div className="mt-2 h-1.5 w-36 overflow-hidden rounded-full bg-slate-800">
+          <div className={`mt-2 h-1.5 w-36 overflow-hidden rounded-full bg-slate-800 ${showDial ? '' : 'short:hidden'}`}>
             <div className="h-full bg-emerald-400" style={{ width: `${Math.round(telemetry.signal * 100)}%` }} />
           </div>
         </div>
@@ -207,11 +218,16 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
         <div className="flex flex-col items-start gap-3">
           {dialogue && (
             <div className="pointer-events-auto relative z-40">
-              <DialoguePanel message={dialogue} typewriter={typeDialogue} onTyped={onDialogueTyped} />
+              <DialoguePanel
+                message={dialogue}
+                typewriter={typeDialogue}
+                onTyped={onDialogueTyped}
+                className={panelOpen ? 'beside-sheet' : ''}
+              />
             </div>
           )}
           {(showAim || showInspectCraft || showInitiate) && (
-            <div className="pointer-events-auto mb-6 ml-6 flex items-end gap-3">
+            <div className="pointer-events-auto mb-6 ml-6 flex items-end gap-3 short:mb-1 short:ml-1">
               {showAim && (
                 <AimPad
                   fuel={telemetry.fuel}
@@ -224,11 +240,15 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
               {showInspectCraft && onInspectCraft && (
                 <button
                   type="button"
+                  data-coach="voyager-inspect"
                   onClick={onInspectCraft}
                   disabled={inspectCraftDisabled}
-                  className="rounded-lg border border-slate-500 bg-slate-950/90 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-950/50 disabled:text-slate-500"
+                  aria-pressed={inspecting}
+                  className={`rounded-lg border px-4 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-950/50 disabled:text-slate-500 short:px-3 short:py-2 ${
+                    inspecting ? 'border-amber-300 bg-amber-400 text-slate-950' : 'border-slate-500 bg-slate-950/90 text-white'
+                  }`}
                 >
-                  Inspect Voyager 1
+                  {inspecting ? 'Done inspecting' : 'Inspect Voyager 1'}
                 </button>
               )}
               {showInitiate && onInitiate && (
@@ -245,6 +265,7 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
           )}
         </div>
 
+        {showDial && (
         <div className="pointer-events-auto mb-4 flex flex-col items-end gap-3">
           <div className="relative h-36 w-36 short:h-24 short:w-24 rounded-full border border-slate-700 bg-slate-950/80">
             <div className="absolute left-1/2 top-2 -translate-x-1/2 text-[9px] font-mono-num text-slate-500">DISH</div>
@@ -264,6 +285,7 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

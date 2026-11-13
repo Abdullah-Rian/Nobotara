@@ -758,7 +758,6 @@ export default function App({ onPlay }: AppProps = {}) {
                 >
                   <div className="brief-date">{brief.date}</div>
                   <p className="brief-intro">{brief.intro}</p>
-                  <p className="brief-summary">{brief.summary}</p>
                   <ol className="brief-steps">
                     {brief.steps.map((step, i) => (
                       <li key={step}>

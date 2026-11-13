@@ -47,9 +47,9 @@ export const VoyagerRecord: React.FC<VoyagerRecordProps> = ({ onComplete, onFirs
   };
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-30">
+    <div className="pointer-events-none absolute inset-0 z-[45]">
       {/* The pages scroll if the window is short; the page dots and the button stay in view at the bottom. */}
-      <div className="pointer-events-auto absolute right-4 top-1/2 flex max-h-[calc(100%-12.5rem)] w-[min(24rem,42vw)] -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-amber-500/40 bg-slate-950/92 text-center short:max-h-[calc(100%-1.5rem)] md:right-8">
+      <div className="side-sheet pointer-events-auto absolute right-4 top-1/2 flex max-h-[calc(100%-12.5rem)] w-[min(24rem,42vw)] -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-amber-500/40 bg-slate-950/92 text-center short:max-h-[calc(100%-1.5rem)] md:right-8">
         <div className="thin-scroll flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto overflow-x-hidden p-4 pb-2 short:gap-2 short:p-2">
           <img
             src="/assets/images/voyager-golden-record.jpg"

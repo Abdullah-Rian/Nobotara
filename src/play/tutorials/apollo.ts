@@ -13,7 +13,8 @@ const RESUME: CoachBeat = {
   id: 'apollo-resume',
   text: 'Continue when the line finishes.',
   pointAt: 'apollo-resume',
-  hand: true
+  hand: false,
+  style: 'highlight'
 };
 
 const RETRO: CoachBeat = {
@@ -47,21 +48,24 @@ const FIRE: CoachBeat = {
   id: 'apollo-fire',
   text: 'Fire the laser.',
   pointAt: 'apollo-fire',
-  hand: true
+  hand: false,
+  style: 'highlight'
 };
 
 const LASER_CONTINUE: CoachBeat = {
   id: 'apollo-laser-continue',
   text: 'Press Continue.',
   pointAt: 'apollo-laser-continue',
-  hand: true
+  hand: false,
+  style: 'highlight'
 };
 
 const CHALLENGE: CoachBeat = {
   id: 'apollo-challenge',
   text: 'Match each object to why it stayed on the Moon.',
   pointAt: 'apollo-challenge',
-  hand: true
+  hand: false,
+  style: 'highlight'
 };
 
 const MATCH: CoachBeat = {

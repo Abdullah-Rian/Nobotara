@@ -13,26 +13,34 @@ interface VoyagerReadingProps {
  */
 export const VoyagerReading: React.FC<VoyagerReadingProps> = ({ marker, narrationDone, onContinue }) => {
   return (
-    <aside className="pointer-events-auto absolute right-4 top-1/2 z-30 w-[min(22rem,40vw)] -translate-y-1/2 rounded-2xl border border-slate-700/80 bg-slate-950/92 p-4 shadow-2xl md:right-8">
-      <div className="text-[10px] font-mono-num font-bold tracking-wider text-amber-300">
-        {marker.name.toUpperCase()}
+    <aside className="side-sheet voyager-reading pointer-events-auto absolute right-4 top-1/2 z-[45] max-h-[calc(100%-2rem)] w-[min(22rem,40vw)] -translate-y-1/2 rounded-2xl border border-slate-700/80 bg-slate-950/92 shadow-2xl md:right-8">
+      <div className="side-sheet-body thin-scroll p-4 pb-2 short:p-3 short:pb-1">
+        <div className="text-[10px] font-mono-num font-bold tracking-wider text-amber-300 short:text-xs">
+          {marker.name.toUpperCase()}
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-slate-400">{marker.note}</p>
+        <p className="mt-1 text-[11px] leading-snug text-slate-500 short:text-[12px]">
+          ⓘ Drawn from published NASA results. The game does not take new readings.
+        </p>
+        <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3 short:mt-2 short:p-2">
+          <Chart id={marker.id} />
+        </div>
       </div>
-      <p className="mt-1 text-xs leading-relaxed text-slate-400">{marker.note}</p>
-      <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
-        <Chart id={marker.id} />
+      {/* The footer keeps its place, so Continue is always in view. */}
+      <div className="shrink-0 px-4 pb-4 pt-2 short:px-3 short:pb-3">
+        {narrationDone ? (
+          <button
+            type="button"
+            data-coach="voyager-continue"
+            onClick={onContinue}
+            className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950"
+          >
+            Continue
+          </button>
+        ) : (
+          <div className="h-9" aria-hidden="true" />
+        )}
       </div>
-      <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-        Drawn from published NASA results. The game does not take new readings.
-      </p>
-      {narrationDone && (
-        <button
-          type="button"
-          onClick={onContinue}
-          className="mt-3 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950"
-        >
-          Continue
-        </button>
-      )}
     </aside>
   );
 };

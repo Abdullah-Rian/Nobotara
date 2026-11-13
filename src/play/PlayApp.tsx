@@ -210,7 +210,11 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   const [voyagerTelemetry, setVoyagerTelemetry] = useState<VoyagerTelemetry>(EMPTY_VOYAGER_TELEMETRY);
   const [nearVoyager, setNearVoyager] = useState<VoyagerMarkerId | null>(null);
   const [voyagerHeld, setVoyagerHeld] = useState(false);
+  /** The circling tour camera around Voyager (it no longer brings the part markers with it). */
   const [voyagerPartsOpen, setVoyagerPartsOpen] = useState(false);
+  /** The part markers, only after the player presses Inspect Voyager 1. */
+  const [voyagerInspecting, setVoyagerInspecting] = useState(false);
+  const voyagerInspectingRef = useRef(false);
   /** Inspection runs from the opening pan until a stick is tapped. */
   const [voyagerSpeechInspect, setVoyagerSpeechInspect] = useState(false);
   /** Yaw, pitch, and thrust stay hidden until Mission Control has finished speaking. */
@@ -801,7 +805,37 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     setVoyagerPartsOpen(true);
   };
 
+  /** Hide the part markers. The camera keeps circling once the dish is aimed; before that it returns behind the craft. */
+  const endInspection = () => {
+    if (!voyagerInspectingRef.current) return;
+    voyagerInspectingRef.current = false;
+    setVoyagerInspecting(false);
+    setVoyagerPartId(null);
+    voyagerRef.current?.setPartMarkers(false);
+    if (!voyagerAimDoneRef.current) leavePartTourRef.current();
+  };
+
+  /** Inspect Voyager 1 / Done inspecting. */
+  const toggleInspection = () => {
+    if (voyagerInspectingRef.current) {
+      endInspection();
+      return;
+    }
+    voyagerInspectingRef.current = true;
+    setVoyagerInspecting(true);
+    voyagerPartsOpenRef.current = true;
+    setVoyagerPartsOpen(true);
+    voyagerRef.current?.setPartLabels(true);
+    voyagerRef.current?.setPartMarkers(true);
+    setVoyagerPartId(null);
+  };
+
   const leavePartTour = () => {
+    if (voyagerInspectingRef.current) {
+      voyagerInspectingRef.current = false;
+      setVoyagerInspecting(false);
+      voyagerRef.current?.setPartMarkers(false);
+    }
     if (!voyagerPartsOpenRef.current && !voyagerSpeechInspectRef.current) return;
     voyagerSpeechInspectRef.current = false;
     setVoyagerSpeechInspect(false);
@@ -917,6 +951,8 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     setVoyagerSignalSent(false);
     voyagerPartsOpenRef.current = false;
     voyagerPartTourRef.current = false;
+    voyagerInspectingRef.current = false;
+    setVoyagerInspecting(false);
     setVoyagerPartsOpen(false);
     setVoyagerPartId(null);
     setVoyagerPartTour(false);
@@ -948,6 +984,13 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       setVoyagerPartId(null);
     }
   }, [voyagerPartsOpen, mission, phase]);
+
+  useEffect(() => {
+    if (voyagerPartsOpen || !voyagerInspecting) return;
+    voyagerInspectingRef.current = false;
+    setVoyagerInspecting(false);
+    voyagerRef.current?.setPartMarkers(false);
+  }, [voyagerPartsOpen, voyagerInspecting]);
 
   const requestStart = (which: 'apollo' | 'voyager' | 'mars') => {
     pendingMissionRef.current = which;
@@ -1107,6 +1150,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     voyagerSpeakRef.current += 1;
     voyagerCueRef.current = null;
     setActiveDialogue(null);
+    endInspection();
     voyagerRef.current?.setBlink('record');
     setRecordOpen(true);
   };
@@ -1122,6 +1166,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
   };
 
   const startVoyagerReading = (id: VoyagerMarkerId) => {
+    endInspection();
     const marker = markerById(id);
     setVoyagerPanel(id);
     setInspectNarrationDone(false);
@@ -1801,6 +1846,42 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       voyagerStep === 'particles' ||
       voyagerStep === 'power' ||
       voyagerStep === 'record');
+  /** Inspect Voyager 1 is offered whenever the player is free (no panel, no line), up to the archive. */
+  const voyagerCanInspect =
+    mission === 'voyager' &&
+    phase === 'explore' &&
+    voyagerPartTour &&
+    !voyagerPanel &&
+    !recordOpen &&
+    !voyagerSending &&
+    !voyagerSignalSent &&
+    voyagerStep !== 'archive' &&
+    voyagerStep !== 'outro';
+  /** A right-hand panel covers part of the screen: the narration and the picture move left of it. */
+  const voyagerPanelOpen =
+    mission === 'voyager' &&
+    phase === 'explore' &&
+    (voyagerPanel !== null ||
+      recordOpen ||
+      voyagerSignalSent ||
+      (voyagerStep === 'archive' && !voyagerSending));
+  // While a right-hand panel is open, shift the picture so Voyager sits in the free space on the left.
+  useEffect(() => {
+    const engine = voyagerRef.current;
+    if (!engine) return;
+    if (!voyagerPanelOpen) {
+      engine.setFrameShift(0);
+      return;
+    }
+    const share = () => {
+      const width = Math.max(window.innerWidth, 1);
+      // On short screens the narration box takes the lower left, so the picture also rises a little.
+      engine.setFrameShift((Math.min(384, width * 0.42) + 16) / width, window.innerHeight <= 500 ? 0.12 : 0);
+    };
+    share();
+    window.addEventListener('resize', share);
+    return () => window.removeEventListener('resize', share);
+  }, [voyagerPanelOpen]);
   const voyagerArchiveOpen =
     mission === 'voyager' &&
     phase === 'explore' &&
@@ -1815,6 +1896,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     linePlaying: activeDialogue !== null,
     showAim: voyagerShowAim,
     showInitiate: voyagerShowInitiate,
+    canInspect: voyagerCanInspect && activeDialogue === null && !voyagerInspecting,
     recordOpen,
     recordNextReady,
     archiveOpen: voyagerArchiveOpen,
@@ -1987,16 +2069,12 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
           onMissions={handleBackToMissions}
           lookingAround={(phase === 'intro' || phase === 'explore') && voyagerPartsOpen}
           linkSent={voyagerSignalSent}
-          showInspectCraft={
-            phase === 'explore' && voyagerStep === 'align' && !voyagerPartsOpen && voyagerPartTour && !voyagerAimDone
-          }
-          inspectCraftDisabled={activeDialogue !== null}
-          onInspectCraft={() => {
-            voyagerPartsOpenRef.current = true;
-            voyagerRef.current?.setPartLabels(true);
-            setVoyagerPartId(null);
-            setVoyagerPartsOpen(true);
-          }}
+          showInspectCraft={voyagerCanInspect}
+          inspectCraftDisabled={activeDialogue !== null && !voyagerInspecting}
+          onInspectCraft={toggleInspection}
+          inspecting={voyagerInspecting}
+          panelOpen={voyagerPanelOpen}
+          showDial={voyagerStep === 'align' || voyagerStep === 'cross'}
         />
       )}
 
@@ -2008,9 +2086,10 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
         <VoyagerSkyLabels readFrame={readApolloSky} keys={['sun', 'earth']} />
       )}
 
-      {mission === 'voyager' && phase !== 'outro' && phase !== 'puzzle' && (
-        <VoyagerSkyLabels readFrame={readVoyagerSky} />
-      )}
+      {mission === 'voyager' &&
+        (phase === 'intro' || phase === 'explore') &&
+        (voyagerStep === 'align' || voyagerStep === 'cross') &&
+        !voyagerInspecting && <VoyagerSkyLabels readFrame={readVoyagerSky} />}
 
       {mission === 'mars' &&
         phase !== 'title' &&
@@ -2042,7 +2121,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
         </>
       )}
 
-      {mission === 'voyager' && voyagerPartsOpen && (
+      {mission === 'voyager' && voyagerPartsOpen && voyagerInspecting && (
         <VoyagerParts
           readFrame={readVoyagerParts}
           selectedId={voyagerPartId}

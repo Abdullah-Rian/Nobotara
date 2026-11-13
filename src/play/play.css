@@ -87,3 +87,69 @@
       max(0.75rem, calc(env(safe-area-inset-bottom) + 0.5rem)) max(1.25rem, calc(env(safe-area-inset-left) + 0.75rem));
   }
 }
+
+/*
+ * Right-hand panels in Mission 02 (readings, Golden Record, archive, signal sent).
+ * On short (landscape phone) screens they sit between the top buttons and the bottom edge,
+ * instead of being centred, so they never cover HOME, full screen or sound. Their content
+ * scrolls and their button stays pinned at the bottom.
+ */
+.side-sheet {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+@media (max-height: 500px) {
+  .side-sheet {
+    top: calc(env(safe-area-inset-top, 0px) + 3.25rem) !important;
+    right: calc(env(safe-area-inset-right, 0px) + 0.75rem) !important;
+    translate: none !important;
+    transform: none !important;
+    max-height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 3.75rem) !important;
+  }
+}
+.side-sheet-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* While a right-hand panel is open, the narration box keeps to the free space on the left. */
+.beside-sheet {
+  max-width: calc(100vw - min(24rem, 42vw) - 3.5rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+}
+
+/* Phone screens: the reading charts' small print grows to at least 12px, and the charts get shorter. */
+@media (max-height: 500px) {
+  .voyager-reading .text-\[10px\],
+  .voyager-reading .text-\[11px\],
+  .voyager-reading .text-xs {
+    font-size: 12px;
+  }
+  .voyager-reading .h-28 { height: 5.5rem; }
+  .voyager-reading .h-24 { height: 4.5rem; }
+}
+
+/*
+ * Tutorial highlight: the button that is the next thing to press pops gently and glows (ObjectiveCoach sets
+ * data-attention). `scale` is used rather than `transform`, so buttons keep their own positioning.
+ */
+@keyframes attention-pop {
+  0%, 100% { scale: 1; box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+  50% { scale: 1.06; box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.45), 0 0 22px 4px rgba(251, 191, 36, 0.55); }
+}
+@keyframes attention-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.45), 0 0 22px 4px rgba(251, 191, 36, 0.55); }
+}
+[data-attention]:not([data-coach="voyager-aim"]),
+[data-coach="voyager-aim"][data-attention] button {
+  animation: attention-pop 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-attention]:not([data-coach="voyager-aim"]),
+  [data-coach="voyager-aim"][data-attention] button {
+    animation: attention-glow 1.6s ease-in-out infinite;
+  }
+}
