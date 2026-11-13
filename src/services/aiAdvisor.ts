@@ -45,6 +45,17 @@ export async function generateAIResponse(
         };
       }
     }
+    // Asked too often (the worker's per-visitor or overall limit): say so plainly.
+    if (response.status === 429) {
+      const data = await response.json().catch(() => null);
+      return {
+        id: `conv-${Date.now()}`,
+        question: query || 'Space Inquiry',
+        time: 'Just now',
+        fullAnswer: `${data?.error === 'SpaceAI is busy, try again in a minute' ? 'SpaceAI is busy right now.' : 'You are asking very quickly!'} Please wait a minute, then ask again.`,
+        metrics: [],
+      };
+    }
   } catch (e) {
     console.warn('[SpaceAI] Server-side Gemini request failed, using local telemetry engine:', e);
   }

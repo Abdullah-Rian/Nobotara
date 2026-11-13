@@ -9,6 +9,7 @@ import {
   X, 
   File
 } from 'lucide-react';
+import { useSpeechInput } from './useSpeechInput';
 
 export type ComposerMode = 'Normal' | 'Brief' | 'Deep Analysis';
 export type DeepThinkMode = 'Deep Think' | 'Tax Strategist' | 'Portfolio Rebalance' | 'Analytical Logic';
@@ -43,13 +44,13 @@ export const Composer: React.FC<ComposerProps> = ({
     return false;
   });
   const [attachments, setAttachments] = useState<AttachedFile[]>([]);
-  const [isMicActive, setIsMicActive] = useState(false);
 
   const input = value !== undefined ? value : internalInput;
   const setInput = (val: string) => {
     if (onChange) onChange(val);
     else setInternalInput(val);
   };
+  const speech = useSpeechInput(input, setInput);
 
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -86,6 +87,7 @@ export const Composer: React.FC<ComposerProps> = ({
     if (e) e.preventDefault();
     const queryToSend = input.trim();
     if ((!queryToSend && attachments.length === 0) || isLoading) return;
+    speech.stop();
     onSendMessage(queryToSend, attachments);
     setInput('');
     setAttachments([]);
@@ -210,6 +212,12 @@ export const Composer: React.FC<ComposerProps> = ({
             </div>
           )}
 
+          {speech.problem && (
+            <p role="status" className="relative z-10 mb-2 text-[12px] text-amber-300/90">
+              {speech.problem}
+            </p>
+          )}
+
           {/* Clean transparent textarea with white text and comfortable padding */}
           <div className="relative z-10 w-full flex-1 flex items-start">
             <textarea
@@ -284,19 +292,26 @@ export const Composer: React.FC<ComposerProps> = ({
                 )}
               </div>
 
-              {/* Microphone Voice Button right next to Paperclip */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMicActive((prev) => !prev);
-                }}
-                title={isMicActive ? "Stop listening" : "Voice inquiry"}
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150 active:scale-95 cursor-pointer ${
-                  isMicActive ? 'text-[#38bdf8] bg-sky-500/20 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <Mic className="w-4 h-4" />
-              </button>
+              {/* Speak your question (browser speech-to-text; hidden where the browser has none) */}
+              {speech.supported && (
+                <button
+                  type="button"
+                  onClick={speech.toggle}
+                  title={speech.listening ? 'Stop listening' : 'Speak your question'}
+                  aria-label={speech.listening ? 'Stop listening' : 'Speak your question'}
+                  aria-pressed={speech.listening}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150 active:scale-95 cursor-pointer ${
+                    speech.listening ? 'text-[#38bdf8] bg-sky-500/20 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+              )}
+              {speech.listening && (
+                <span className="ml-1 text-[11px] text-sky-300/90" aria-live="polite">
+                  Listening…
+                </span>
+              )}
             </div>
 
             {/* Bottom-right: Rounded cyan gradient submit button with an upward arrow */}
