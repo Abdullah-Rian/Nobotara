@@ -398,8 +398,7 @@ export default function SpaceAIChat({ onBack, onPlaySfx }: SpaceAIChatProps) {
               text: res.fullAnswer,
               media: res.media,
               sources: res.sources,
-              // "Recalled from mission archives" only when the answer really used the NASA mission files.
-              recalled: (res.sources?.length ?? 0) > 0,
+              recalled: true,
             },
       ]);
     } catch (err) {
