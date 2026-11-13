@@ -1,5 +1,6 @@
 const QUERY_PREFIX = "Represent this sentence for searching relevant passages: ";
-const MODELS = ["gemini-3.1-flash-lite","gemini-3.6-flash","gemini-3.5-flash-lite", "gemini-3.8-flash"];
+//const MODELS = ["gemini-3.1-flash-lite","gemini-3.6-flash","gemini-3.5-flash-lite", "gemini-3.8-flash"];
+const MODELS = ["gemini-3.1-flash-lite","gemini-3-flash-preview","gemini-3.1-pro-preview"];
 // The site, its Cloudflare Pages previews (<branch>.nobotara.pages.dev) and local dev servers on any port.
 const ALLOWED_ORIGIN = /^(https:\/\/([a-z0-9-]+\.)?nobotara\.pages\.dev|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/;
 const MIN_SCORE = 0.6;
