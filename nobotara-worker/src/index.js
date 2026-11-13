@@ -4,7 +4,15 @@ const MODELS = ["gemini-3.1-flash-lite","gemini-3.6-flash","gemini-3.5-flash-lit
 const ALLOWED_ORIGIN = /^(https:\/\/([a-z0-9-]+\.)?nobotara\.pages\.dev|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/;
 const MIN_SCORE = 0.6;
 const NOT_SOURCED = "From general space knowledge, not our mission files:";
-const GEN_CONFIG = { temperature: 0.3, maxOutputTokens: 800 };
+/**
+ * maxOutputTokens counts the model's hidden thinking as well as the answer. With thinking left on its
+ * default, gemini-3.6-flash spent about 770 of 800 tokens thinking and cut answers off mid-sentence.
+ * So thinking is kept brief, and the limit has headroom: the prompt is what keeps answers short.
+ */
+const GEN_CONFIG = { temperature: 0.3, maxOutputTokens: 2048 };
+/** "minimal" where the model accepts it (fast, enough for short answers); gemini-3.8-flash only goes down to "low". */
+const THINKING_LEVEL = { "gemini-3.8-flash": "low" };
+const genConfig = (model) => ({ ...GEN_CONFIG, thinkingConfig: { thinkingLevel: THINKING_LEVEL[model] ?? "minimal" } });
 
 const SYSTEM_PROMPT = `You are SpaceAI, the space guide in Nobotara71, a free game and website about the machines NASA left behind on the Moon, Mars and beyond. Your readers are school children, about 8 to 14 years old.
 
@@ -100,20 +108,32 @@ function buildBody(query, attachments, context) {
 		Array.isArray(attachments) && attachments.length > 0
 			? `\nAttached Context: ${attachments.map((a) => `${a.name} (${a.type}, ${a.size})`).join(", ")}`
 			: "";
-	return JSON.stringify({
+	// The generation settings depend on the model, so callGemini adds them.
+	return {
 		systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
 		contents: [{ role: "user", parts: [{ text: `Passages:\n${context}\n\nQuestion: ${query}${note}` }] }],
-		generationConfig: GEN_CONFIG,
-	});
+	};
 }
 
 function callGemini(env, model, method, body, timeoutMs) {
 	return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-		body,
+		body: JSON.stringify({ ...body, generationConfig: genConfig(model) }),
 		signal: AbortSignal.timeout(timeoutMs),
 	});
+}
+
+/**
+ * If the model still ran out of room (finishReason MAX_TOKENS), keep only the complete sentences,
+ * so a child never reads half a sentence. Returns "" when too little is left, to try the next model.
+ */
+function wholeSentences(text) {
+	// A sentence end, with any closing quote, bracket or ** that follows it.
+	const ends = [...text.matchAll(/[.!?]["')\]*_]*(?=\s|$)/g)];
+	const last = ends.at(-1);
+	const kept = last ? text.slice(0, last.index + last[0].length).trim() : "";
+	return kept.length >= 80 ? kept : "";
 }
 
 function textOf(data) {
@@ -210,7 +230,12 @@ export default {
 						console.warn(model, r.status, await r.text());
 						continue;
 					}
-					const text = textOf(await r.json()).trim();
+					const data = await r.json();
+					let text = textOf(data).trim();
+					if (data.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+						console.warn(model, "answer cut off at the token limit");
+						text = wholeSentences(text);
+					}
 					if (text) {
 						return reply({
 							text,
