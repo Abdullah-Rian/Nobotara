@@ -8,6 +8,11 @@
 	},
 	"upload_source_maps": true,
 	"ai": { "binding": "AI" },
+	// Request limits (see guard() in src/index.js). Period must be 10 or 60 seconds; counts are per Cloudflare location.
+	"ratelimits": [
+		{ "name": "PER_IP", "namespace_id": "7101", "simple": { "limit": 15, "period": 60 } },
+		{ "name": "ALL", "namespace_id": "7102", "simple": { "limit": 40, "period": 60 } }
+	],
 	"vectorize": [
 		{ "binding": "VEC", "index_name": "nobotara-rag", "remote": true }
 	]
