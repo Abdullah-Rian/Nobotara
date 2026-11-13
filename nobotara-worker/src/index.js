@@ -118,13 +118,95 @@ function buildBody(query, attachments, context) {
 	};
 }
 
-function callGemini(env, model, method, body, timeoutMs) {
-	return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-		body: JSON.stringify({ ...body, generationConfig: genConfig(model) }),
-		signal: AbortSignal.timeout(timeoutMs),
-	});
+/**
+ * Gemini API keys, in the order they are tried. Set as Cloudflare secrets:
+ *   GEMINI_API_KEY                         the first key (as before)
+ *   GEMINI_API_KEY_2, GEMINI_API_KEY_3 …   more keys, numbered without gaps
+ *   GEMINI_API_KEYS                        or a comma-separated list (added after the numbered ones)
+ * Each key should come from a different Google Cloud project: quotas are counted per project.
+ */
+function geminiKeys(env) {
+	const keys = [];
+	const add = (key) => {
+		const k = typeof key === "string" ? key.trim() : "";
+		if (k && !keys.includes(k)) keys.push(k);
+	};
+	add(env.GEMINI_API_KEY);
+	for (let n = 2; env[`GEMINI_API_KEY_${n}`]; n++) add(env[`GEMINI_API_KEY_${n}`]);
+	for (const key of String(env.GEMINI_API_KEYS ?? "").split(",")) add(key);
+	return keys;
+}
+
+/**
+ * Keys resting after Google refused them, so the next requests skip straight to a working key.
+ * Kept in memory: each Cloudflare instance learns on its own, which is enough (one wasted try at most).
+ * Key -> time it may be tried again; "key|model" for limits that belong to one model.
+ */
+const resting = new Map();
+const QUOTA_REST_MS = 60_000; // per-minute limits clear within a minute
+const DAILY_REST_MS = 60 * 60_000; // daily limits: look again in an hour
+const BAD_KEY_REST_MS = 10 * 60_000; // a wrong or disabled key
+
+const isResting = (id, now) => (resting.get(id) ?? 0) > now;
+
+/** How to treat a refusal: "key" (try the next key), or "model" (the model is the problem: try the next model). */
+async function refusal(r) {
+	const body = await r.text().catch(() => "");
+	if (r.status === 429) {
+		const daily = /per ?day|PerDay|daily/i.test(body);
+		return { kind: "key", scope: "model", rest: daily ? DAILY_REST_MS : QUOTA_REST_MS, body };
+	}
+	if (r.status === 401 || r.status === 403 || (r.status === 400 && /API_KEY_INVALID|API key not valid/i.test(body))) {
+		return { kind: "key", scope: "all", rest: BAD_KEY_REST_MS, body };
+	}
+	return { kind: "model", body };
+}
+
+/**
+ * Try each model in order, and for each model each key that isn't resting, until one answers.
+ * `accept(response, model)` returns the result, or null to move on to the next model.
+ * Keys never appear in logs: they are named by their position (key 1, key 2 …).
+ */
+async function askGemini(env, method, body, timeoutMs, accept) {
+	const keys = geminiKeys(env);
+	if (!keys.length) {
+		console.warn("no Gemini API key is set");
+		return null;
+	}
+	for (const model of MODELS) {
+		for (let k = 0; k < keys.length; k++) {
+			const key = keys[k];
+			const now = Date.now();
+			if (isResting(key, now) || isResting(`${key}|${model}`, now)) continue;
+			let r;
+			try {
+				r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+					body: JSON.stringify({ ...body, generationConfig: genConfig(model) }),
+					signal: AbortSignal.timeout(timeoutMs),
+				});
+			} catch (err) {
+				// Slow or unreachable: another key won't make the model faster.
+				console.warn(model, `key ${k + 1}`, err?.message || err);
+				break;
+			}
+			if (r.ok) {
+				try {
+					const result = await accept(r, model);
+					if (result) return result;
+				} catch (err) {
+					console.warn(model, `key ${k + 1}`, err?.message || err);
+				}
+				break;
+			}
+			const why = await refusal(r);
+			console.warn(model, `key ${k + 1}`, r.status, why.body.slice(0, 300));
+			if (why.kind === "model") break;
+			resting.set(why.scope === "all" ? key : `${key}|${model}`, Date.now() + why.rest);
+		}
+	}
+	return null;
 }
 
 /**
@@ -226,51 +308,27 @@ export default {
 		const body = buildBody(input.query, input.attachments, context);
 
 		if (path === "/generate") {
-			for (const model of MODELS) {
-				try {
-					const r = await callGemini(env, model, "generateContent", body, 12000);
-					if (!r.ok) {
-						console.warn(model, r.status, await r.text());
-						continue;
-					}
-					const data = await r.json();
-					let text = textOf(data).trim();
-					if (data.candidates?.[0]?.finishReason === "MAX_TOKENS") {
-						console.warn(model, "answer cut off at the token limit");
-						text = wholeSentences(text);
-					}
-					if (text) {
-						return reply({
-							text,
-							isLiveGemini: true,
-							model,
-							sources: pickSources(matches, text),
-						});
-					}
-				} catch (err) {
-					console.warn(model, err?.message || err);
+			const answer = await askGemini(env, "generateContent", body, 12000, async (r, model) => {
+				const data = await r.json();
+				let text = textOf(data).trim();
+				if (data.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+					console.warn(model, "answer cut off at the token limit");
+					text = wholeSentences(text);
 				}
-			}
-			return reply({ error: "generation failed" }, 502);
+				return text ? { text, isLiveGemini: true, model, sources: pickSources(matches, text) } : null;
+			});
+			return answer ? reply(answer) : reply({ error: "generation failed" }, 502);
 		}
 
 		// /stream
-		for (const model of MODELS) {
-			try {
-				const r = await callGemini(env, model, "streamGenerateContent?alt=sse", body, 30000);
-				if (!r.ok || !r.body) {
-					console.warn(model, r.status, await r.text());
-					continue;
-				}
-				const { readable, writable } = new TransformStream();
-				ctx.waitUntil(pipeSSE(r.body, writable, matches));
-				return new Response(readable, {
-					headers: { ...cors, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
-				});
-			} catch (err) {
-				console.warn(model, err?.message || err);
-			}
-		}
-		return reply({ error: "generation failed" }, 502);
+		const stream = await askGemini(env, "streamGenerateContent?alt=sse", body, 30000, async (r) => {
+			if (!r.body) return null;
+			const { readable, writable } = new TransformStream();
+			ctx.waitUntil(pipeSSE(r.body, writable, matches));
+			return new Response(readable, {
+				headers: { ...cors, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+			});
+		});
+		return stream ?? reply({ error: "generation failed" }, 502);
 	},
 };

@@ -53,8 +53,26 @@ The game's API route exists only on the local server. On Pages the Mars archive 
 Every spoken line is a pre-recorded clip; nothing is synthesized while playing.
 `npx tsx scripts/check-voiceovers.ts` checks that every line has a clip whose recorded text matches.
 
-SpaceAI calls the Worker in `nobotara-worker/` (`npx wrangler deploy` there). Its CORS list allows
-`https://nobotara.pages.dev` and localhost; add preview addresses if you need them.
+SpaceAI calls the Worker in `nobotara-worker/` (`npx wrangler deploy` there). It answers only
+`https://nobotara.pages.dev`, its branch previews and localhost, and limits requests per visitor and overall.
+
+### SpaceAI's Gemini keys
+
+The Worker can hold several Gemini API keys. For each model it tries the keys in order; when Google says a
+key is out of quota (or the key is wrong), that key rests and the next one is used. A key that hit a
+per-minute limit rests for a minute, a daily limit for an hour, a wrong key for ten minutes.
+
+Make each key in a **different Google Cloud project**: quotas are counted per project, so two keys from one
+project run out together. Then, in `nobotara-worker/`:
+
+```bash
+npx wrangler secret put GEMINI_API_KEY      # the first key (already set)
+npx wrangler secret put GEMINI_API_KEY_2    # the second
+npx wrangler secret put GEMINI_API_KEY_3    # and so on, numbered without gaps
+```
+
+Secrets take effect at once; no redeploy is needed after adding one. `npx wrangler secret list` shows which
+are set (not their values). Logs name keys only by position ("key 2"), never the key itself.
 
 ## Rebuilding generated files
 
