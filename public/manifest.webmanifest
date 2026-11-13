@@ -1,0 +1,15 @@
+{
+  "name": "Nobotara71: NASA's machines left behind",
+  "short_name": "Nobotara71",
+  "description": "Play three NASA missions: Apollo 11, Voyager 1 and Mars Sample Return.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "background_color": "#03070e",
+  "theme_color": "#03070e",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

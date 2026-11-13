@@ -119,3 +119,23 @@ export function onDisplayCapabilityChange(listener: () => void): () => void {
     document.removeEventListener('webkitfullscreenchange', onFull);
   };
 }
+
+/** Opened from the Home Screen (or installed), so already without browser bars. */
+export function isInstalledApp(): boolean {
+  if (typeof window === 'undefined') return false;
+  const nav = navigator as Navigator & { standalone?: boolean };
+  return (
+    nav.standalone === true ||
+    window.matchMedia?.('(display-mode: fullscreen)').matches === true ||
+    window.matchMedia?.('(display-mode: standalone)').matches === true
+  );
+}
+
+/**
+ * iPhone Safari has no full-screen mode for web pages (only for video). The way to play without
+ * browser bars there is to add the site to the Home Screen and open it from there.
+ */
+export function needsHomeScreenForFullscreen(): boolean {
+  if (typeof navigator === 'undefined' || canFullscreen() || isInstalledApp()) return false;
+  return /iPhone|iPod/.test(navigator.userAgent);
+}
