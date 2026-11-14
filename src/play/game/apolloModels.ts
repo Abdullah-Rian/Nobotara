@@ -116,38 +116,6 @@ export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneMode
   roverGroup.add(namePlate);
   rearDecal(nameCanvas, 0.4, 0.092, 0.42, -0.22);
 
-  const nasaCanvas = document.createElement('canvas');
-  nasaCanvas.width = 256;
-  nasaCanvas.height = 256;
-  const nasaCtx = nasaCanvas.getContext('2d')!;
-  nasaCtx.beginPath();
-  nasaCtx.arc(128, 128, 120, 0, Math.PI * 2);
-  nasaCtx.fillStyle = '#0b3d91';
-  nasaCtx.fill();
-  nasaCtx.fillStyle = '#ffffff';
-  for (let i = 0; i < 10; i++) {
-    const a = -Math.PI * 0.85 + i * (Math.PI * 0.7 / 9);
-    const sx = 128 + Math.cos(a) * 78;
-    const sy = 78 + Math.sin(a) * 28;
-    nasaCtx.beginPath();
-    nasaCtx.arc(sx, sy, 4.5, 0, Math.PI * 2);
-    nasaCtx.fill();
-  }
-  nasaCtx.beginPath();
-  nasaCtx.moveTo(18, 150);
-  nasaCtx.quadraticCurveTo(128, 78, 238, 150);
-  nasaCtx.quadraticCurveTo(128, 118, 18, 150);
-  nasaCtx.fillStyle = '#e1261c';
-  nasaCtx.fill();
-  nasaCtx.fillStyle = '#ffffff';
-  nasaCtx.font = 'bold 54px "Plus Jakarta Sans", "Arial Black", sans-serif';
-  nasaCtx.textAlign = 'center';
-  nasaCtx.textBaseline = 'middle';
-  nasaCtx.fillText('NASA', 128, 168);
-  const nasaMark = rearDecal(nasaCanvas, 0.12, 0.12, 0.42, 0.14);
-  nasaMark.geometry.dispose();
-  nasaMark.geometry = new THREE.CircleGeometry(0.06, 32);
-
   const bdFlagCanvas = document.createElement('canvas');
   bdFlagCanvas.width = 300;
   bdFlagCanvas.height = 180;
@@ -158,7 +126,7 @@ export function buildApolloSceneModels(renderer: THREE.WebGLRenderer): SceneMode
   bdFlagCtx.beginPath();
   bdFlagCtx.arc(135, 90, 60, 0, Math.PI * 2);
   bdFlagCtx.fill();
-  rearDecal(bdFlagCanvas, 0.16, 0.096, 0.42, 0.32);
+  rearDecal(bdFlagCanvas, 0.16, 0.096, 0.42, 0.2);
   const deck = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.04, 0.95), blackBlanketMat);
   deck.position.y = 0.8;
   deck.castShadow = true;

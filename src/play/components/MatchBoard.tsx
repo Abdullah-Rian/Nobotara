@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { apolloAudio } from '../audio/apolloAudio';
 
@@ -164,15 +164,23 @@ export const MatchBoard: React.FC<MatchBoardProps> = ({
     };
   }, [measure]);
 
+  // When all are matched, bring the success box and its finish button into view (on a phone it can sit
+  // below the fold). Does nothing when it is already visible.
+  const successRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (done) successRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [done]);
+
   const reasonOwner = (reasonId: string) => Object.entries(links).find(([, r]) => r === reasonId)?.[0];
 
   return (
-    <div className="thin-scroll absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-slate-950/85 p-4 pt-[6vh] pointer-events-auto short:p-2 short:pt-16 md:p-8 md:pt-[8vh]">
+    // Phones: the scrolling area starts below the HOME button, so a scrolled board never slides under it.
+    <div className="thin-scroll absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-slate-950/85 p-4 pt-[6vh] pointer-events-auto short:top-[calc(env(safe-area-inset-top,0px)+3.5rem)] short:p-2 short:pt-1 md:p-8 md:pt-[8vh]">
       <div
         data-coach={coach}
         className="w-full max-w-3xl space-y-6 rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl short:space-y-3 short:p-3 md:p-8"
       >
-        <div className="space-y-2 border-b border-slate-800 pb-5 text-center short:space-y-1 short:pb-2">
+        <div className={`space-y-2 border-b border-slate-800 pb-5 text-center short:space-y-1 short:pb-2 ${done ? 'short:hidden' : ''}`}>
           <div className="text-xs font-mono-num font-bold tracking-wider text-amber-400">{eyebrow}</div>
           <h2 className="text-xl font-bold text-slate-100 md:text-2xl short:text-base">{title}</h2>
           <p className="mx-auto max-w-lg text-xs text-slate-400 md:text-sm short:hidden">{subtitle}</p>
@@ -267,12 +275,12 @@ export const MatchBoard: React.FC<MatchBoardProps> = ({
         )}
 
         {done && (
-          <div className="space-y-3 rounded-xl border border-emerald-500/80 bg-emerald-950/40 p-5 text-center short:space-y-2 short:p-3">
+          <div ref={successRef} className="space-y-3 rounded-xl border border-emerald-500/80 bg-emerald-950/40 p-5 text-center short:space-y-1.5 short:p-2">
             <div className="flex items-center justify-center gap-2 text-sm font-mono-num font-bold text-emerald-400">
               <Sparkles className="h-5 w-5" />
               <span>{successTitle}</span>
             </div>
-            <p className="mx-auto max-w-lg text-xs text-slate-300 md:text-sm">{successText}</p>
+            <p className="mx-auto max-w-lg text-xs text-slate-300 md:text-sm short:text-[11px] short:leading-snug">{successText}</p>
             <button
               type="button"
               onClick={onComplete}

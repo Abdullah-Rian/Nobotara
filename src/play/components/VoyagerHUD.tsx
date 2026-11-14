@@ -38,6 +38,8 @@ interface VoyagerHUDProps {
   showDial?: boolean;
   /** The part markers are showing (the player chose Inspect Voyager 1). */
   inspecting?: boolean;
+  /** Skip the opening cinematic, from the narration box. */
+  onSkipDialogue?: () => void;
 }
 
 const OBJECTIVES: { id: VoyagerStep; label: string }[] = [
@@ -96,7 +98,8 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
   linkSent = false,
   panelOpen = false,
   showDial = true,
-  inspecting = false
+  inspecting = false,
+  onSkipDialogue
 }) => {
   const short = useShortHeight();
   const dialRadius = short ? 35 : 52;
@@ -223,6 +226,8 @@ export const VoyagerHUD: React.FC<VoyagerHUDProps> = ({
                 typewriter={typeDialogue}
                 onTyped={onDialogueTyped}
                 className={panelOpen ? 'beside-sheet' : ''}
+                onSkip={onSkipDialogue}
+                skipTitle="Skip the cinematic (Esc)"
               />
             </div>
           )}

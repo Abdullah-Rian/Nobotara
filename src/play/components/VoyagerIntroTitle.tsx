@@ -45,7 +45,7 @@ export function MissionIntroTitle({
       if (!alive) return;
       setStarted(true);
       timer = window.setInterval(() => {
-        if (!alive) return;
+        if (!alive || document.visibilityState === 'hidden') return;
         revealed += 1;
         if (revealed < total && revealed % 4 === 1) apolloAudio.playTypeBeep();
         setCount(revealed);

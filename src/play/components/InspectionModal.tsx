@@ -66,7 +66,7 @@ const PlaqueCallout: React.FC<{ readPoint: () => PlaqueScreenPoint | undefined }
         ref={photoRef}
         src="/assets/images/apollo11-plaque.jpg"
         alt="Apollo 11 commemorative plaque, with the inscription, Earth hemispheres, and signatures"
-        className="pointer-events-none ml-16 w-[min(22rem,46vw)] max-h-[26vh] origin-bottom-left -rotate-6 rounded-md border border-slate-200/90 bg-slate-100 object-contain shadow-2xl"
+        className="pointer-events-none ml-16 w-[min(22rem,46vw)] max-h-[26vh] origin-bottom-left -rotate-6 rounded-md border border-slate-200/90 bg-slate-100 object-contain shadow-2xl short:ml-6 short:w-auto short:max-h-[20vh]"
       />
     </>
   );
@@ -100,14 +100,15 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
 
       {dialogue && (
         <div className="pointer-events-auto origin-bottom-left short:scale-75">
-          <DialoguePanel message={dialogue} typewriter={!narrationDone} onTyped={onTyped} />
+          {/* Phones: the left column keeps to the left half, so the plaque on the lander stays in view. */}
+          <DialoguePanel message={dialogue} typewriter={!narrationDone} onTyped={onTyped} className="short:w-[64vw]" />
         </div>
       )}
 
       {narrationDone && artifact.id === 'plaque' && (
-        <div className="pointer-events-auto w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 text-center space-y-3">
-          <div className="text-[11px] font-mono-num text-slate-400">STAINLESS STEEL INSCRIPTION</div>
-          <div className="text-sm md:text-base font-bold tracking-wider text-slate-100 font-mono-num leading-relaxed">
+        <div className="pointer-events-auto w-[min(36rem,calc(100vw-3rem))] bg-slate-950/90 border border-slate-700/80 rounded-lg p-4 text-center space-y-3 short:w-[min(24rem,48vw)] short:p-2 short:space-y-1.5">
+          <div className="text-[11px] font-mono-num text-slate-400 short:text-[9px]">STAINLESS STEEL INSCRIPTION</div>
+          <div className="text-sm md:text-base font-bold tracking-wider text-slate-100 font-mono-num leading-relaxed short:text-[10px] short:leading-snug short:tracking-normal">
             HERE MEN FROM THE PLANET EARTH<br />
             FIRST SET FOOT UPON THE MOON<br />
             JULY 1969, A.D.<br />
@@ -116,7 +117,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
           <button
             onClick={handlePlayOneSmallStep}
             disabled={playingHistoricalVoice}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs short:px-2.5 short:py-1 short:text-[10px]"
           >
             <Volume2 className="w-4 h-4" />
             {playingHistoricalVoice ? 'PLAYING AN AI READING OF THE LINE…' : "LISTEN: THAT'S ONE SMALL STEP (AI VOICE)"}

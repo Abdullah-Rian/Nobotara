@@ -12,53 +12,55 @@ export const OutroScreen: React.FC<OutroScreenProps> = ({ onReplay, onContinue, 
   const isVoyagerRevealed = outroProgress > 0.55;
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 md:p-12 z-20">
+    // Phones (short screens): tighter padding, a compact card that scrolls if it must, and no footer line,
+    // so both buttons stay on screen. Larger screens are unchanged.
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 md:p-12 z-20 short:p-2 short:pl-[max(0.75rem,env(safe-area-inset-left))] short:pr-[max(0.75rem,env(safe-area-inset-right))] short:gap-1.5">
       {/* Top Banner */}
       <div className="flex justify-between items-center">
-        <div className="bg-slate-950/80 border border-slate-800 rounded-lg px-4 py-2 text-xs font-mono-num text-slate-300">
+        <div className="bg-slate-950/80 border border-slate-800 rounded-lg px-4 py-2 text-xs font-mono-num text-slate-300 short:px-2.5 short:py-1 short:text-[10px]">
           <span>MISSION 01: APOLLO 11 · COMPLETE</span>
         </div>
       </div>
 
       {/* Outro Cinematic Narrative Card */}
       {isVoyagerRevealed && (
-        <div className="max-w-xl mx-auto my-auto bg-slate-950/90 border border-slate-700/80 rounded-2xl p-6 md:p-8 shadow-2xl text-center space-y-5 pointer-events-auto transition-all duration-700">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-xs font-mono-num text-amber-300">
-            <Sparkles className="w-3.5 h-3.5" />
+        <div className="max-w-xl mx-auto my-auto bg-slate-950/90 border border-slate-700/80 rounded-2xl p-6 md:p-8 shadow-2xl text-center space-y-5 pointer-events-auto transition-all duration-700 thin-scroll short:min-h-0 short:max-w-[min(36rem,100%)] short:overflow-y-auto short:p-3 short:space-y-2 short:rounded-xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-xs font-mono-num text-amber-300 short:px-2 short:py-0.5 short:text-[10px]">
+            <Sparkles className="w-3.5 h-3.5 short:w-3 short:h-3" />
             <span>TRANSITION TO DEEP SPACE</span>
           </div>
 
-          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-100">
+          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-100 short:text-lg">
             Beyond the Moon
           </h2>
 
-          <p className="text-sm md:text-base text-slate-300 leading-relaxed">
+          <p className="text-sm md:text-base text-slate-300 leading-relaxed short:text-xs short:leading-snug">
             The footprints at Tranquility Base proved that humanity could leave Earth. But our journey didn't stop at the Moon. We aimed further—beyond the planets, into interstellar space.
           </p>
 
-          <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-left space-y-1">
-            <div className="text-[11px] font-mono-num text-amber-400 font-bold">
+          <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-left space-y-1 short:p-2 short:space-y-0.5 short:rounded-lg">
+            <div className="text-[11px] font-mono-num text-amber-400 font-bold short:text-[10px]">
               UPCOMING // MISSION 02
             </div>
-            <div className="text-lg font-bold text-slate-100">
+            <div className="text-lg font-bold text-slate-100 short:text-sm">
               VOYAGER 1: The Golden Record
             </div>
-            <div className="text-xs text-slate-400">
+            <div className="text-xs text-slate-400 short:text-[11px] short:leading-snug">
               Turn a spacecraft 25 billion km away to face home, read its instruments, and open the record of sounds, greetings, and images it carries.
             </div>
           </div>
 
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 short:pt-0.5 short:flex-row short:gap-2">
             <button
               onClick={onContinue}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-sm transition-colors short:w-auto short:px-3 short:py-2 short:text-xs"
             >
               <ArrowRight className="w-4 h-4" />
               <span>CONTINUE TO MISSION 02</span>
             </button>
             <button
               onClick={onReplay}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-100 font-bold rounded-lg text-sm transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-100 font-bold rounded-lg text-sm transition-colors short:w-auto short:px-3 short:py-2 short:text-xs"
             >
               <RotateCcw className="w-4 h-4" />
               <span>REPLAY MISSION 01</span>
@@ -68,7 +70,7 @@ export const OutroScreen: React.FC<OutroScreenProps> = ({ onReplay, onContinue, 
       )}
 
       {/* Bottom Subtitle / Camera note */}
-      <div className="text-center text-xs text-slate-500 font-mono-num">
+      <div className="text-center text-xs text-slate-500 font-mono-num short:hidden">
         {!isVoyagerRevealed ? (
           <span>DEPARTING SEA OF TRANQUILITY · ACCELERATING TO DEEP SPACE...</span>
         ) : (

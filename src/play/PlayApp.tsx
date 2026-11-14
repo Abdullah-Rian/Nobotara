@@ -9,6 +9,7 @@ import { VoyagerEngine, VoyagerTelemetry, SkyFrame } from './game/voyagerEngine'
 import { MarsEngine, MarsShot, MarsTelemetry, PLAN_STAGE_STARTS } from './game/marsEngine';
 import { gameInputs } from './game/controls';
 import { apolloAudio } from './audio/apolloAudio';
+import { gameClock, gameTimeout } from './utils/gameClock';
 import { GamePhase, ArtifactId, MarkerId, ObjectiveStep, DialogueMessage, RoverTelemetry } from './types/game';
 import { ARTIFACTS, OBJECTIVE_MARKER, markersForObjective } from './data/artifactsData';
 import {
@@ -720,7 +721,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     engineRef.current.fireLaser();
     apolloAudio.playLaserPulse();
 
-    setTimeout(() => {
+    gameTimeout(() => {
       setIsLaserFiring(false);
     }, 3200);
   };
@@ -748,12 +749,12 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       }, 'outro_voyager');
     }, 'puzzle_complete_neil');
 
-    const startTime = performance.now();
+    const startTime = gameClock.now();
     const duration = 18000;
     if (outroTimerRef.current) clearInterval(outroTimerRef.current);
 
     outroTimerRef.current = setInterval(() => {
-      const elapsed = performance.now() - startTime;
+      const elapsed = gameClock.now() - startTime;
       const p = Math.min(1, elapsed / duration);
       setOutroProgress(p);
       if (engineRef.current) {
@@ -1285,10 +1286,10 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     setPhase('outro');
     setVoyagerStep('outro');
     setOutroProgress(0);
-    const start = performance.now();
+    const start = gameClock.now();
     clearOutroTimer();
     outroTimerRef.current = setInterval(() => {
-      const progress = Math.min(1, (performance.now() - start) / 20000);
+      const progress = Math.min(1, (gameClock.now() - start) / 20000);
       setOutroProgress(progress);
       voyagerRef.current?.setOutroProgress(progress);
       if (progress >= 1) clearOutroTimer();
@@ -1317,7 +1318,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       after();
     };
     const words = text.split(/\s+/).length;
-    window.setTimeout(done, Math.min(45000, Math.max(8000, words * 700)));
+    gameTimeout(done, Math.min(45000, Math.max(8000, words * 700)));
     marsSkipLineRef.current = () => {
       apolloAudio.stopSpeaking();
       done();
@@ -1337,12 +1338,12 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
 
   const runMarsShot = (shot: MarsShot, seconds: number, onDone: () => void) => {
     clearOutroTimer();
-    const start = performance.now();
+    const start = gameClock.now();
     marsRef.current?.setCinematic(shot, 0);
     setMarsShotName(shot);
     setOutroProgress(0);
     outroTimerRef.current = setInterval(() => {
-      const progress = Math.min(1, (performance.now() - start) / (seconds * 1000));
+      const progress = Math.min(1, (gameClock.now() - start) / (seconds * 1000));
       setOutroProgress(progress);
       marsRef.current?.setCinematic(shot, progress);
       if (progress >= 1) {
@@ -1411,7 +1412,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     markMissionDone('mars');
     apolloAudio.playClosingTheme();
     // The wind belongs to the crater. It fades as the view leaves for space.
-    window.setTimeout(() => {
+    gameTimeout(() => {
       if (marsStepRef.current === 'closing') apolloAudio.stopWind();
     }, 15000);
     runMarsShot('closing', 32, () => {
@@ -1909,6 +1910,13 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
     // The live Apollo engine, for checking collisions from the console.
     (window as unknown as { __apollo: () => unknown }).__apollo = () => engineRef.current;
     (window as unknown as { __voyager: () => unknown }).__voyager = () => voyagerRef.current;
+    // Open Mission 01's windows directly: __apolloScreens.laser(), .plaque(), .challenge(), .outro()
+    (window as unknown as { __apolloScreens: unknown }).__apolloScreens = {
+      laser: beginRanging,
+      plaque: () => handleInspect('plaque'),
+      challenge: () => setPhase('puzzle'),
+      outro: handleChallengeCompleted
+    };
     (window as unknown as { __mars: unknown }).__mars = {
       plan: finishSequence,
       question: beginQuestionShot,
@@ -1958,18 +1966,6 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
       <div ref={canvasMountRef} className="absolute inset-0 z-0 w-full h-full" />
 
 
-      {/* Intro Skip button: only once this mission's opening has been watched (or with ?debug). */}
-      {phase === 'intro' && introSkippable && (
-        <div className="absolute left-1/2 top-6 short:top-16 z-20 -translate-x-1/2 pointer-events-auto">
-          <button
-            onClick={handleSkipIntro}
-            className="px-4 py-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-xs font-mono-num text-slate-300 rounded-lg transition-colors"
-          >
-            SKIP CINEMATIC [ESC]
-          </button>
-        </div>
-      )}
-
       {/* Main Gameplay HUD */}
       {(phase === 'explore' || phase === 'intro') && mission === 'apollo' && (
         <HUD
@@ -1994,6 +1990,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
           showMap={phase === 'explore'}
           typeDialogue={phase === 'intro'}
           onDialogueTyped={handleIntroTyped}
+          onSkipDialogue={phase === 'intro' && introSkippable ? handleSkipIntro : undefined}
         />
       )}
 
@@ -2047,6 +2044,7 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
           dialogue={activeDialogue}
           typeDialogue
           onDialogueTyped={onVoyagerTyped}
+          onSkipDialogue={phase === 'intro' && introSkippable ? handleSkipIntro : undefined}
           showAim={voyagerShowAim}
           onPitch={(pitch) => gameInputs.setVirtualPitch(pitch)}
           onYaw={(yaw) => gameInputs.setVirtualYaw(yaw)}
@@ -2227,7 +2225,16 @@ export default function PlayApp({ mission: startMission, onExit, onMissionChange
           pulseCache={marsStep === 'question' && marsTelemetry.distanceToTarget > 16}
           near={phase === 'explore' && marsNear !== null}
           interactLabel={interactLabel(marsStep, marsNear)}
-          onSkipLine={marsSpeaking && phase !== 'intro' && linesSkippable ? skipMarsLine : undefined}
+          onSkipLine={
+            phase === 'intro'
+              ? introSkippable
+                ? handleSkipIntro
+                : undefined
+              : marsSpeaking && linesSkippable
+                ? skipMarsLine
+                : undefined
+          }
+          skipTitle={phase === 'intro' ? 'Skip the cinematic (Esc)' : 'Skip this line'}
           onInteract={handleMarsInteract}
           onMissions={handleBackToMissions}
           dialogue={activeDialogue}

@@ -5,6 +5,8 @@
  * laser pulse sounds, and playback of the pre-recorded voice clips.
  */
 
+import { gameClock, gameTimeout } from '../utils/gameClock';
+
 class ApolloAudioSystem {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
@@ -16,21 +18,77 @@ class ApolloAudioSystem {
   private roverGain: GainNode | null = null;
   private ambientNoiseNode: AudioNode | null = null;
   private currentAudioSource: AudioBufferSourceNode | null = null;
-  private currentAudioElement: HTMLAudioElement | null = null;
   private speakGeneration = 0;
   private initialized: boolean = false;
+  /**
+   * Voice clips being fetched and decoded. A clip leaves this map once it starts playing: decoded audio is
+   * large (about 5 MB for a 25-second line), and keeping every line would use too much memory on an iPhone.
+   * A replayed line comes back quickly from the browser's file cache.
+   */
+  private clipCache = new Map<string, Promise<AudioBuffer>>();
+  private unlockArmed = false;
+  /** pause() was called (the player left the mission): don't wake up until init(). */
+  private sleeping = false;
 
 
 
   private getContext(): AudioContext {
     if (!this.ctx) {
+      // iOS: play like media (as the old <audio> voices did), so the ring/silent switch doesn't mute the game.
+      const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (session) {
+        try {
+          session.type = 'playback';
+        } catch {
+          // older Safari: no audio session control
+        }
+      }
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
+      this.armUnlock();
     }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+    // Never restart sound on a hidden page (Android keeps playing it in the background).
+    if (this.ctx.state === 'suspended' && !gameClock.hidden() && !this.sleeping) {
+      void this.ctx.resume().catch(() => {});
     }
     return this.ctx;
+  }
+
+  /**
+   * iOS only lets audio start inside a tap, and suspends ("interrupts") it after a call, Siri or
+   * switching apps. Every tap or key press wakes the audio context if it is asleep, and plays one
+   * silent sample, which is what unlocks it for good on older iPhones.
+   */
+  private armUnlock() {
+    if (this.unlockArmed || typeof document === 'undefined') return;
+    this.unlockArmed = true;
+    const wake = () => {
+      const ctx = this.ctx;
+      if (!ctx || ctx.state === 'running' || this.sleeping) return;
+      void ctx.resume().catch(() => {});
+      try {
+        const silent = ctx.createBufferSource();
+        silent.buffer = ctx.createBuffer(1, 1, 22050);
+        silent.connect(ctx.destination);
+        silent.start(0);
+      } catch {
+        // nothing to unlock
+      }
+    };
+    for (const type of ['touchend', 'pointerdown', 'keydown']) {
+      document.addEventListener(type, wake, { capture: true, passive: true });
+    }
+    // Hidden page (another app, home screen, screen off): every sound, and the line being spoken, pauses
+    // where it is. Back on the page, it carries on, unless the player had left the mission.
+    gameClock.onVisibility(hidden => {
+      const ctx = this.ctx;
+      if (!ctx) return;
+      if (hidden) {
+        if (ctx.state === 'running') void ctx.suspend().catch(() => {});
+      } else if (this.initialized && !this.sleeping) {
+        void ctx.resume().catch(() => {});
+      }
+    });
   }
 
   /**
@@ -38,6 +96,7 @@ class ApolloAudioSystem {
    * After pause() it wakes the audio up again.
    */
   public init() {
+    this.sleeping = false;
     if (this.initialized) {
       if (this.ctx?.state === 'suspended') void this.ctx.resume();
       return;
@@ -54,6 +113,7 @@ class ApolloAudioSystem {
 
   /** Leaving a mission: stop every voice and sound, and put the audio to sleep until init() runs again. */
   public pause() {
+    this.sleeping = true;
     this.stopSpeaking();
     this.stopClosingTheme();
     this.stopWind();
@@ -509,8 +569,8 @@ class ApolloAudioSystem {
   }
 
   /**
-   * Speak dialogue prioritizing local offline MP3 assets (/assets/audio/voiceovers/*.mp3),
-   * with seamless fallback to server-side Gemini TTS and client-side male Web Speech API.
+   * Speak a line from its pre-recorded clip (/assets/audio/voiceovers/<clipId>.mp3).
+   * If the clip can't play, the line stays on screen silently for about as long as it takes to read.
    */
   public async speakDialogue(
     text: string,
@@ -548,100 +608,115 @@ class ApolloAudioSystem {
     // on screen silently for about as long as it takes to read, then the game moves on.
     if (import.meta.env.DEV) console.warn(`No voice clip played for "${clipId ?? 'no clip id'}": ${text.slice(0, 60)}`);
     onStart?.(guess);
-    window.setTimeout(() => {
+    gameTimeout(() => {
       if (generation !== this.speakGeneration) return;
       this.playQuindarTone('outro');
       onEnd?.();
     }, guess * 1000);
   }
 
+  /** Fetch and decode a voice clip once. Callback form of decodeAudioData, for older Safari. */
+  private loadClip(clipId: string): Promise<AudioBuffer> {
+    let pending = this.clipCache.get(clipId);
+    if (!pending) {
+      const ctx = this.getContext();
+      pending = fetch(`/assets/audio/voiceovers/${clipId}.mp3`)
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.arrayBuffer();
+        })
+        .then(data => new Promise<AudioBuffer>((resolve, reject) => ctx.decodeAudioData(data, resolve, reject)));
+      pending.catch(() => this.clipCache.delete(clipId));
+      this.clipCache.set(clipId, pending);
+    }
+    return pending;
+  }
+
+  /** Start fetching a line before it is needed. */
+  public preloadClip(clipId: string) {
+    try {
+      void this.loadClip(clipId).catch(() => {});
+    } catch {
+      // no audio here
+    }
+  }
+
   /**
-   * Play pre-rendered local offline MP3 audio file with Quindar beeps & radio filter
+   * Play a pre-recorded voice clip through the Web Audio context.
+   *
+   * Not through an <audio> element: iOS ignores preloading (so its "ready" event never came) and refuses
+   * play() on a new element that isn't started by a tap, and voice lines start from timers. The audio
+   * context is unlocked by the START MISSION tap (and any later tap), so it can play at any moment.
    */
   private async playLocalAudioClip(
     clipId: string,
     onEnd: (() => void) | undefined,
     generation: number,
     onStart?: (duration: number) => void,
-    guess = 8
+    _guess = 8
   ): Promise<boolean> {
+    let ctx: AudioContext;
+    let buffer: AudioBuffer;
     try {
-      const localUrl = `/assets/audio/voiceovers/${clipId}.mp3`;
-
-      return new Promise<boolean>((resolve) => {
-        const audio = new Audio();
-        let settled = false;
-        const finish = (ok: boolean) => {
-          if (settled) return;
-          settled = true;
-          resolve(ok);
-        };
-
-        const startPlayback = async () => {
-          if (settled || generation !== this.speakGeneration) {
-            finish(false);
-            return;
-          }
-          settled = true;
-          try {
-            this.currentAudioElement = audio;
-            audio.onended = () => {
-              if (this.currentAudioElement === audio) this.currentAudioElement = null;
-              this.playQuindarTone('outro');
-              if (onEnd) onEnd();
-            };
-            const duration = audio.duration;
-            onStart?.(Number.isFinite(duration) && duration > 0.35 ? duration : guess);
-            await audio.play();
-            resolve(true);
-          } catch (playErr) {
-            console.warn(`Local audio play error for ${clipId}:`, playErr);
-            audio.onended = null;
-            if (this.currentAudioElement === audio) this.currentAudioElement = null;
-            resolve(false);
-          }
-        };
-
-        // Listen before assigning src so a cached clip cannot finish loading unheard.
-        audio.preload = 'auto';
-        audio.oncanplaythrough = () => {
-          void startPlayback();
-        };
-        audio.onerror = () => finish(false);
-        audio.src = localUrl;
-        if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
-          void startPlayback();
-        }
-
-        window.setTimeout(() => finish(false), 5000);
-      });
+      ctx = this.getContext();
+      buffer = await Promise.race([
+        this.loadClip(clipId),
+        new Promise<never>((_, reject) => gameTimeout(() => reject(new Error('timed out')), 8000))
+      ]);
     } catch (err) {
-      console.warn(`Local audio clip ${clipId} unavailable, falling back:`, err);
+      console.warn(`Voice clip ${clipId} unavailable:`, err);
       return false;
     }
+    if (generation !== this.speakGeneration) return false;
+    // A line that comes due while the page is hidden waits for the player to come back.
+    if (gameClock.hidden()) {
+      await gameClock.whenVisible();
+      if (generation !== this.speakGeneration) return false;
+    }
+    if (ctx.state !== 'running') {
+      try {
+        await ctx.resume();
+      } catch {
+        // stays asleep until the next tap
+      }
+      if (generation !== this.speakGeneration) return false;
+    }
+    if (ctx.state !== 'running') {
+      console.warn(`Voice clip ${clipId}: audio is asleep (no tap yet)`);
+      return false;
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    this.currentAudioSource = source;
+    source.onended = () => {
+      // stopSpeaking() clears currentAudioSource first, so a stopped line doesn't count as finished.
+      if (this.currentAudioSource !== source) return;
+      this.currentAudioSource = null;
+      this.playQuindarTone('outro');
+      onEnd?.();
+    };
+    onStart?.(buffer.duration);
+    source.start();
+    this.clipCache.delete(clipId);
+    return true;
   }
 
   public stopSpeaking() {
     this.speakGeneration += 1;
     if (this.currentAudioSource) {
+      const source = this.currentAudioSource;
+      this.currentAudioSource = null;
       try {
-        this.currentAudioSource.stop();
-        this.currentAudioSource.disconnect();
+        source.stop();
+        source.disconnect();
       } catch {
         // already stopped
       }
-      this.currentAudioSource = null;
     }
 
-    if (this.currentAudioElement) {
-      try {
-        this.currentAudioElement.pause();
-        this.currentAudioElement.currentTime = 0;
-      } catch {
-        // already stopped
-      }
-      this.currentAudioElement = null;
-    }
+
 
   }
 }

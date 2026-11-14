@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { gameClock } from '../utils/gameClock';
 import { buildApolloSceneModels } from './apolloModels';
 import { customModelManager } from './modelLoader';
 import {
@@ -132,7 +133,7 @@ export class VoyagerEngine {
   private frameId = 0;
   private disposed = false;
   private mode: 'intro' | 'flight' | 'outro' = 'intro';
-  private introStarted = performance.now();
+  private introStarted = gameClock.now();
   private introSent = false;
   private readonly panStart = new THREE.Vector3(24, 12, -30);
   private step: VoyagerStep = 'align';
@@ -287,7 +288,7 @@ export class VoyagerEngine {
 
   public beginIntro() {
     this.mode = 'intro';
-    this.introStarted = performance.now();
+    this.introStarted = gameClock.now();
     this.introSent = false;
     this.earthMarker.visible = true;
     this.playPan(0);
@@ -856,7 +857,7 @@ export class VoyagerEngine {
   private tick = () => {
     if (this.disposed) return;
     const dt = 0.016;
-    const now = performance.now();
+    const now = gameClock.now();
 
     if (this.mode === 'intro') {
       const elapsed = (now - this.introStarted) / 1000;

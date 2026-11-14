@@ -57,14 +57,20 @@ export class GameInputManager {
     });
   }
 
+  /** Leaving the page (another window, app or the lock screen) lets go of every key and stick. */
   private setupWindowBlurListener() {
-    window.addEventListener('blur', () => {
+    const release = () => {
       this.keysHeld = {};
       this.virtualForward = 0;
       this.virtualTurn = 0;
       this.virtualPitch = 0;
       this.virtualYaw = 0;
       this.virtualThrust = 0;
+    };
+    window.addEventListener('blur', release);
+    // Android doesn't always send blur when switching apps; a hidden page does the same.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') release();
     });
   }
 

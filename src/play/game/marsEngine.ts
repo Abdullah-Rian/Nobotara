@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { gameClock } from '../utils/gameClock';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { buildApolloSceneModels } from './apolloModels';
@@ -210,7 +211,7 @@ export class MarsEngine {
   private readonly look = new THREE.Vector3();
   private readonly smoothedLook = new THREE.Vector3();
   private readonly shotAnchor = new THREE.Vector3();
-  private lastFrame = performance.now();
+  private lastFrame = gameClock.now();
   private elapsed = 0;
   private readonly fog: THREE.FogExp2;
   private frameId = 0;
@@ -374,7 +375,7 @@ export class MarsEngine {
     this.handedOff = false;
     this.approachStarted = true;
     this.speechEnded = false;
-    this.approachOrigin = performance.now();
+    this.approachOrigin = gameClock.now();
     this.approachU = 0;
     this.paceU = 0;
     this.paceClock = 0;
@@ -406,7 +407,7 @@ export class MarsEngine {
     const fadeAt = this.introClock + speech + APPROACH_TAIL;
     if (!this.approachStarted) {
       this.approachStarted = true;
-      this.approachOrigin = performance.now();
+      this.approachOrigin = gameClock.now();
       this.fadeAt = fadeAt;
       return;
     }
@@ -1873,7 +1874,7 @@ export class MarsEngine {
 
   private tick = () => {
     if (this.disposed) return;
-    const now = performance.now();
+    const now = gameClock.now();
     const dt = Math.min((now - this.lastFrame) / 1000, 0.05);
     this.lastFrame = now;
     this.elapsed += dt;

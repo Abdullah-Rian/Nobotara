@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Volume2, VolumeX, Compass, Radio, CheckCircle, Navigation } from 'lucide-react';
+import { Volume2, VolumeX, Compass, Radio, CheckCircle, Navigation, SkipForward } from 'lucide-react';
 import { ArtifactId, DialogueMessage, MarkerId, ObjectiveStep, RoverTelemetry } from '../types/game';
 import { ARTIFACTS } from '../data/artifactsData';
 import { apolloAudio } from '../audio/apolloAudio';
@@ -28,6 +28,8 @@ interface HUDProps {
   showMap?: boolean;
   typeDialogue?: boolean;
   onDialogueTyped?: () => void;
+  /** Skip the opening cinematic, from the narration box. */
+  onSkipDialogue?: () => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -47,7 +49,8 @@ export const HUD: React.FC<HUDProps> = ({
   showJoystick = true,
   showMap = false,
   typeDialogue = false,
-  onDialogueTyped
+  onDialogueTyped,
+  onSkipDialogue
 }) => {
   const short = useShortHeight();
   const visitedCount = Object.values(artifactsVisited).filter(Boolean).length;
@@ -182,6 +185,8 @@ export const HUD: React.FC<HUDProps> = ({
                 message={activeDialogue}
                 typewriter={typeDialogue}
                 onTyped={onDialogueTyped}
+                onSkip={onSkipDialogue}
+                skipTitle="Skip the cinematic (Esc)"
               />
             </div>
           )}
@@ -273,12 +278,17 @@ export function DialoguePanel({
   message,
   typewriter,
   onTyped,
-  className = ''
+  className = '',
+  onSkip,
+  skipTitle = 'Skip'
 }: {
   message: DialogueMessage;
   typewriter: boolean;
   onTyped?: () => void;
   className?: string;
+  /** Shows a small SKIP button in the top bar (skip the cinematic, or the line). */
+  onSkip?: () => void;
+  skipTitle?: string;
 }) {
   const [count, setCount] = useState(typewriter ? 0 : message.text.length);
   const onTypedRef = useRef(onTyped);
@@ -294,7 +304,8 @@ export function DialoguePanel({
     let revealed = 0;
     let alive = true;
     const timer = window.setInterval(() => {
-      if (!alive) return;
+      // Typing waits while the page is hidden, like the rest of the game.
+      if (!alive || document.visibilityState === 'hidden') return;
       revealed += 1;
       if (revealed % 4 === 1) apolloAudio.playTypeBeep();
       if (revealed >= message.text.length) {
@@ -323,7 +334,21 @@ export function DialoguePanel({
             {speakerLabel(message.speaker)}
           </span>
         </div>
-        <AiVoiceBadge />
+        <div className="flex shrink-0 items-center gap-2">
+          {onSkip && (
+            <button
+              type="button"
+              onClick={onSkip}
+              title={skipTitle}
+              aria-label={skipTitle}
+              className="pointer-events-auto flex items-center gap-1 rounded border border-slate-600 bg-slate-900/90 px-1.5 py-0.5 font-mono-num text-[10px] font-bold tracking-wider text-slate-300 hover:border-slate-400 hover:text-white"
+            >
+              SKIP
+              <SkipForward className="h-3 w-3" />
+            </button>
+          )}
+          <AiVoiceBadge />
+        </div>
       </div>
       <p className="relative text-sm md:text-base short:text-xs text-slate-100 font-medium leading-relaxed">
         {typewriter ? (

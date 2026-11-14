@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { gameClock } from '../utils/gameClock';
 import { BodySpring, MOON_DRIVE, driveStep } from './roverDynamics';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { buildApolloSceneModels, RoverRig, SceneModels } from './apolloModels';
@@ -1201,7 +1202,7 @@ export class ApolloThreeEngine {
   public beginIntroFlyby() {
     if (this.introActive) return;
     this.introActive = true;
-    this.introStartedAt = performance.now();
+    this.introStartedAt = gameClock.now();
     this.introHoldUntil = 0;
     this.cameraConfig = { mode: 'intro', introProgress: 0 };
   }
@@ -1235,7 +1236,7 @@ export class ApolloThreeEngine {
 
     // Real time since the last frame, capped so a stalled tab does not jump. It used to be a fixed
     // 1/60 s, which ran the whole Moon at double speed on 120 Hz screens and half speed at 30 fps.
-    const now = performance.now();
+    const now = gameClock.now();
     const dt = this.lastTickAt ? Math.min(Math.max((now - this.lastTickAt) / 1000, 0), 0.05) : 1 / 60;
     this.lastTickAt = now;
 
@@ -1850,7 +1851,7 @@ export class ApolloThreeEngine {
     }
     if (this.roverPose !== 'charging') return;
     this.roverPose = 'booting';
-    this.roverBootStart = performance.now();
+    this.roverBootStart = gameClock.now();
     this.roverBootNotified = false;
   }
 
@@ -1868,7 +1869,7 @@ export class ApolloThreeEngine {
     const rig = this.models?.roverRig;
     if (!rig) return;
 
-    const now = performance.now();
+    const now = gameClock.now();
     const elapsed = now - this.roverBootStart;
     // Cue finishes, then the wings, then the mast, then the dish. Each waits for the one before it.
     const cueMs = 1200;
@@ -2156,7 +2157,7 @@ export class ApolloThreeEngine {
 
     if (mode === 'title') {
       // Atmospheric orbit around the Sea of Tranquility landing site
-      const time = performance.now() * 0.00018;
+      const time = gameClock.now() * 0.00018;
       const camRadius = 26;
       _vec3Target.set(-17.331 + Math.sin(time) * camRadius, 10 + Math.sin(time * 0.5) * 2, -5.862 + Math.cos(time) * camRadius);
       this.camera.position.lerp(_vec3Target, dt * 2.5);
@@ -2357,7 +2358,7 @@ export class ApolloThreeEngine {
       this.poseIntroCamera(this.cameraConfig.introProgress ?? 0);
       return;
     }
-    const now = performance.now();
+    const now = gameClock.now();
     const linear = Math.min(1, (now - this.introStartedAt) / 15000);
     const p = this.easeIntro(linear);
     this.cameraConfig.introProgress = p;

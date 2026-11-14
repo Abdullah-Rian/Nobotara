@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Navigation, SkipForward, Volume2, VolumeX } from 'lucide-react';
+import { Check, Navigation, Volume2, VolumeX } from 'lucide-react';
 import { DialogueMessage } from '../types/game';
 import { DialoguePanel } from './HUD';
 import { DisplayControls } from './DisplayControls';
@@ -23,7 +23,9 @@ interface MarsHUDProps {
   log: { label: string; done: boolean }[];
   part: { index: number; total: number } | null;
   /** Present while a spoken line can be cut short. */
+  /** Skip button in the narration box: the opening cinematic, or the line being spoken. */
   onSkipLine?: () => void;
+  skipTitle?: string;
   pulseCache: boolean;
   near: boolean;
   interactLabel: string;
@@ -54,6 +56,7 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
   log,
   part,
   onSkipLine,
+  skipTitle = 'Skip this line',
   pulseCache,
   near,
   interactLabel,
@@ -160,22 +163,14 @@ export const MarsHUD: React.FC<MarsHUDProps> = ({
         <div className="flex flex-col items-start gap-3">
           {dialogue && (
             <div className="mb-12 flex flex-col items-end gap-1.5 short:mb-1">
-              {onSkipLine && (
-                <button
-                  type="button"
-                  onClick={onSkipLine}
-                  className="flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-950/85 px-2.5 py-1 font-mono-num text-[11px] text-slate-300 hover:border-slate-500"
-                >
-                  <SkipForward className="h-3 w-3" />
-                  SKIP LINE
-                </button>
-              )}
               {/* On a short screen the reading panel takes the right side, so the line keeps to the left. */}
               <DialoguePanel
                 message={dialogue}
                 typewriter={typeDialogue}
                 onTyped={onDialogueTyped}
                 className="short:w-[54vw]"
+                onSkip={onSkipLine}
+                skipTitle={skipTitle}
               />
             </div>
           )}
